@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bubble.</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
+    <script>
+      tailwind.config = {
+        darkMode: 'class', 
+        theme: {
+          extend: {
+            fontFamily: {
+              // Override sans to use the monospace stack so it becomes the global default
+              sans: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', '"Liberation Mono"', '"Courier New"', 'monospace'],
+              mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', '"Liberation Mono"', '"Courier New"', 'monospace'],
+            },
+            colors: {
+              gray: {
+                900: '#111111',
+                800: '#222222',
+                700: '#333333',
+              },
+              // Custom muted blue palette
+              blue: {
+                400: '#60a5fa', // Keep for highlights
+                500: '#3b82f6', // Keep for glow
+                600: '#2563eb', // Standard
+                // Overrides for less vibrant fills
+                muted: '#334155', // Slate-700ish
+                subtle: '#1e293b', // Slate-800ish
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        /* Set base font to monospace stack */
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        background-color: #000000;
+        color: #ffffff;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      
+      /* Math Display Tweaks */
+      .math-display {
+        overflow-x: auto;
+        padding: 0.5rem 0;
+        min-height: 2em; /* Ensure height for taller symbols */
+      }
+      
+      /* Ensure KaTeX display mode doesn't add huge margins that mess up our centering */
+      .katex-display {
+        margin: 0.5em 0 !important;
+        padding: 0.5em 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+      
+      /* Prevent clipping of tall math symbols (sums, integrals) */
+      .katex-html {
+        padding-top: 4px;
+        padding-bottom: 4px;
+      }
+      
+      /* Custom Scrollbar Styles */
+      ::-webkit-scrollbar {
+        height: 8px;
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #334155; /* Slate-700 */
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #3b82f6; /* Blue-500 */
+      }
+      /* Firefox */
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: #334155 rgba(255, 255, 255, 0.05);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "react-markdown": "https://aistudiocdn.com/react-markdown@^10.1.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "rehype-katex": "https://aistudiocdn.com/rehype-katex@^7.0.1",
+    "remark-math": "https://aistudiocdn.com/remark-math@^6.0.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

@@ -1,0 +1,5 @@
+{
+  "name": "Bubble.",
+  "description": "An intelligent tutor powered by Gemini 2.5 and 3 Pro designed to help IB Math Analysis and Approaches HL students understand complex exercises through interactive steps and context-aware chat.",
+  "requestFramePermissions": []
+}
