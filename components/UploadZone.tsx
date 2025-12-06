@@ -182,7 +182,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove }) 
                             <ImageIcon size={14} />
                             <span>Image</span>
                         </button>
-                        <span className="text-[10px] text-gray-600 font-mono hidden sm:inline-block">
+                        <span className="text-[10px] text-gray-600 font-mono hidden sm:inline-block ml-3">
                             Drag & drop supported
                         </span>
                     </div>

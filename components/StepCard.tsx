@@ -32,9 +32,10 @@ const StepCard: React.FC<StepCardProps> = ({
   const [breakdownContent, setBreakdownContent] = useState<string[] | null>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
+  const [visibleSubSteps, setVisibleSubSteps] = useState(0);
 
   // Copy State
-  const [isCopied, setIsCopied] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Swipe Refs
   const touchStartX = useRef<number | null>(null);
@@ -54,6 +55,24 @@ const StepCard: React.FC<StepCardProps> = ({
       return () => clearTimeout(timer);
     }
   }, [isActive]);
+
+  // Breakdown Animation Effect
+  useEffect(() => {
+    if (showBreakdown && breakdownContent) {
+        setVisibleSubSteps(0);
+        // Start sequential reveal
+        const interval = setInterval(() => {
+            setVisibleSubSteps(prev => {
+                if (prev < breakdownContent.length) return prev + 1;
+                clearInterval(interval);
+                return prev;
+            });
+        }, 500); // 500ms delay per step for interactive feel
+        return () => clearInterval(interval);
+    } else {
+        setVisibleSubSteps(0);
+    }
+  }, [showBreakdown, breakdownContent]);
 
   // Swipe Handlers
   const onTouchStart = (e: React.TouchEvent) => {
@@ -144,10 +163,10 @@ const StepCard: React.FC<StepCardProps> = ({
   }
 
   const handleCopy = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      navigator.clipboard.writeText(step.keyEquation);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
+    e.stopPropagation();
+    navigator.clipboard.writeText(`$$ ${step.keyEquation} $$`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -253,10 +272,10 @@ const StepCard: React.FC<StepCardProps> = ({
                                      <ListStart size={14} className="text-blue-400"/>
                                      <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Step Breakdown</span>
                                 </div>
-                                <div className="space-y-3">
-                                    {breakdownContent.map((subStep, i) => (
-                                        <div key={i} className="flex gap-4 text-xs text-gray-400 group/item">
-                                            <div className="flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-blue-400 text-xs font-mono font-bold border border-blue-500/10 bg-blue-500/5 mt-0.5">
+                                <div className="space-y-4">
+                                    {breakdownContent.slice(0, visibleSubSteps).map((subStep, i) => (
+                                        <div key={i} className="flex gap-4 text-xs text-gray-400 group/item animate-in fade-in slide-in-from-left-4 duration-500">
+                                            <div className="flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-blue-400 text-xs font-mono font-bold border border-blue-500/10 bg-blue-500/5 mt-0.5 shadow-[0_0_10px_rgba(59,130,246,0.1)]">
                                                 {i + 1}
                                             </div>
                                             <div className="leading-relaxed pt-0.5 w-full">
@@ -269,20 +288,20 @@ const StepCard: React.FC<StepCardProps> = ({
                         )}
 
                         {/* Math Block */}
-                        {/* Improved padding and centering logic to avoid touching sides. Group for hover detection. */}
+                        {/* Improved padding and centering logic to avoid touching sides */}
                         <div className="group/math bg-[#050505] rounded-xl py-8 px-6 border border-white/10 font-mono text-xl overflow-x-auto relative shadow-inner flex flex-col justify-center min-h-[6rem] hover:border-white/20 transition-colors">
                             
                             {/* Copy Button */}
                             <button
                                 onClick={handleCopy}
-                                className={`absolute top-2 right-2 p-1.5 rounded-md border transition-all duration-200 opacity-0 group-hover/math:opacity-100 z-10 ${
-                                    isCopied 
-                                        ? 'bg-green-500/10 border-green-500/30 text-green-400 opacity-100' 
-                                        : 'bg-[#1a1a1a] border-white/10 text-gray-500 hover:text-white hover:border-white/20'
+                                className={`absolute top-2 right-2 p-1.5 rounded-md transition-all duration-200 backdrop-blur-sm border ${
+                                    copied 
+                                        ? 'bg-green-500/10 border-green-500/20 text-green-400 opacity-100' 
+                                        : 'bg-white/5 border-white/5 text-gray-500 hover:text-white hover:bg-white/10 opacity-0 group-hover/math:opacity-100'
                                 }`}
                                 title="Copy LaTeX"
                             >
-                                {isCopied ? <Check size={12} /> : <Copy size={12} />}
+                                {copied ? <Check size={14} /> : <Copy size={14} />}
                             </button>
 
                             <div className="text-white w-full text-center">

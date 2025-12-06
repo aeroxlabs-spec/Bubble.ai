@@ -11,6 +11,7 @@ export interface MathSolution {
   problemSummary: string;
   steps: MathStep[];
   finalAnswer: string;
+  markscheme?: string; // Optional, loaded on demand
 }
 
 export interface ChatMessage {

@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput } from './types';
-import { analyzeMathInput } from './services/geminiService';
+import { analyzeMathInput, getMarkscheme } from './services/geminiService';
 import UploadZone from './components/UploadZone';
 import StepCard from './components/StepCard';
 import ChatInterface from './components/ChatInterface';
 import MarkdownRenderer from './components/MarkdownRenderer';
-import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText } from 'lucide-react';
+import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers } from 'lucide-react';
 
 /**
  * Magnetic Pencil Component
@@ -90,7 +90,14 @@ const Lightbox = ({ src, onClose }: { src: string, onClose: () => void }) => {
     )
 }
 
-const SectionContainer = ({ title, children, isOpen, onToggle }: { title: string, children: React.ReactNode, isOpen: boolean, onToggle: () => void }) => {
+interface SectionContainerProps { 
+    title: string; 
+    children: React.ReactNode; 
+    isOpen: boolean; 
+    onToggle: () => void; 
+}
+
+const SectionContainer: React.FC<SectionContainerProps> = ({ title, children, isOpen, onToggle }) => {
     return (
         <div className="border border-white/10 rounded-xl overflow-hidden bg-[#0a0a0a]">
             <button 
@@ -165,12 +172,14 @@ const App: React.FC = () => {
   // Use map to store solutions by index to handle async completion out of order if needed
   const [solutions, setSolutions] = useState<(MathSolution | null)[]>([]); 
   const [activeTab, setActiveTab] = useState<number>(0);
+  const [activeView, setActiveView] = useState<'steps' | 'markscheme'>('steps');
   
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [analyzingIndex, setAnalyzingIndex] = useState<number>(-1);
+  const [loadingMarkscheme, setLoadingMarkscheme] = useState(false);
   
   const [loadingProgress, setLoadingProgress] = useState(0);
 
@@ -326,6 +335,58 @@ const App: React.FC = () => {
     setCurrentStepIndex(0);
     setActiveTab(0);
     setIsChatOpen(false);
+    setActiveView('steps');
+  };
+
+  // Markscheme Handlers
+  const handleViewChange = async (view: 'steps' | 'markscheme') => {
+      setActiveView(view);
+      
+      if (view === 'markscheme' && activeSolution && !activeSolution.markscheme) {
+          setLoadingMarkscheme(true);
+          try {
+              const markscheme = await getMarkscheme(activeSolution.exerciseStatement, JSON.stringify(activeSolution.steps));
+              setSolutions(prev => {
+                  const next = [...prev];
+                  if (next[activeTab]) {
+                      next[activeTab]!.markscheme = markscheme;
+                  }
+                  return next;
+              });
+          } catch (e) {
+              console.error(e);
+          } finally {
+              setLoadingMarkscheme(false);
+          }
+      }
+  }
+
+  const handleDownloadMarkscheme = () => {
+      if (!activeSolution?.markscheme) return;
+      
+      const element = document.getElementById('ib-markscheme-container');
+      if (!element) return;
+
+      const html2pdf = (window as any).html2pdf;
+      if (!html2pdf) {
+          alert("PDF generation library is still loading. Please try again in a moment.");
+          return;
+      }
+
+      // Configuration for high quality, clear PDF
+      const opt = {
+          margin:       0.3,
+          filename:     `Bubble_Markscheme_Solution_${activeTab + 1}.pdf`,
+          image:        { type: 'jpeg', quality: 1.0 },
+          html2canvas:  { 
+            scale: 2, 
+            useCORS: true, 
+            backgroundColor: '#0f0f0f' 
+          },
+          jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+
+      html2pdf().set(opt).from(element).save();
   };
 
   return (
@@ -340,7 +401,7 @@ const App: React.FC = () => {
                 onClick={handleReset}
                 className="group flex items-center gap-2 focus:outline-none"
              >
-                <span className="font-sans font-bold text-2xl tracking-tighter text-white group-hover:text-blue-400 transition-colors">
+                <span className="font-sans font-bold text-2xl tracking-tighter text-white group-hover:text-blue-400 transition-colors border-2 border-transparent group-hover:border-blue-400/50 rounded-lg px-2 py-0.5 -ml-2">
                     Bubble.
                 </span>
              </button>
@@ -359,7 +420,8 @@ const App: React.FC = () => {
                             onClick={() => { 
                                 if (isReady) {
                                     setActiveTab(idx); 
-                                    setCurrentStepIndex(0); 
+                                    setCurrentStepIndex(0);
+                                    setActiveView('steps');
                                 }
                             }}
                             disabled={!isReady}
@@ -409,7 +471,7 @@ const App: React.FC = () => {
                 <div className="space-y-10 w-full flex flex-col items-center">
                     <div className="text-center space-y-4 max-w-2xl">
                         <h1 className="text-5xl font-bold tracking-tight text-white">
-                            Math explained. Simply.
+                            Math explained. <span className="transition-all duration-300 group inline-block"><span className="text-white hover:text-blue-400 hover:drop-shadow-[0_0_15px_rgba(59,130,246,0.6)] cursor-default border-2 border-transparent hover:border-blue-400 rounded-lg px-2 py-1 -mx-2">Simply.</span></span>
                         </h1>
                         <p className="text-lg text-gray-500 font-normal max-w-md mx-auto">
                            Step-by-step IB HL analysis. Powered by Gemini.
@@ -547,13 +609,53 @@ const App: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Right Column: Interactive Steps */}
+                {/* Right Column: Interactive Steps or Markscheme */}
                 <div className="lg:col-span-8 space-y-6">
-                    <div className="flex items-baseline justify-between px-1">
-                        <h2 className="text-2xl font-bold text-white">
-                            {solutions.length > 1 ? `Solution ${activeTab + 1}` : 'Solution'}
-                        </h2>
-                        <span className="text-xs font-bold text-gray-500">{activeSolution.steps.length} STEPS</span>
+                    <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-6">
+                            <h2 className="text-2xl font-bold text-white">
+                                {solutions.length > 1 ? `Solution ${activeTab + 1}` : 'Solution'}
+                            </h2>
+                            
+                            {/* View Toggles */}
+                            <div className="flex bg-[#121212] p-1 rounded-lg border border-white/10">
+                                <button
+                                    onClick={() => handleViewChange('steps')}
+                                    className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all flex items-center gap-2 ${
+                                        activeView === 'steps' 
+                                            ? 'bg-[#1e293b] text-blue-400 shadow-sm' 
+                                            : 'text-gray-500 hover:text-gray-300'
+                                    }`}
+                                >
+                                    <Layers size={12} />
+                                    Detailed Steps
+                                </button>
+                                <button
+                                    onClick={() => handleViewChange('markscheme')}
+                                    className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all flex items-center gap-2 ${
+                                        activeView === 'markscheme' 
+                                            ? 'bg-[#1e293b] text-blue-400 shadow-sm' 
+                                            : 'text-gray-500 hover:text-gray-300'
+                                    }`}
+                                >
+                                    <ScrollText size={12} />
+                                    Markscheme
+                                </button>
+                            </div>
+                        </div>
+                        
+                        {activeView === 'steps' && (
+                            <span className="text-xs font-bold text-gray-500">{activeSolution.steps.length} STEPS</span>
+                        )}
+                        {activeView === 'markscheme' && activeSolution.markscheme && (
+                            <button 
+                                onClick={handleDownloadMarkscheme}
+                                className="text-xs font-bold text-gray-400 hover:text-white flex items-center gap-1.5 transition-colors"
+                            >
+                                <Download size={14} />
+                                Download PDF
+                            </button>
+                        )}
                     </div>
 
                     {/* Exercise Reference Section - Placed above steps */}
@@ -571,50 +673,93 @@ const App: React.FC = () => {
                         </div>
                     </div>
                     
-                    <div className="space-y-4">
-                        {stepGroups.length === 1 ? (
-                            // Flat list if only one section exists
-                            stepGroups[0].steps.map(({ data, index }) => (
-                                <StepCard 
-                                    key={`${activeTab}-${index}`}
-                                    step={data}
-                                    index={index}
-                                    isActive={currentStepIndex === index}
-                                    problemContext={activeSolution.problemSummary}
-                                    onClick={() => setCurrentStepIndex(index)}
-                                    onNext={() => setCurrentStepIndex(index + 1)}
-                                    onPrev={() => setCurrentStepIndex(index - 1)}
-                                    isFirst={index === 0}
-                                    isLast={index === activeSolution.steps.length - 1}
-                                />
-                            ))
-                        ) : (
-                            // Deployable Containers for Multi-Section Problems
-                            stepGroups.map((group, gIdx) => (
-                                <SectionContainer 
-                                    key={gIdx} 
-                                    title={group.title}
-                                    isOpen={openSections.has(group.title)}
-                                    onToggle={() => toggleSection(group.title)}
-                                >
-                                    {group.steps.map(({ data, index }) => (
-                                        <StepCard 
-                                            key={`${activeTab}-${index}`}
-                                            step={data}
-                                            index={index}
-                                            isActive={currentStepIndex === index}
-                                            problemContext={activeSolution.problemSummary}
-                                            onClick={() => setCurrentStepIndex(index)}
-                                            onNext={() => setCurrentStepIndex(index + 1)}
-                                            onPrev={() => setCurrentStepIndex(index - 1)}
-                                            isFirst={index === 0}
-                                            isLast={index === activeSolution.steps.length - 1}
-                                        />
-                                    ))}
-                                </SectionContainer>
-                            ))
-                        )}
-                    </div>
+                    {/* Content Area Switch */}
+                    {activeView === 'steps' ? (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            {stepGroups.length === 1 ? (
+                                // Flat list if only one section exists
+                                stepGroups[0].steps.map(({ data, index }) => (
+                                    <StepCard 
+                                        key={`${activeTab}-${index}`}
+                                        step={data}
+                                        index={index}
+                                        isActive={currentStepIndex === index}
+                                        problemContext={activeSolution.problemSummary}
+                                        onClick={() => setCurrentStepIndex(index)}
+                                        onNext={() => setCurrentStepIndex(index + 1)}
+                                        onPrev={() => setCurrentStepIndex(index - 1)}
+                                        isFirst={index === 0}
+                                        isLast={index === activeSolution.steps.length - 1}
+                                    />
+                                ))
+                            ) : (
+                                // Deployable Containers for Multi-Section Problems
+                                stepGroups.map((group, gIdx) => (
+                                    <SectionContainer 
+                                        key={gIdx} 
+                                        title={group.title}
+                                        isOpen={openSections.has(group.title)}
+                                        onToggle={() => toggleSection(group.title)}
+                                    >
+                                        {group.steps.map(({ data, index }) => (
+                                            <StepCard 
+                                                key={`${activeTab}-${index}`}
+                                                step={data}
+                                                index={index}
+                                                isActive={currentStepIndex === index}
+                                                problemContext={activeSolution.problemSummary}
+                                                onClick={() => setCurrentStepIndex(index)}
+                                                onNext={() => setCurrentStepIndex(index + 1)}
+                                                onPrev={() => setCurrentStepIndex(index - 1)}
+                                                isFirst={index === 0}
+                                                isLast={index === activeSolution.steps.length - 1}
+                                            />
+                                        ))}
+                                    </SectionContainer>
+                                ))
+                            )}
+                        </div>
+                    ) : (
+                        <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                            {/* Markscheme View */}
+                            {loadingMarkscheme ? (
+                                <div className="h-64 flex flex-col items-center justify-center space-y-4 border border-white/10 rounded-xl bg-[#0a0a0a]">
+                                    <div className="relative">
+                                        <div className="absolute inset-0 bg-blue-500/20 blur-xl rounded-full"></div>
+                                        <ScrollText size={32} className="text-blue-400 animate-pulse relative z-10" />
+                                    </div>
+                                    <p className="text-gray-500 font-mono text-xs">Generating Official Markscheme...</p>
+                                </div>
+                            ) : activeSolution.markscheme ? (
+                                <div id="ib-markscheme-container" className="bg-[#0f0f0f] border border-white/10 rounded-xl overflow-hidden shadow-2xl relative">
+                                    {/* Markscheme Document Header */}
+                                    <div className="bg-[#1a1a1a] border-b border-white/5 px-6 py-4 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <BookOpen size={14} className="text-gray-400" />
+                                            <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">Official IB Markscheme</span>
+                                        </div>
+                                        <div className="text-[10px] text-gray-600 font-mono">
+                                            CONFIDENTIAL
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Content */}
+                                    <div className="p-8 font-mono text-sm text-gray-300 leading-relaxed bg-[#0d0d0d]">
+                                        <MarkdownRenderer content={activeSolution.markscheme} />
+                                    </div>
+                                    
+                                    {/* Watermark effect */}
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/[0.02] text-8xl font-black rotate-45 pointer-events-none select-none">
+                                        BUBBLE
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="h-40 flex items-center justify-center border border-dashed border-white/10 rounded-xl">
+                                    <p className="text-gray-500 text-xs">Could not load markscheme.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
             </div>
