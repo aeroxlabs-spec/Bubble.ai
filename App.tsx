@@ -6,7 +6,7 @@ import UploadZone from './components/UploadZone';
 import StepCard from './components/StepCard';
 import ChatInterface from './components/ChatInterface';
 import MarkdownRenderer from './components/MarkdownRenderer';
-import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers } from 'lucide-react';
+import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash } from 'lucide-react';
 
 /**
  * Magnetic Pencil Component
@@ -164,6 +164,129 @@ const TypewriterLoader = ({ phrases }: { phrases: string[] }) => {
     );
   };
 
+/**
+ * Background Falling Icons Component
+ * Renders falling math icons on the lateral sides of the screen.
+ */
+const FallingBackgroundIcons = ({ active }: { active: boolean }) => {
+    const [icons, setIcons] = useState<any[]>([]);
+    
+    // Shuffle bag to ensure even distribution and minimize repetition
+    const availableIndices = useRef<number[]>([]);
+
+    // Define the specific mapping of Icon to Color matching UploadZone
+    const iconTypes = [
+        { Icon: Sigma, color: 'text-red-400' },
+        { Icon: Divide, color: 'text-orange-400' },
+        { Icon: Minus, color: 'text-yellow-400' },
+        { Icon: Lightbulb, color: 'text-green-400' },
+        { Icon: Pen, color: 'text-blue-400' },
+        { Icon: Percent, color: 'text-purple-400' },
+        { Icon: Hash, color: 'text-pink-400' },
+    ];
+
+    const getNextIcon = () => {
+        // If bag is empty, refill it
+        if (availableIndices.current.length === 0) {
+            availableIndices.current = Array.from({ length: iconTypes.length }, (_, i) => i);
+        }
+        
+        // Pick random index from bag
+        const randomIndex = Math.floor(Math.random() * availableIndices.current.length);
+        const iconIndex = availableIndices.current[randomIndex];
+        
+        // Remove picked index from bag
+        availableIndices.current.splice(randomIndex, 1);
+        
+        return iconTypes[iconIndex];
+    };
+
+    useEffect(() => {
+        if (!active) return;
+
+        const interval = setInterval(() => {
+            if (document.hidden) return; 
+
+            // Groups of 1, 2, or 3 icons
+            const groupSize = Math.floor(Math.random() * 3) + 1; 
+            
+            const newIcons = [];
+            for (let i = 0; i < groupSize; i++) {
+                const id = Date.now() + Math.random();
+                
+                // Use shuffle bag to get unique icon
+                const type = getNextIcon();
+                
+                // Independently decide side for EACH icon to allow mixing
+                const isLeft = Math.random() > 0.5;
+
+                // Position: 
+                // Left: 12% - 22% (Closer to center but safe)
+                // Right: 78% - 88% (Closer to center but safe)
+                const base = isLeft ? 17 : 83;
+                const offset = (Math.random() * 10) - 5; 
+                const left = base + offset;
+
+                // Faster physics: 3s - 6s duration
+                const duration = 3 + Math.random() * 3; 
+                const rotation = (Math.random() * 180) - 90;
+                const delay = Math.random() * 1.5; // Stagger them
+
+                newIcons.push({ id, Icon: type.Icon, color: type.color, left, duration, rotation, delay });
+            }
+
+            setIcons(prev => [...prev, ...newIcons]);
+
+            // Cleanup
+            setTimeout(() => {
+                setIcons(prev => prev.filter(icon => !newIcons.some(n => n.id === icon.id)));
+            }, 8000); 
+
+        }, 2000); // Faster generation rate
+
+        return () => clearInterval(interval);
+    }, [active]);
+
+    return (
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+            {icons.map((icon: any) => (
+                <div
+                    key={icon.id}
+                    className={`absolute -top-12 ${icon.color}`}
+                    style={{
+                        left: `${icon.left}%`,
+                        opacity: 0,
+                        '--rot-end': `${icon.rotation}deg`,
+                        animation: `bg-fall ${icon.duration}s linear forwards`,
+                        animationDelay: `${icon.delay}s`
+                    } as React.CSSProperties}
+                >
+                    {/* Reduced size from 28 to 22 for subtle background effect */}
+                    <icon.Icon size={22} />
+                </div>
+            ))}
+            <style>{`
+                @keyframes bg-fall {
+                    0% {
+                        transform: translateY(0) rotate(0deg);
+                        opacity: 0;
+                    }
+                    10% {
+                        opacity: 0.8; /* Vibrant visibility */
+                    }
+                    85% {
+                        opacity: 0.8; 
+                    }
+                    100% {
+                        transform: translateY(110vh) rotate(var(--rot-end));
+                        opacity: 0;
+                    }
+                }
+            `}</style>
+        </div>
+    );
+};
+
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
   
@@ -182,6 +305,9 @@ const App: React.FC = () => {
   const [loadingMarkscheme, setLoadingMarkscheme] = useState(false);
   
   const [loadingProgress, setLoadingProgress] = useState(0);
+
+  // Background Animation State
+  const [startBackgroundEffects, setStartBackgroundEffects] = useState(false);
 
   // Section Management
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
@@ -312,6 +438,7 @@ const App: React.FC = () => {
       setAppState(AppState.ANALYZING);
       setAnalyzingIndex(0);
       setLoadingProgress(0);
+      setStartBackgroundEffects(false); // Reset animation state
       
       // Initialize solutions array with nulls
       setSolutions(new Array(uploads.length).fill(null));
@@ -358,6 +485,7 @@ const App: React.FC = () => {
     setActiveTab(0);
     setIsChatOpen(false);
     setActiveView('steps');
+    setStartBackgroundEffects(false); // Reset animation
   };
 
   // Markscheme Handlers
@@ -489,8 +617,12 @@ const App: React.FC = () => {
 
             {/* Idle / Upload / Preview State */}
             {appState === AppState.IDLE && (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <div className="space-y-10 w-full flex flex-col items-center">
+            <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in slide-in-from-bottom-2 duration-500 relative">
+                
+                {/* Lateral Falling Icons */}
+                <FallingBackgroundIcons active={startBackgroundEffects} />
+                
+                <div className="space-y-10 w-full flex flex-col items-center z-10 relative">
                     <div className="text-center space-y-4 max-w-2xl">
                         <h1 className="text-5xl font-bold tracking-tight text-white">
                             Math explained. <span className="text-white hover:text-blue-400 hover:drop-shadow-[0_0_15px_rgba(59,130,246,0.8)] cursor-default transition-all duration-300 ease-out">Simply.</span>
@@ -505,6 +637,11 @@ const App: React.FC = () => {
                             uploads={uploads}
                             onUpload={handleInputAdd}
                             onRemove={handleInputRemove}
+                            onFirstInteraction={() => {
+                                // Wait for the initial icons to finish falling (approx 2.5s)
+                                // before starting the ambient background rain.
+                                setTimeout(() => setStartBackgroundEffects(true), 2500);
+                            }}
                          />
                          
                          {/* Action Button - Appears when there is at least 1 upload */}

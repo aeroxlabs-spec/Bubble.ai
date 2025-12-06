@@ -1,29 +1,30 @@
 
-import React, { useRef, useState, useEffect } from 'react';
-import { X, Image as ImageIcon, Type as TypeIcon, Plus, Clipboard, Pen } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { X, Image as ImageIcon, Type as TypeIcon, Plus, Pen, Sigma, Divide, Minus, Lightbulb, Percent, Hash } from 'lucide-react';
 import { UserInput } from '../types';
 
 interface UploadZoneProps {
   uploads: UserInput[];
   onUpload: (input: UserInput) => void;
   onRemove: (id: string) => void;
+  onFirstInteraction?: () => void;
 }
 
 const TypewriterLabel = ({ text }: { text: string }) => {
     const [displayText, setDisplayText] = useState('');
     const [index, setIndex] = useState(0);
 
-    useEffect(() => {
+    React.useEffect(() => {
         setDisplayText('');
         setIndex(0);
     }, [text]);
 
-    useEffect(() => {
+    React.useEffect(() => {
         if (index < text.length) {
             const timeout = setTimeout(() => {
                 setDisplayText(prev => prev + text.charAt(index));
                 setIndex(prev => prev + 1);
-            }, 40); // Slightly faster typing
+            }, 40); 
             return () => clearTimeout(timeout);
         }
     }, [index, text]);
@@ -36,13 +37,22 @@ const TypewriterLabel = ({ text }: { text: string }) => {
     );
 };
 
-const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove }) => {
+const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, onFirstInteraction }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [inputText, setInputText] = useState('');
+  const [hasHovered, setHasHovered] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const MAX_UPLOADS = 3;
+
+  const handleMouseEnter = () => {
+      if (!hasHovered) {
+          setHasHovered(true);
+          onFirstInteraction?.();
+      }
+  };
 
   const processFile = (file: File) => {
     if (uploads.length >= MAX_UPLOADS) {
@@ -120,8 +130,22 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove }) 
       }
   }
 
+  // Physics-like configuration for falling icons
+  // x: horizontal scatter destination
+  // r: rotation in degrees
+  // initialX: slight scatter at start position (so they aren't all on pixel 0)
+  const icons = [
+    { Icon: Sigma, color: 'text-red-400', x: -60, r: -145, delay: 0, duration: 2.2, initialX: -12 },
+    { Icon: Divide, color: 'text-orange-400', x: 40, r: 80, delay: 0.1, duration: 2.1, initialX: 8 },
+    { Icon: Minus, color: 'text-yellow-400', x: -25, r: -15, delay: 0.2, duration: 2.4, initialX: -4 },
+    { Icon: Lightbulb, color: 'text-green-400', x: 85, r: 160, delay: 0.05, duration: 2.3, initialX: 14 },
+    { Icon: Pen, color: 'text-blue-400', x: -100, r: -90, delay: 0.15, duration: 2.5, initialX: -18 },
+    { Icon: Percent, color: 'text-purple-400', x: 20, r: 45, delay: 0.25, duration: 2.6, initialX: 5 },
+    { Icon: Hash, color: 'text-pink-400', x: 120, r: 200, delay: 0.1, duration: 2.2, initialX: 2 },
+  ];
+
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-6">
+    <div className="w-full max-w-2xl mx-auto space-y-6 relative">
         
         {/* Uploaded Cards Row */}
         {uploads.length > 0 && (
@@ -163,106 +187,138 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove }) 
             </div>
         )}
 
-        {/* Unified Input Area */}
-        {uploads.length < MAX_UPLOADS ? (
-            <div 
-                className={`relative group bg-[#0a0a0a] rounded-2xl transition-all duration-300 overflow-hidden flex flex-col
-                    ${isDragging 
-                        ? 'border-[3px] border-dashed border-blue-500/60 shadow-[0_0_20px_rgba(59,130,246,0.15)] animate-[pulse_2s_ease-in-out_infinite]' 
-                        : 'border border-white/10 hover:border-white/20 shadow-xl'
-                    }
-                `}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={handleDrop}
-            >
-                {/* Drag Overlay */}
-                {isDragging && (
-                    <div className="absolute inset-0 z-20 bg-[#0a0a0a]/90 backdrop-blur-[2px] flex flex-col items-center justify-center animate-in fade-in duration-200">
-                        
-                        {/* Non-icon element: Glowing Orb/Line */}
-                        <div className="w-20 h-0.5 bg-blue-500 rounded-full blur-[2px] mb-8 shadow-[0_0_15px_rgba(59,130,246,1)] animate-pulse" />
-
-                        {/* Lively Pencil without background shape */}
-                        <div className="animate-[bounce_1s_infinite] mb-6">
-                             <Pen 
-                                size={22} 
-                                className="text-blue-400 transform -rotate-12 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)] fill-blue-500/10" 
-                             />
+        {/* Wrapper for Input Box and Falling Icons */}
+        <div className="relative">
+            {/* Input Area */}
+            {uploads.length < MAX_UPLOADS ? (
+                <div 
+                    className={`relative z-10 group bg-[#0a0a0a] rounded-2xl transition-all duration-300 overflow-hidden flex flex-col
+                        ${isDragging 
+                            ? 'border-[3px] border-dashed border-blue-500/60 shadow-[0_0_20px_rgba(59,130,246,0.15)] animate-[pulse_2s_ease-in-out_infinite]' 
+                            : 'border border-white/10 hover:border-white/20 shadow-xl'
+                        }
+                    `}
+                    onMouseEnter={handleMouseEnter}
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={handleDrop}
+                >
+                    {/* Drag Overlay */}
+                    {isDragging && (
+                        <div className="absolute inset-0 z-20 bg-[#0a0a0a]/90 backdrop-blur-[2px] flex flex-col items-center justify-center animate-in fade-in duration-200">
+                            <div className="w-20 h-0.5 bg-blue-500 rounded-full blur-[2px] mb-8 shadow-[0_0_15px_rgba(59,130,246,1)] animate-pulse" />
+                            <div className="animate-[bounce_1s_infinite] mb-6">
+                                <Pen 
+                                    size={22} 
+                                    className="text-blue-400 transform -rotate-12 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)] fill-blue-500/10" 
+                                />
+                            </div>
+                            <TypewriterLabel text="Release to analyze..." />
                         </div>
-                        
-                        {/* Typewriter Text */}
-                        <TypewriterLabel text="Release to analyze..." />
-                    </div>
-                )}
+                    )}
 
-                {/* Input Controls */}
-                <div className="p-4">
-                    <textarea
-                        ref={textareaRef}
-                        value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
-                        onPaste={handlePaste}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Type a math problem here, or paste an image (Ctrl+V)..."
-                        className="w-full bg-transparent border-none outline-none text-gray-200 placeholder:text-gray-600 text-sm font-medium resize-none min-h-[80px]"
+                    {/* Input Controls */}
+                    <div className="p-4">
+                        <textarea
+                            ref={textareaRef}
+                            value={inputText}
+                            onChange={(e) => setInputText(e.target.value)}
+                            onPaste={handlePaste}
+                            onKeyDown={handleKeyDown}
+                            placeholder="Type a math problem here, or paste an image (Ctrl+V)..."
+                            className="w-full bg-transparent border-none outline-none text-gray-200 placeholder:text-gray-600 text-sm font-medium resize-none min-h-[80px]"
+                        />
+                    </div>
+
+                    {/* Footer Toolbar */}
+                    <div className="px-4 py-3 bg-[#111] border-t border-white/5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <button 
+                                onClick={() => fileInputRef.current?.click()}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors text-xs font-medium border border-white/5 hover:border-white/10"
+                                title="Upload Image"
+                            >
+                                <ImageIcon size={14} />
+                                <span>Image</span>
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={handleTextSubmit}
+                            disabled={!inputText.trim()}
+                            className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all border
+                                ${inputText.trim() 
+                                    ? 'bg-transparent border-blue-500/50 text-blue-400 hover:bg-blue-500/10 hover:border-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.1)] hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]' 
+                                    : 'bg-transparent border-white/5 text-gray-600 cursor-not-allowed'
+                                }
+                            `}
+                        >
+                            <span>Add Problem</span>
+                            <Plus size={14} />
+                        </button>
+                    </div>
+
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={(e) => e.target.files?.[0] && processFile(e.target.files[0])}
                     />
                 </div>
-
-                {/* Footer Toolbar */}
-                <div className="px-4 py-3 bg-[#111] border-t border-white/5 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <button 
-                            onClick={() => fileInputRef.current?.click()}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors text-xs font-medium border border-white/5 hover:border-white/10"
-                            title="Upload Image"
-                        >
-                            <ImageIcon size={14} />
-                            <span>Image</span>
-                        </button>
-                        <span className="text-[10px] text-gray-600 font-mono hidden sm:inline-block ml-3">
-                            Drag & drop supported
-                        </span>
-                    </div>
-
-                    <button
-                        onClick={handleTextSubmit}
-                        disabled={!inputText.trim()}
-                        className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all border
-                            ${inputText.trim() 
-                                ? 'bg-transparent border-blue-500/50 text-blue-400 hover:bg-blue-500/10 hover:border-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.1)] hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]' 
-                                : 'bg-transparent border-white/5 text-gray-600 cursor-not-allowed'
-                            }
-                        `}
-                    >
-                        <span>Add Problem</span>
-                        <Plus size={14} />
-                    </button>
+            ) : (
+                <div className="p-6 rounded-xl border border-dashed border-white/10 bg-[#0a0a0a] text-center z-10 relative">
+                    <p className="text-gray-500 text-sm">Limit of {MAX_UPLOADS} problems reached.</p>
                 </div>
+            )}
 
-                <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept="image/*"
-                    onChange={(e) => e.target.files?.[0] && processFile(e.target.files[0])}
-                />
+            {/* Icons Layer - Behind Input Box (z-0) */}
+            <div className="absolute bottom-0 left-0 right-0 h-0 flex justify-center z-0 pointer-events-none overflow-visible">
+                {icons.map((icon, i) => (
+                    <div
+                        key={i}
+                        className={`absolute ${icon.color}`}
+                        style={{
+                            // Slight initial horizontal scatter so they don't all come from pixel 0
+                            left: `calc(50% + ${icon.initialX}px)`,
+                            bottom: '10px', 
+                            opacity: 0,
+                            '--fall-x': `${icon.x}px`,
+                            '--fall-r': `${icon.r}deg`,
+                            // Ease-in for natural gravity acceleration
+                            animation: hasHovered 
+                                ? `fall-gravity ${icon.duration}s cubic-bezier(0.42, 0, 1, 1) forwards` 
+                                : 'none',
+                            animationDelay: `${icon.delay}s`
+                        } as React.CSSProperties}
+                    >
+                        <icon.Icon size={28} className="drop-shadow-lg" />
+                    </div>
+                ))}
             </div>
-        ) : (
-             <div className="p-6 rounded-xl border border-dashed border-white/10 bg-[#0a0a0a] text-center">
-                 <p className="text-gray-500 text-sm">Limit of {MAX_UPLOADS} problems reached.</p>
-             </div>
+        </div>
+
+        {/* Discrete Helper Text */}
+        {uploads.length < MAX_UPLOADS && (
+            <div className="flex justify-end px-2 -mt-2">
+                 <p className="text-[10px] text-gray-600 font-mono tracking-tight opacity-60 hover:opacity-100 transition-opacity cursor-default">
+                    PNG / JPG / Paste Enabled
+                 </p>
+            </div>
         )}
         
-        {/* Helper Text */}
-        <div className="flex items-center justify-center gap-6 text-[10px] text-gray-600 font-mono uppercase tracking-wider">
-             <span className="flex items-center gap-1.5">
-                 <Clipboard size={10} /> Paste Enabled
-             </span>
-             <span className="flex items-center gap-1.5">
-                 <ImageIcon size={10} /> PNG / JPG
-             </span>
-        </div>
+        <style dangerouslySetInnerHTML={{__html: `
+            @keyframes fall-gravity {
+                0% {
+                    transform: translate(-50%, 0) rotate(0deg);
+                    opacity: 1;
+                }
+                100% {
+                    transform: translate(calc(-50% + var(--fall-x)), 80vh) rotate(var(--fall-r));
+                    opacity: 0;
+                }
+            }
+        `}} />
     </div>
   );
 };
