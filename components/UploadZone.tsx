@@ -1,13 +1,14 @@
 
 import React, { useRef, useState } from 'react';
-import { X, Image as ImageIcon, Type as TypeIcon, Plus, Pen, Sigma, Divide, Minus, Lightbulb, Percent, Hash } from 'lucide-react';
-import { UserInput } from '../types';
+import { X, Image as ImageIcon, Type as TypeIcon, Plus, Pen, Sigma, Divide, Minus, Lightbulb, Percent, Hash, FileText, GraduationCap } from 'lucide-react';
+import { UserInput, AppMode } from '../types';
 
 interface UploadZoneProps {
   uploads: UserInput[];
   onUpload: (input: UserInput) => void;
   onRemove: (id: string) => void;
   onFirstInteraction?: () => void;
+  appMode?: AppMode;
 }
 
 const TypewriterLabel = ({ text }: { text: string }) => {
@@ -37,7 +38,7 @@ const TypewriterLabel = ({ text }: { text: string }) => {
     );
 };
 
-const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, onFirstInteraction }) => {
+const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, onFirstInteraction, appMode = 'SOLVER' }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [inputText, setInputText] = useState('');
   const [hasHovered, setHasHovered] = useState(false);
@@ -45,24 +46,36 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const MAX_UPLOADS = 3;
+  const MAX_UPLOADS = 5; 
 
   const handleMouseEnter = () => {
       if (!hasHovered) {
-          setHasHovered(true);
           onFirstInteraction?.();
+          // Added 500ms delay before triggering the falling animation
+          setTimeout(() => {
+            setHasHovered(true);
+          }, 500);
       }
   };
 
   const processFile = (file: File) => {
     if (uploads.length >= MAX_UPLOADS) {
-        alert("Maximum 3 problems allowed.");
+        alert(`Maximum ${MAX_UPLOADS} uploads allowed.`);
         return;
     }
     
-    if (!file.type.startsWith('image/')) {
-        alert("Please upload an image file.");
+    const isImage = file.type.startsWith('image/');
+    const isPdf = file.type === 'application/pdf';
+
+    if (appMode === 'SOLVER' && !isImage) {
+        alert("Please upload an image file for the Solver.");
         return;
+    }
+    
+    if (appMode === 'EXAM' && !isImage && !isPdf) {
+         if (!file.type.startsWith('text/')) {
+             alert("Supported formats: Images (PNG/JPG) or PDF.");
+         }
     }
 
     const reader = new FileReader();
@@ -72,19 +85,32 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
       
       onUpload({
           id: crypto.randomUUID(),
-          type: 'image',
-          content: base64Data,
+          type: isImage ? 'image' : (isPdf ? 'pdf' : 'text'),
+          content: isImage || isPdf ? base64Data : (reader.result as string), 
           mimeType: file.type,
-          preview: base64String
+          preview: isImage ? base64String : file.name,
+          fileName: file.name
       });
     };
-    reader.readAsDataURL(file);
+    
+    if (isImage || isPdf) {
+        reader.readAsDataURL(file);
+    } else {
+        reader.readAsText(file);
+    }
   };
+
+  const handleFiles = (fileList: FileList | null) => {
+      if (!fileList) return;
+      Array.from(fileList).forEach(file => {
+          processFile(file);
+      });
+  }
 
   const handleTextSubmit = () => {
       if (!inputText.trim()) return;
       if (uploads.length >= MAX_UPLOADS) {
-          alert("Maximum 3 problems allowed.");
+          alert(`Maximum ${MAX_UPLOADS} uploads allowed.`);
           return;
       }
       
@@ -101,23 +127,19 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      processFile(e.dataTransfer.files[0]);
+      handleFiles(e.dataTransfer.files);
     }
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
       const items = e.clipboardData.items;
-      let handledImage = false;
-
       for (let i = 0; i < items.length; i++) {
           if (items[i].type.indexOf("image") !== -1) {
               const file = items[i].getAsFile();
               if (file) {
                   processFile(file);
-                  handledImage = true;
-                  e.preventDefault(); // Prevent pasting image name into text area
+                  e.preventDefault(); 
               }
           }
       }
@@ -130,18 +152,16 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
       }
   }
 
-  // Physics-like configuration for falling icons
-  // x: horizontal scatter destination
-  // r: rotation in degrees
-  // initialX: slight scatter at start position (so they aren't all on pixel 0)
+  // Configuration for falling icons - Increased InitialX spread for better separation
   const icons = [
-    { Icon: Sigma, color: 'text-red-400', x: -60, r: -145, delay: 0, duration: 2.2, initialX: -12 },
-    { Icon: Divide, color: 'text-orange-400', x: 40, r: 80, delay: 0.1, duration: 2.1, initialX: 8 },
-    { Icon: Minus, color: 'text-yellow-400', x: -25, r: -15, delay: 0.2, duration: 2.4, initialX: -4 },
-    { Icon: Lightbulb, color: 'text-green-400', x: 85, r: 160, delay: 0.05, duration: 2.3, initialX: 14 },
-    { Icon: Pen, color: 'text-blue-400', x: -100, r: -90, delay: 0.15, duration: 2.5, initialX: -18 },
-    { Icon: Percent, color: 'text-purple-400', x: 20, r: 45, delay: 0.25, duration: 2.6, initialX: 5 },
-    { Icon: Hash, color: 'text-pink-400', x: 120, r: 200, delay: 0.1, duration: 2.2, initialX: 2 },
+    { Icon: Sigma, color: 'text-red-400', x: -60, r: -145, delay: 0, duration: 2.2, initialX: -40 },
+    { Icon: Divide, color: 'text-orange-400', x: 40, r: 80, delay: 0.1, duration: 2.1, initialX: 35 },
+    { Icon: Minus, color: 'text-yellow-400', x: -25, r: -15, delay: 0.2, duration: 2.4, initialX: -15 },
+    { Icon: Lightbulb, color: 'text-green-400', x: 85, r: 160, delay: 0.05, duration: 2.3, initialX: 55 },
+    { Icon: Pen, color: 'text-blue-400', x: -100, r: -90, delay: 0.15, duration: 2.5, initialX: -55 },
+    { Icon: Percent, color: 'text-purple-400', x: 20, r: 45, delay: 0.25, duration: 2.6, initialX: 10 },
+    { Icon: Hash, color: 'text-pink-400', x: 120, r: 200, delay: 0.1, duration: 2.2, initialX: 8 },
+    { Icon: GraduationCap, color: 'text-indigo-400', x: 50, r: -45, delay: 0.3, duration: 2.5, initialX: 25 },
   ];
 
   return (
@@ -158,9 +178,16 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
                         {upload.type === 'image' ? (
                             <img 
                                 src={upload.preview} 
-                                alt={`Problem ${index + 1}`} 
+                                alt={`Upload ${index + 1}`} 
                                 className="w-full h-full object-cover opacity-80 group-hover:opacity-100" 
                             />
+                        ) : upload.type === 'pdf' ? (
+                             <div className="w-full h-full p-2 flex flex-col items-center justify-center bg-[#1a1a1a] gap-1">
+                                <FileText size={24} className="text-red-400" />
+                                <span className="text-[8px] text-gray-400 font-mono leading-tight text-center truncate w-full px-1">
+                                    {upload.fileName || "PDF"}
+                                </span>
+                            </div>
                         ) : (
                             <div className="w-full h-full p-2 flex items-center justify-center bg-[#1a1a1a]">
                                 <span className="text-[8px] text-gray-400 font-mono leading-tight line-clamp-4 break-words text-center">
@@ -173,14 +200,16 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
                         
                         <button
                             onClick={() => onRemove(upload.id)}
-                            className="absolute top-1 right-1 p-1 bg-black/60 text-white hover:bg-red-500/80 rounded-full backdrop-blur-md transition-colors opacity-0 group-hover:opacity-100"
+                            className="absolute top-1 right-1 p-1 bg-black/60 text-white hover:bg-red-500/80 rounded-full transition-colors opacity-0 group-hover:opacity-100"
                         >
                             <X size={10} />
                         </button>
                         
                         <div className="absolute bottom-1 left-0 right-0 text-center flex items-center justify-center gap-1">
-                             {upload.type === 'image' ? <ImageIcon size={8} className="text-blue-400"/> : <TypeIcon size={8} className="text-green-400"/>}
-                             <span className="text-[9px] font-bold text-gray-300">P{index + 1}</span>
+                             {upload.type === 'image' && <ImageIcon size={8} className="text-blue-400"/>}
+                             {upload.type === 'text' && <TypeIcon size={8} className="text-green-400"/>}
+                             {upload.type === 'pdf' && <FileText size={8} className="text-red-400"/>}
+                             <span className="text-[9px] font-bold text-gray-300">#{index + 1}</span>
                         </div>
                     </div>
                 ))}
@@ -194,7 +223,9 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
                 <div 
                     className={`relative z-10 group bg-[#0a0a0a] rounded-2xl transition-all duration-300 overflow-hidden flex flex-col
                         ${isDragging 
-                            ? 'border-[3px] border-dashed border-blue-500/60 shadow-[0_0_20px_rgba(59,130,246,0.15)] animate-[pulse_2s_ease-in-out_infinite]' 
+                            ? appMode === 'EXAM'
+                                ? 'border-[3px] border-dashed border-purple-500/60 shadow-[0_0_20px_rgba(168,85,247,0.15)] animate-[pulse_2s_ease-in-out_infinite]' 
+                                : 'border-[3px] border-dashed border-blue-500/60 shadow-[0_0_20px_rgba(59,130,246,0.15)] animate-[pulse_2s_ease-in-out_infinite]'
                             : 'border border-white/10 hover:border-white/20 shadow-xl'
                         }
                     `}
@@ -205,15 +236,29 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
                 >
                     {/* Drag Overlay */}
                     {isDragging && (
-                        <div className="absolute inset-0 z-20 bg-[#0a0a0a]/90 backdrop-blur-[2px] flex flex-col items-center justify-center animate-in fade-in duration-200">
-                            <div className="w-20 h-0.5 bg-blue-500 rounded-full blur-[2px] mb-8 shadow-[0_0_15px_rgba(59,130,246,1)] animate-pulse" />
+                        <div className="absolute inset-0 z-20 bg-[#0a0a0a]/95 flex flex-col items-center justify-center animate-in fade-in duration-200">
+                            {/* Color Bar based on Mode */}
+                            <div className={`w-20 h-0.5 rounded-full blur-[2px] mb-8 animate-pulse ${
+                                appMode === 'EXAM' 
+                                ? 'bg-purple-500 shadow-[0_0_15px_rgba(168,85,247,1)]' 
+                                : 'bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,1)]'
+                            }`} />
+                            
+                            {/* Icon based on Mode */}
                             <div className="animate-[bounce_1s_infinite] mb-6">
-                                <Pen 
-                                    size={22} 
-                                    className="text-blue-400 transform -rotate-12 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)] fill-blue-500/10" 
-                                />
+                                {appMode === 'EXAM' ? (
+                                     <GraduationCap 
+                                        size={22} 
+                                        className="text-purple-400 transform -rotate-12 drop-shadow-[0_0_10px_rgba(168,85,247,0.8)] fill-purple-500/10" 
+                                     />
+                                ) : (
+                                    <Pen 
+                                        size={22} 
+                                        className="text-blue-400 transform -rotate-12 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)] fill-blue-500/10" 
+                                    />
+                                )}
                             </div>
-                            <TypewriterLabel text="Release to analyze..." />
+                            <TypewriterLabel text="Release to upload..." />
                         </div>
                     )}
 
@@ -225,7 +270,9 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
                             onChange={(e) => setInputText(e.target.value)}
                             onPaste={handlePaste}
                             onKeyDown={handleKeyDown}
-                            placeholder="Type a math problem here, or paste an image (Ctrl+V)..."
+                            placeholder={appMode === 'SOLVER' 
+                                ? "Type a math problem here, or paste an image (Ctrl+V)..." 
+                                : "Type instructions, or paste notes/images..."}
                             className="w-full bg-transparent border-none outline-none text-gray-200 placeholder:text-gray-600 text-sm font-medium resize-none min-h-[80px]"
                         />
                     </div>
@@ -236,10 +283,10 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
                             <button 
                                 onClick={() => fileInputRef.current?.click()}
                                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors text-xs font-medium border border-white/5 hover:border-white/10"
-                                title="Upload Image"
+                                title="Upload File"
                             >
                                 <ImageIcon size={14} />
-                                <span>Image</span>
+                                <span>{appMode === 'EXAM' ? 'Files' : 'Image'}</span>
                             </button>
                         </div>
 
@@ -253,7 +300,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
                                 }
                             `}
                         >
-                            <span>Add Problem</span>
+                            <span>Add</span>
                             <Plus size={14} />
                         </button>
                     </div>
@@ -262,13 +309,14 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
                         type="file"
                         ref={fileInputRef}
                         className="hidden"
-                        accept="image/*"
-                        onChange={(e) => e.target.files?.[0] && processFile(e.target.files[0])}
+                        multiple 
+                        accept={appMode === 'EXAM' ? "image/*,application/pdf" : "image/*"}
+                        onChange={(e) => handleFiles(e.target.files)}
                     />
                 </div>
             ) : (
                 <div className="p-6 rounded-xl border border-dashed border-white/10 bg-[#0a0a0a] text-center z-10 relative">
-                    <p className="text-gray-500 text-sm">Limit of {MAX_UPLOADS} problems reached.</p>
+                    <p className="text-gray-500 text-sm">Limit of {MAX_UPLOADS} uploads reached.</p>
                 </div>
             )}
 
@@ -279,7 +327,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
                         key={i}
                         className={`absolute ${icon.color}`}
                         style={{
-                            // Slight initial horizontal scatter so they don't all come from pixel 0
+                            // Wider spread based on initialX
                             left: `calc(50% + ${icon.initialX}px)`,
                             bottom: '10px', 
                             opacity: 0,
@@ -302,7 +350,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
         {uploads.length < MAX_UPLOADS && (
             <div className="flex justify-end px-2 -mt-2">
                  <p className="text-[10px] text-gray-600 font-mono tracking-tight opacity-60 hover:opacity-100 transition-opacity cursor-default">
-                    PNG / JPG / Paste Enabled
+                    {appMode === 'EXAM' ? "Drag & Drop Multiple Files" : "Drag & Drop Image"}
                  </p>
             </div>
         )}

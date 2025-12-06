@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { MathSolution, MathStep, UserInput } from "../types";
+import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -45,6 +46,51 @@ const mathSolutionSchema: Schema = {
     },
   },
   required: ["exerciseStatement", "problemSummary", "steps", "finalAnswer"],
+};
+
+const examPaperSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    title: { type: Type.STRING, description: "Title (e.g. 'Calculus Mock')" },
+    totalMarks: { type: Type.INTEGER },
+    duration: { type: Type.INTEGER },
+    sections: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING, description: "Section Name" },
+          questions: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                id: { type: Type.STRING },
+                number: { type: Type.STRING },
+                marks: { type: Type.INTEGER },
+                questionText: { 
+                    type: Type.STRING, 
+                    description: "Question Text. IMPORTANT: 1. Put the General Exercise Statement first. 2. Use a DOUBLE NEWLINE (\\n\\n) to separate the statement from parts. 3. Each part (a, b...) must also be separated by \\n\\n. 4. Put marks at the end of parts like **[4]**. 5. Use LaTeX $...$." 
+                },
+                steps: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "3 simple bullet points on how to solve this."
+                },
+                markscheme: { type: Type.STRING, description: "Markdown TABLE: Step | Working | Marks" },
+                shortAnswer: { type: Type.STRING, description: "Short answer in LaTeX" },
+                hint: { type: Type.STRING, description: "One sentence hint" },
+                calculatorAllowed: { type: Type.BOOLEAN },
+              },
+              required: ["id", "number", "marks", "questionText", "markscheme", "shortAnswer", "calculatorAllowed", "steps"]
+            }
+          }
+        },
+        required: ["title", "questions"]
+      }
+    }
+  },
+  required: ["title", "totalMarks", "duration", "sections"]
 };
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -102,6 +148,66 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
         console.error("Error analyzing math input:", error);
         throw error;
       }
+  });
+};
+
+export const generateExam = async (inputs: UserInput[], settings: ExamSettings): Promise<ExamPaper> => {
+  return retryOperation(async () => {
+    const parts: any[] = [];
+    
+    // Add all uploaded content to context
+    inputs.forEach(input => {
+        if (input.type === 'image' || input.type === 'pdf') {
+            parts.push({ inlineData: { data: input.content, mimeType: input.mimeType } });
+        } else {
+            parts.push({ text: `Source Material: ${input.content}` });
+        }
+    });
+
+    let calcInstruction = "";
+    if (settings.calculator === 'YES') {
+        calcInstruction = "Questions MUST be Calculator Allowed. Adjust numbers if needed.";
+    } else if (settings.calculator === 'NO') {
+        calcInstruction = "Questions MUST be No Calculator. Adjust numbers if needed.";
+    } else {
+        calcInstruction = "Mix of Calc and No Calc.";
+    }
+
+    const prompt = `
+      Create an IB Math AA HL Exam.
+      
+      SETTINGS:
+      - Difficulty: ${settings.difficulty}
+      - Duration: ${settings.durationMinutes} min
+      - Topics: ${settings.topics.join(', ') || "General"}
+      - Mode: ${calcInstruction}
+
+      OUTPUT RULES:
+      1. Output STRICT JSON.
+      2. Markscheme must be a Markdown Table.
+      3. Use LaTeX ($...$) for math.
+      4. QUESTION FORMATTING:
+         - Preamble first.
+         - Double Newline (\\n\\n).
+         - Parts (a), (b)... separate by Double Newline (\\n\\n).
+         - Marks at the VERY END of parts: **[4]**.
+    `;
+
+    parts.push({ text: prompt });
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: { parts },
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: examPaperSchema,
+            temperature: 0.7 
+        }
+    });
+
+    const text = response.text;
+    if (!text) throw new Error("Failed to generate exam");
+    return JSON.parse(text) as ExamPaper;
   });
 };
 
@@ -181,7 +287,6 @@ export const getStepBreakdown = async (step: MathStep, problemContext: string): 
           const text = response.text;
           if (!text) return ["Analyze the equation.", "Simplify terms.", "Calculate result."];
           
-          // Clean potential markdown code blocks if the model hallucinates them despite mimeType
           const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
           
           return JSON.parse(cleanText) as string[];
