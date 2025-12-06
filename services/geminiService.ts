@@ -75,12 +75,19 @@ const examPaperSchema: Schema = {
                 steps: {
                     type: Type.ARRAY,
                     items: { type: Type.STRING },
-                    description: "3 simple bullet points on how to solve this."
+                    description: "3-5 bullet points on how to solve this. CRITICAL: WRAP ALL NUMBERS AND MATH IN LATEX ($...$). Do not use plain text numbers."
                 },
-                markscheme: { type: Type.STRING, description: "Markdown TABLE: Step | Working | Marks" },
-                shortAnswer: { type: Type.STRING, description: "Short answer in LaTeX" },
+                markscheme: { 
+                    type: Type.STRING, 
+                    description: "Strict Markdown Table string. Columns: | Step | Working | Explanation | Marks |. CRITICAL: 1. Do NOT use newlines inside a cell. 2. Marks (M1, A1) MUST be in the last column ONLY. 3. Never return the string 'null'." 
+                },
+                shortAnswer: { 
+                    type: Type.STRING, 
+                    description: "Short answer in LaTeX. CRITICAL: 1. Separate each part with DOUBLE NEWLINES (\\n\\n). 2. ONLY use LaTeX for math (e.g. $x=5$). DO NOT write the plain text version next to it. DO NOT output 'null'." 
+                },
                 hint: { type: Type.STRING, description: "One sentence hint" },
                 calculatorAllowed: { type: Type.BOOLEAN },
+                graphSvg: { type: Type.STRING, description: "Optional SVG string for high-precision graph questions if absolutely necessary. Viewbox 0 0 400 400. White stroke, black background. Use <text> tags for labels. Draw axes clearly." }
               },
               required: ["id", "number", "marks", "questionText", "markscheme", "shortAnswer", "calculatorAllowed", "steps"]
             }
@@ -185,12 +192,26 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
       OUTPUT RULES:
       1. Output STRICT JSON.
       2. Markscheme must be a Markdown Table.
-      3. Use LaTeX ($...$) for math.
+         - Columns: | Step | Working | Explanation | Marks |
+         - CRITICAL: Marks (e.g. M1, A1) must be in the 'Marks' column ONLY. Do NOT put them in Explanation.
+         - Do not use newlines inside a table cell. Use spaces or punctuation.
+         - Do NOT use HTML tags like <br>.
+      3. Use LaTeX ($...$) for ALL math and numbers.
       4. QUESTION FORMATTING:
          - Preamble first.
          - Double Newline (\\n\\n).
          - Parts (a), (b)... separate by Double Newline (\\n\\n).
          - Marks at the VERY END of parts: **[4]**.
+      5. CONSTRAINT: NO GRAPHING QUESTIONS. Do not ask students to draw graphs or analyze visual plots, as the exam is text/LaTeX based. Focus on Algebra, Calculus, and Logic.
+      6. STRUCTURAL INTEGRITY:
+         - Keep all parts of a question (a, b, c) inside a SINGLE 'questionText' field. Do not split them into separate question objects.
+         - 'shortAnswer': Use DOUBLE NEWLINES (\\n\\n) to separate parts. Example: "(a) $x=2$ \\n\\n (b) $y=5$". 
+           IMPORTANT: Do NOT include the plain text version of the math. Only output the LaTeX.
+           WRONG: "x > 0 (x is greater than 0)"
+           CORRECT: "$x > 0$"
+           NEVER output "null" string.
+         - 'markscheme': Start the string with | Step | ... Ensure it is a valid markdown table. NEVER output "null" string.
+         - 'steps': Provide generalized steps that cover all parts of the question. USE LATEX for numbers (e.g. $1$, $5$, $\\pi$).
     `;
 
     parts.push({ text: prompt });
@@ -318,11 +339,12 @@ export const getMarkscheme = async (exerciseStatement: string, stepsJson: string
                        - **(A1)**: Implied Accuracy
                        - **AG**: Answer Given
                     3. Output a SINGLE Markdown table with these exact columns:
-                       | Step | Working / Reasoning | Notes | Marks |
+                       | Step | Working | Explanation | Marks |
                     4. Ensure the table has a header row and a delimiter row (e.g. |---|---|).
                     5. Ensure all math is valid LaTeX wrapped in $.
                     6. Be strictly professional and precise.
-                    7. Do not include introductory text before the table.
+                    7. Do NOT use newlines in cells. Use spaces.
+                    8. MARK COLUMN MUST BE LAST. Do not put M1 in Explanation column.
                 `
             });
             return response.text || "Markscheme generation failed.";

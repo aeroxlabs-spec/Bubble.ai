@@ -1,3 +1,4 @@
+
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
@@ -50,26 +51,26 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
             // Strong text remains blue for "critical part" visibility
             strong: ({node, ...props}) => <strong className="font-bold text-blue-300" {...props} />,
             
-            // Table components for official markscheme look
+            // Table components for official markscheme look - STRICT GRID
             table: ({node, ...props}) => (
-                <div className="overflow-x-auto my-6 rounded-lg border border-white/10 shadow-lg">
+                <div className="overflow-x-auto my-6 rounded border border-white/20">
                     <table className="w-full text-left text-sm border-collapse" {...props} />
                 </div>
             ),
             thead: ({node, ...props}) => (
-                <thead className="bg-[#1a1a1a] text-xs font-bold uppercase tracking-wider text-gray-400" {...props} />
+                <thead className="bg-[#1a1a1a] text-xs font-bold uppercase tracking-wider text-gray-300" {...props} />
             ),
             tbody: ({node, ...props}) => (
-                <tbody className="bg-[#0e0e0e] divide-y divide-white/5" {...props} />
+                <tbody className="bg-[#0e0e0e]" {...props} />
             ),
             tr: ({node, ...props}) => (
                 <tr className="hover:bg-white/5 transition-colors" {...props} />
             ),
             th: ({node, ...props}) => (
-                <th className="px-6 py-4 border-b border-white/10 font-mono text-blue-400" {...props} />
+                <th className="px-4 py-3 border border-white/20 font-mono text-blue-400 whitespace-nowrap" {...props} />
             ),
             td: ({node, ...props}) => (
-                <td className="px-6 py-4 text-gray-300 align-top leading-relaxed border-r border-white/5 last:border-r-0" {...props} />
+                <td className="px-4 py-3 text-gray-300 align-top leading-relaxed border border-white/20 last:text-right last:font-mono last:text-white" {...props} />
             ),
         }}
       >

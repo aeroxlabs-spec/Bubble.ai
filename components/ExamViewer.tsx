@@ -48,6 +48,40 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
     };
 
     /**
+     * Helper to normalize text from API that might contain literal "\n" strings.
+     * Converts single newlines to double newlines to enforce Markdown paragraph breaks.
+     * Useful for Question Text, Short Answers, and Lists.
+     */
+    const normalizeMarkdown = (text: string) => {
+        if (!text || text === 'null') return "";
+        return text.replace(/\\n/g, '\n').replace(/\n/g, '\n\n');
+    };
+
+    /**
+     * Helper to normalize Markscheme tables.
+     * Ensures strict Markdown table formatting.
+     * - Removes literal "null" strings.
+     * - Replaces literal <br> tags with spaces to prevent ugly text artifacts.
+     * - Ensures double newline before table starts.
+     */
+    const normalizeMarkscheme = (text: string) => {
+        if (!text || text === 'null') return "";
+        
+        // Remove literal <br> tags (case insensitive) and replace with space
+        let clean = text.replace(/<br\s*\/?>/gi, ' ');
+        clean = clean.replace(/\\n/g, '\n');
+        
+        // Sanity check: ensure it has table headers if missing (fallback)
+        if (!clean.includes('| Step |')) {
+            // If the model output just text, try to wrap it or leave it, but ensure it's not 'null'
+            return `\n\n${clean.trim()}`;
+        }
+
+        // Prepend double newline to ensure it's treated as a block element
+        return `\n\n${clean.trim()}`;
+    };
+
+    /**
      * Parses the question text to separate Preamble from Parts.
      * Looks for blocks that end with marks like **[x]**.
      */
@@ -193,6 +227,15 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                 {/* Question Body with Custom Renderer */}
                                 <div className="p-8">
                                     <QuestionBodyRenderer text={q.questionText} />
+                                    
+                                    {/* Graph Renderer (If present and valid) */}
+                                    {q.graphSvg && (
+                                        <div className="mt-8 flex justify-center">
+                                            <div className="bg-black border border-white/10 rounded-lg p-4 max-w-[500px] w-full shadow-inner" 
+                                                 dangerouslySetInnerHTML={{ __html: q.graphSvg }} 
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Interactive Footer */}
@@ -253,7 +296,7 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                                     {q.steps.map((step, idx) => (
                                                         <li key={idx} className="flex gap-3 text-sm text-gray-300">
                                                             <span className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center bg-blue-500/10 text-blue-400 text-[10px] font-bold mt-0.5">{idx + 1}</span>
-                                                            <span className="leading-relaxed">{step}</span>
+                                                            <span className="leading-relaxed"><MarkdownRenderer content={normalizeMarkdown(step)} /></span>
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -265,7 +308,8 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                             <div className="animate-in slide-in-from-top-2 fade-in duration-200 bg-[#121212] border border-gray-700/30 rounded-lg p-3">
                                                 <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1">Final Answer</div>
                                                 <div className="text-gray-300 font-mono text-sm">
-                                                    <MarkdownRenderer content={q.shortAnswer} />
+                                                    {/* normalized to enforce paragraph breaks for each part */}
+                                                    <MarkdownRenderer content={normalizeMarkdown(q.shortAnswer)} />
                                                 </div>
                                             </div>
                                         )}
@@ -285,7 +329,8 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                             <div className="animate-in slide-in-from-top-2 fade-in duration-300 bg-[#121212] border border-purple-500/20 rounded-lg p-4">
                                                 <div className="text-[10px] uppercase tracking-widest text-purple-500 font-bold mb-2">Detailed Markscheme</div>
                                                 <div className="text-gray-300 text-sm">
-                                                    <MarkdownRenderer content={q.markscheme} />
+                                                    {/* Use specific normalizer for tables to PREVENT double newlines from breaking rows */}
+                                                    <MarkdownRenderer content={normalizeMarkscheme(q.markscheme)} />
                                                 </div>
                                             </div>
                                         )}
@@ -354,7 +399,7 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                             <span className="text-xs bg-gray-100 px-2 py-0.5 rounded font-mono">Total {q.marks}</span>
                                         </div>
                                         <div className="pl-6 text-sm font-mono text-black markdown-light">
-                                            <MarkdownRenderer content={q.markscheme} />
+                                            <MarkdownRenderer content={normalizeMarkscheme(q.markscheme)} />
                                         </div>
                                     </div>
                                 ))}
