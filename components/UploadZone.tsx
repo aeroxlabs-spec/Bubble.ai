@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Upload, X, Image as ImageIcon, Type as TypeIcon, Plus, Clipboard } from 'lucide-react';
+import { X, Image as ImageIcon, Type as TypeIcon, Plus, Clipboard, Pen } from 'lucide-react';
 import { UserInput } from '../types';
 
 interface UploadZoneProps {
@@ -8,6 +8,33 @@ interface UploadZoneProps {
   onUpload: (input: UserInput) => void;
   onRemove: (id: string) => void;
 }
+
+const TypewriterLabel = ({ text }: { text: string }) => {
+    const [displayText, setDisplayText] = useState('');
+    const [index, setIndex] = useState(0);
+
+    useEffect(() => {
+        setDisplayText('');
+        setIndex(0);
+    }, [text]);
+
+    useEffect(() => {
+        if (index < text.length) {
+            const timeout = setTimeout(() => {
+                setDisplayText(prev => prev + text.charAt(index));
+                setIndex(prev => prev + 1);
+            }, 40); // Slightly faster typing
+            return () => clearTimeout(timeout);
+        }
+    }, [index, text]);
+
+    return (
+        <span className="font-mono text-sm font-medium text-blue-300 tracking-wide drop-shadow-[0_0_5px_rgba(59,130,246,0.5)]">
+            {displayText}
+            <span className="animate-pulse ml-0.5 opacity-80">|</span>
+        </span>
+    );
+};
 
 const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -84,7 +111,6 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove }) 
               }
           }
       }
-      // If text, let default behavior happen in textarea
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -140,10 +166,10 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove }) 
         {/* Unified Input Area */}
         {uploads.length < MAX_UPLOADS ? (
             <div 
-                className={`relative group bg-[#0a0a0a] rounded-2xl border transition-all duration-300 overflow-hidden flex flex-col
+                className={`relative group bg-[#0a0a0a] rounded-2xl transition-all duration-300 overflow-hidden flex flex-col
                     ${isDragging 
-                        ? 'border-blue-500 ring-4 ring-blue-500/10 scale-[1.01]' 
-                        : 'border-white/10 hover:border-white/20 shadow-xl'
+                        ? 'border-[3px] border-dashed border-blue-500/60 shadow-[0_0_20px_rgba(59,130,246,0.15)] animate-[pulse_2s_ease-in-out_infinite]' 
+                        : 'border border-white/10 hover:border-white/20 shadow-xl'
                     }
                 `}
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -152,9 +178,21 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove }) 
             >
                 {/* Drag Overlay */}
                 {isDragging && (
-                    <div className="absolute inset-0 z-20 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center text-blue-400 animate-in fade-in duration-200">
-                        <Upload size={40} className="mb-2 animate-bounce" />
-                        <span className="font-bold text-lg">Drop image here</span>
+                    <div className="absolute inset-0 z-20 bg-[#0a0a0a]/90 backdrop-blur-[2px] flex flex-col items-center justify-center animate-in fade-in duration-200">
+                        
+                        {/* Non-icon element: Glowing Orb/Line */}
+                        <div className="w-20 h-0.5 bg-blue-500 rounded-full blur-[2px] mb-8 shadow-[0_0_15px_rgba(59,130,246,1)] animate-pulse" />
+
+                        {/* Lively Pencil without background shape */}
+                        <div className="animate-[bounce_1s_infinite] mb-6">
+                             <Pen 
+                                size={22} 
+                                className="text-blue-400 transform -rotate-12 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)] fill-blue-500/10" 
+                             />
+                        </div>
+                        
+                        {/* Typewriter Text */}
+                        <TypewriterLabel text="Release to analyze..." />
                     </div>
                 )}
 

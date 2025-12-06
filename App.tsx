@@ -231,6 +231,28 @@ const App: React.FC = () => {
       }
   }, [currentStepIndex, stepGroups]);
 
+  // Keyboard Navigation for Steps
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only active in SOLVED state, when chat is closed, and viewing steps
+      if (appState !== AppState.SOLVED || !activeSolution || isChatOpen || activeView !== 'steps') return;
+      
+      // Prevent default scrolling behavior for arrow keys
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+         e.preventDefault();
+      }
+
+      if (e.key === 'ArrowRight') {
+        setCurrentStepIndex(prev => Math.min(prev + 1, activeSolution.steps.length - 1));
+      } else if (e.key === 'ArrowLeft') {
+        setCurrentStepIndex(prev => Math.max(prev - 1, 0));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [appState, activeSolution, isChatOpen, activeView]);
+
   const toggleSection = (title: string) => {
     setOpenSections(prev => {
         const next = new Set(prev);
@@ -396,12 +418,12 @@ const App: React.FC = () => {
       <nav className="sticky top-0 z-40 bg-black/95 backdrop-blur-sm border-b border-white/5">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center">
-             {/* Logo - Bubble. in clean sans-serif */}
+             {/* Logo - Bubble. */}
              <button 
                 onClick={handleReset}
                 className="group flex items-center gap-2 focus:outline-none"
              >
-                <span className="font-sans font-bold text-2xl tracking-tighter text-white group-hover:text-blue-400 transition-colors border-2 border-transparent group-hover:border-blue-400/50 rounded-lg px-2 py-0.5 -ml-2">
+                <span className="font-sans font-bold text-2xl tracking-tighter text-white transition-all duration-300 ease-out hover:text-blue-400 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]">
                     Bubble.
                 </span>
              </button>
@@ -471,7 +493,7 @@ const App: React.FC = () => {
                 <div className="space-y-10 w-full flex flex-col items-center">
                     <div className="text-center space-y-4 max-w-2xl">
                         <h1 className="text-5xl font-bold tracking-tight text-white">
-                            Math explained. <span className="transition-all duration-300 group inline-block"><span className="text-white hover:text-blue-400 hover:drop-shadow-[0_0_15px_rgba(59,130,246,0.6)] cursor-default border-2 border-transparent hover:border-blue-400 rounded-lg px-2 py-1 -mx-2">Simply.</span></span>
+                            Math explained. <span className="text-white hover:text-blue-400 hover:drop-shadow-[0_0_15px_rgba(59,130,246,0.8)] cursor-default transition-all duration-300 ease-out">Simply.</span>
                         </h1>
                         <p className="text-lg text-gray-500 font-normal max-w-md mx-auto">
                            Step-by-step IB HL analysis. Powered by Gemini.
