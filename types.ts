@@ -64,6 +64,7 @@ export interface ExamQuestion {
   hint?: string;
   calculatorAllowed: boolean;
   steps?: string[]; // Simplified steps for the exam view
+  graphSvg?: string;
 }
 
 export interface ExamSection {

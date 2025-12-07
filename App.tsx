@@ -98,19 +98,27 @@ interface SectionContainerProps {
     isOpen: boolean; 
     onToggle: () => void;
     icon?: React.ReactNode;
+    rightContent?: React.ReactNode;
 }
 
-const SectionContainer: React.FC<SectionContainerProps> = ({ title, children, isOpen, onToggle, icon }) => {
+const SectionContainer: React.FC<SectionContainerProps> = ({ title, children, isOpen, onToggle, icon, rightContent }) => {
     return (
         <div className="border border-white/10 rounded-xl bg-[#0a0a0a]">
             <button 
                 onClick={onToggle}
                 className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors group"
             >
-                <span className="font-bold text-gray-300 text-sm group-hover:text-white transition-colors uppercase tracking-wider flex items-center gap-2">
-                    {icon || <div className="w-1.5 h-1.5 rounded-full bg-blue-500/50 group-hover:bg-blue-400 transition-colors" />}
-                    {title}
-                </span>
+                <div className="flex items-center gap-3">
+                    <span className="font-bold text-gray-300 text-sm group-hover:text-white transition-colors uppercase tracking-wider flex items-center gap-2">
+                        {icon || <div className="w-1.5 h-1.5 rounded-full bg-blue-500/50 group-hover:bg-blue-400 transition-colors" />}
+                        {title}
+                    </span>
+                    {rightContent && (
+                        <div className="animate-in fade-in slide-in-from-left-2 duration-300" onClick={(e) => e.stopPropagation()}>
+                            {rightContent}
+                        </div>
+                    )}
+                </div>
                 <ChevronDown className={`text-gray-500 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${isOpen ? 'rotate-180' : ''}`} size={16} />
             </button>
             
@@ -174,6 +182,37 @@ const TypewriterLoader = ({ phrases }: { phrases: string[] }) => {
       </div>
     );
   };
+
+/**
+ * Animated loader for the Markscheme generation phase
+ */
+const MarkschemeLoader = () => {
+    const phrases = [
+        "Analyzing solution steps...",
+        "Applying IB marking codes...",
+        "Structuring grading rubric...",
+        "Calculating total marks...",
+        "Finalizing table..."
+    ];
+
+    return (
+        <div className="h-64 flex flex-col items-center justify-center space-y-6 border border-white/10 rounded-xl bg-[#0a0a0a] overflow-hidden relative">
+             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/5 via-transparent to-transparent animate-pulse" />
+             
+             <div className="relative z-10 flex flex-col items-center gap-6">
+                 {/* Simple Icon Animation */}
+                 <div className="relative">
+                    <ScrollText size={40} className="text-blue-500/80 animate-pulse" />
+                 </div>
+
+                 {/* Minimal Text Loader */}
+                 <div className="mt-2">
+                    <TypewriterLoader phrases={phrases} />
+                 </div>
+             </div>
+        </div>
+    );
+}
 
 /**
  * Background Falling Icons Component
@@ -299,6 +338,19 @@ const FallingBackgroundIcons = ({ active }: { active: boolean }) => {
     );
 };
 
+// Helper to calculate marks from the markdown string
+const calculateTotalMarks = (text: string) => {
+    if (!text) return 0;
+    let score = 0;
+    // Extract codes like M1, A1, R1, M2, A2
+    const regex = /\b[MAR](\d+)\b/g; 
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        score += parseInt(match[1], 10);
+    }
+    return score;
+};
+
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
   const [appMode, setAppMode] = useState<AppMode>('SOLVER');
@@ -332,8 +384,11 @@ const App: React.FC = () => {
   const normalizeMarkscheme = (text: string) => {
     if (!text || text === 'null') return "";
 
+    // 0. Aggressive Cleanup for dirty asterisks
+    let clean = text.replace(/\*\*/g, ''); 
+
     // 1. Convert block math to inline math to prevent line breaks
-    let clean = text.replace(/\$\$/g, '$');
+    clean = clean.replace(/\$\$/g, '$');
     
     // 2. Convert literal newlines to real newlines
     clean = clean.replace(/\\n/g, '\n');
@@ -574,6 +629,8 @@ const App: React.FC = () => {
       };
       (window as any).html2pdf().set(opt).from(element).save();
   };
+
+  const totalMarks = activeSolution?.markscheme ? calculateTotalMarks(activeSolution.markscheme) : 0;
 
   return (
     <div className="min-h-screen text-gray-100 bg-black selection:bg-blue-900/50 font-sans overflow-x-hidden text-sm">
@@ -873,13 +930,7 @@ const App: React.FC = () => {
                                 // Use simple fade-in to avoid sub-pixel blur caused by slide animations
                                 <div className="animate-in fade-in duration-300">
                                     {loadingMarkscheme ? (
-                                        <div className="h-64 flex flex-col items-center justify-center space-y-4 border border-white/10 rounded-xl bg-[#0a0a0a]">
-                                            <div className="relative">
-                                                {/* Removed any remaining blur/pulse artifacts */}
-                                                <ScrollText size={32} className="text-blue-400 relative z-10 opacity-80" />
-                                            </div>
-                                            <p className="text-gray-500 font-mono text-xs">Generating Official Markscheme...</p>
-                                        </div>
+                                        <MarkschemeLoader />
                                     ) : activeSolution.markscheme ? (
                                         <div id="ib-markscheme-container">
                                             {/* Expandable-style block wrapper for consistency */}
@@ -888,6 +939,13 @@ const App: React.FC = () => {
                                                 isOpen={isMarkschemeOpen} 
                                                 onToggle={() => setIsMarkschemeOpen(!isMarkschemeOpen)}
                                                 icon={<ScrollText size={12} className="text-blue-500" />}
+                                                rightContent={
+                                                    totalMarks > 0 && (
+                                                       <span className="ml-4 text-xs text-blue-200 font-bold px-3 py-1 rounded bg-blue-500/10 border border-blue-500/30 shadow-[0_0_5px_rgba(59,130,246,0.1)]">
+                                                          {totalMarks} Marks
+                                                       </span>
+                                                    )
+                                                }
                                             >
                                                 <div className="text-gray-300 text-sm">
                                                     {/* Applying the Robust Normalization logic here */}

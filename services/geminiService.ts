@@ -42,7 +42,7 @@ const mathSolutionSchema: Schema = {
     },
     finalAnswer: {
       type: Type.STRING,
-      description: "The final result. Format as a strict Markdown bulleted list if there are multiple parts. YOU MUST enclose the definitive numerical answer or final expression in LaTeX format (e.g. $x=5$) or **bold** to ensuring it is displayed as a distinct value. Do not show numbers as plain text.",
+      description: "The final result. Rules: 1. Format as a Markdown list. 2. Use **(a)**, **(b)** style for part labels (this makes them blue). 3. Do NOT bold the mathematical answer itself (keep it plain LaTeX). 4. Do NOT include any marks (e.g. [4]) in this field. 5. Use LaTeX $...$ for math.",
     },
   },
   required: ["exerciseStatement", "problemSummary", "steps", "finalAnswer"],
@@ -340,15 +340,17 @@ export const getMarkscheme = async (exerciseStatement: string, stepsJson: string
                        - **(A1)**: Implied Accuracy
                        - **AG**: Answer Given
                     3. Output a SINGLE Markdown table with these exact columns:
-                       | Step | Working | Explanation | Marks |
-                    4. Ensure the table has a header row and a delimiter row (e.g. |---|---|).
-                    5. Ensure all math is valid LaTeX wrapped in $ (inline math). DO NOT use block math ($$...$$) as it causes table formatting errors.
-                    6. Be strictly professional and precise.
+                       | Part | Working | Explanation | Marks |
+                    4. **Organization**: The 'Part' column must clearly label the question part (e.g., "(a)", "(b)(i)"). If a step belongs to the same part, leave the cell empty or use " " to indicate continuation.
+                    5. **Math**: Ensure all math is valid LaTeX wrapped in $ (inline math). 
+                    6. **Cleanliness**: 
+                       - Do NOT use bold asterisks (**) inside ANY LaTeX expression. 
+                       - Do NOT bold the math itself.
+                       - Example: Write $2x + 1$, NOT **$2x + 1$** or $**2x + 1**$.
                     7. Do NOT use newlines in cells. Use spaces.
-                    8. MARK COLUMN MUST BE LAST. Do not put M1 in Explanation column.
-                    9. SEPARATION: Use SPACES to separate multiple marks (e.g. "M1 A1"). Do NOT use HTML tags like <br>.
-                    10. Keep each row on a SINGLE line to avoid table breaking.
-                    11. Ensure the table markdown is NOT wrapped in a code block. Return ONLY the markdown table.
+                    8. MARK COLUMN MUST BE LAST.
+                    9. SEPARATION: Use SPACES to separate multiple marks (e.g. "M1 A1"). Do NOT use HTML tags.
+                    10. Ensure the table markdown is NOT wrapped in a code block. Return ONLY the markdown table.
                 `
             });
             return response.text || "Markscheme generation failed.";
