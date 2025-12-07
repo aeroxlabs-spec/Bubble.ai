@@ -96,26 +96,35 @@ interface SectionContainerProps {
     title: string; 
     children: React.ReactNode; 
     isOpen: boolean; 
-    onToggle: () => void; 
+    onToggle: () => void;
+    icon?: React.ReactNode;
 }
 
-const SectionContainer: React.FC<SectionContainerProps> = ({ title, children, isOpen, onToggle }) => {
+const SectionContainer: React.FC<SectionContainerProps> = ({ title, children, isOpen, onToggle, icon }) => {
     return (
-        <div className="border border-white/10 rounded-xl overflow-hidden bg-[#0a0a0a]">
+        <div className="border border-white/10 rounded-xl bg-[#0a0a0a]">
             <button 
                 onClick={onToggle}
                 className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors group"
             >
                 <span className="font-bold text-gray-300 text-sm group-hover:text-white transition-colors uppercase tracking-wider flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500/50 group-hover:bg-blue-400 transition-colors" />
+                    {icon || <div className="w-1.5 h-1.5 rounded-full bg-blue-500/50 group-hover:bg-blue-400 transition-colors" />}
                     {title}
                 </span>
                 <ChevronDown className={`text-gray-500 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${isOpen ? 'rotate-180' : ''}`} size={16} />
             </button>
-            <div className={`transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] overflow-hidden ${isOpen ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                <div className="p-4 pt-0 space-y-4 border-t border-white/5 mt-0">
-                    <div className="h-2" /> {/* Spacer */}
-                    {children}
+            
+            {/* CSS Grid Animation Strategy - Prevents Blur caused by max-height/transform/transition-all */}
+            <div 
+                className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${
+                    isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                }`}
+            >
+                <div className="overflow-hidden">
+                    <div className="p-4 pt-0 space-y-4 border-t border-white/5 mt-0">
+                        <div className="h-2" /> {/* Spacer */}
+                        {children}
+                    </div>
                 </div>
             </div>
         </div>
@@ -313,10 +322,51 @@ const App: React.FC = () => {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [startBackgroundEffects, setStartBackgroundEffects] = useState(false);
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
+  const [isMarkschemeOpen, setIsMarkschemeOpen] = useState(true);
 
   // Computed active solution
   const activeSolution = solutions[activeTab];
   const activeInput = uploads[activeTab];
+
+  // Helper to normalize Markscheme tables (shared with ExamViewer logic)
+  const normalizeMarkscheme = (text: string) => {
+    if (!text || text === 'null') return "";
+
+    // 1. Convert block math to inline math to prevent line breaks
+    let clean = text.replace(/\$\$/g, '$');
+    
+    // 2. Convert literal newlines to real newlines
+    clean = clean.replace(/\\n/g, '\n');
+    
+    // 3. Remove HTML breaks (replace with space)
+    clean = clean.replace(/<br\s*\/?>/gi, ' ');
+
+    // 4. Robust Line Merging for broken tables
+    const lines = clean.split('\n');
+    const mergedLines: string[] = [];
+    
+    lines.forEach((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        
+        // If line starts with '|', it's a valid row start (or header separator).
+        if (trimmed.startsWith('|')) {
+            // Check for empty cells or misformatted pipes
+            const fixedLine = trimmed.replace(/\|\|/g, '| |');
+            mergedLines.push(fixedLine);
+        } else {
+            // Otherwise it's likely a broken continuation. Append to previous line.
+            if (mergedLines.length > 0) {
+                mergedLines[mergedLines.length - 1] += ' ' + trimmed;
+            } else {
+                // Fallback: If it doesn't look like a row but we need it
+                 mergedLines.push(trimmed);
+            }
+        }
+    });
+
+    return '\n\n' + mergedLines.join('\n');
+  };
 
   // Loading phrases
   const solverPhrases = [
@@ -541,7 +591,7 @@ const App: React.FC = () => {
                 onClick={handleReset}
                 className="group flex items-center gap-2 focus:outline-none"
              >
-                <span className="font-sans font-bold text-2xl tracking-tighter text-white transition-all duration-300 ease-out hover:text-blue-400 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]">
+                <span className="font-sans font-bold text-2xl tracking-tighter text-white transition-all duration-300 ease-out hover:text-white hover:drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
                     Bubble.
                 </span>
              </button>
@@ -693,7 +743,8 @@ const App: React.FC = () => {
             <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in duration-700">
                 <div className="relative flex flex-col items-center gap-8">
                     <div className="relative group">
-                        <div className={`absolute inset-0 blur-xl rounded-full animate-pulse ${appMode === 'SOLVER' ? 'bg-blue-500/10' : 'bg-purple-500/10'}`}></div>
+                        {/* Removed blur-xl to prevent artifacts */}
+                        <div className={`absolute inset-0 rounded-full animate-pulse ${appMode === 'SOLVER' ? 'bg-blue-500/5' : 'bg-purple-500/5'}`}></div>
                         <div className="relative z-10 animate-bounce duration-[2000ms]">
                              <div className="animate-[spin_3s_ease-in-out_infinite]">
                                 {appMode === 'SOLVER' ? (
@@ -819,14 +870,30 @@ const App: React.FC = () => {
                                     )}
                                 </div>
                             ) : (
-                                <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                                // Use simple fade-in to avoid sub-pixel blur caused by slide animations
+                                <div className="animate-in fade-in duration-300">
                                     {loadingMarkscheme ? (
-                                        <div className="h-64 flex flex-col items-center justify-center space-y-4 border border-white/10 rounded-xl bg-[#0a0a0a]"><div className="relative"><div className="absolute inset-0 bg-blue-500/20 blur-xl rounded-full"></div><ScrollText size={32} className="text-blue-400 animate-pulse relative z-10" /></div><p className="text-gray-500 font-mono text-xs">Generating Official Markscheme...</p></div>
+                                        <div className="h-64 flex flex-col items-center justify-center space-y-4 border border-white/10 rounded-xl bg-[#0a0a0a]">
+                                            <div className="relative">
+                                                {/* Removed any remaining blur/pulse artifacts */}
+                                                <ScrollText size={32} className="text-blue-400 relative z-10 opacity-80" />
+                                            </div>
+                                            <p className="text-gray-500 font-mono text-xs">Generating Official Markscheme...</p>
+                                        </div>
                                     ) : activeSolution.markscheme ? (
-                                        <div id="ib-markscheme-container" className="bg-[#0f0f0f] border border-white/10 rounded-xl overflow-hidden shadow-2xl relative">
-                                            <div className="bg-[#1a1a1a] border-b border-white/5 px-6 py-4 flex items-center justify-between"><div className="flex items-center gap-2"><BookOpen size={14} className="text-gray-400" /><span className="text-xs font-bold text-gray-300 uppercase tracking-widest">Official IB Markscheme</span></div><div className="text-[10px] text-gray-600 font-mono">CONFIDENTIAL</div></div>
-                                            <div className="p-8 font-mono text-sm text-gray-300 leading-relaxed bg-[#0d0d0d]"><MarkdownRenderer content={activeSolution.markscheme} /></div>
-                                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/[0.02] text-8xl font-black rotate-45 pointer-events-none select-none">BUBBLE</div>
+                                        <div id="ib-markscheme-container">
+                                            {/* Expandable-style block wrapper for consistency */}
+                                            <SectionContainer 
+                                                title="Detailed Markscheme" 
+                                                isOpen={isMarkschemeOpen} 
+                                                onToggle={() => setIsMarkschemeOpen(!isMarkschemeOpen)}
+                                                icon={<ScrollText size={12} className="text-blue-500" />}
+                                            >
+                                                <div className="text-gray-300 text-sm">
+                                                    {/* Applying the Robust Normalization logic here */}
+                                                    <MarkdownRenderer content={normalizeMarkscheme(activeSolution.markscheme)} />
+                                                </div>
+                                            </SectionContainer>
                                         </div>
                                     ) : (
                                         <div className="h-40 flex items-center justify-center border border-dashed border-white/10 rounded-xl"><p className="text-gray-500 text-xs">Could not load markscheme.</p></div>

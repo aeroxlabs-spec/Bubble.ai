@@ -61,24 +61,45 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
      * Helper to normalize Markscheme tables.
      * Ensures strict Markdown table formatting.
      * - Removes literal "null" strings.
-     * - Replaces literal <br> tags with spaces to prevent ugly text artifacts.
-     * - Ensures double newline before table starts.
+     * - Replaces HTML <br> tags with spaces to avoid raw tag display.
+     * - Merges broken lines to ensure valid table rows.
      */
     const normalizeMarkscheme = (text: string) => {
         if (!text || text === 'null') return "";
+
+        // 1. Convert block math to inline math to prevent line breaks
+        let clean = text.replace(/\$\$/g, '$');
         
-        // Remove literal <br> tags (case insensitive) and replace with space
-        let clean = text.replace(/<br\s*\/?>/gi, ' ');
+        // 2. Convert literal newlines to real newlines
         clean = clean.replace(/\\n/g, '\n');
         
-        // Sanity check: ensure it has table headers if missing (fallback)
-        if (!clean.includes('| Step |')) {
-            // If the model output just text, try to wrap it or leave it, but ensure it's not 'null'
-            return `\n\n${clean.trim()}`;
-        }
+        // 3. Remove HTML breaks (replace with space)
+        clean = clean.replace(/<br\s*\/?>/gi, ' ');
 
-        // Prepend double newline to ensure it's treated as a block element
-        return `\n\n${clean.trim()}`;
+        // 4. Robust Line Merging for broken tables
+        const lines = clean.split('\n');
+        const mergedLines: string[] = [];
+        
+        lines.forEach((line) => {
+            const trimmed = line.trim();
+            if (!trimmed) return;
+            
+            // If line starts with '|', it's a valid row start (or header separator).
+            if (trimmed.startsWith('|')) {
+                mergedLines.push(trimmed);
+            } else {
+                // Otherwise it's likely a broken continuation. Append to previous line.
+                if (mergedLines.length > 0) {
+                    mergedLines[mergedLines.length - 1] += ' ' + trimmed;
+                } else {
+                    // Fallback for header text or garbage before table
+                    mergedLines.push(trimmed);
+                }
+            }
+        });
+
+        // 5. Ensure it renders as a table block by checking for double newline prefix
+        return '\n\n' + mergedLines.join('\n');
     };
 
     /**
@@ -97,7 +118,6 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
         let foundFirstPart = false;
 
         // Pattern to find marks at the end of a string: [number] or **[number]**
-        // We accept both to be robust
         const marksRegex = /\s*(\*\*\[\d+\]\*\*|\[\d+\])\s*$/;
         // Pattern to detect start of a part: (a), (b), (c), (i), (ii)
         const partStartRegex = /^(\([a-z]+\)|\([iv]+\))/i;
@@ -373,7 +393,7 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                         <div className="col-span-1 font-bold text-lg">{q.number}.</div>
                                         <div className="col-span-11 text-base leading-relaxed markdown-light exam-question-print">
                                             {/* Reuse simple renderer for print */}
-                                            <MarkdownRenderer content={q.questionText} className="text-black" />
+                                            <MarkdownRenderer content={q.questionText} className="text-black" theme="light" />
                                             <div className="mt-8 h-20 border-l-2 border-gray-200" />
                                         </div>
                                     </div>
@@ -399,7 +419,7 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                             <span className="text-xs bg-gray-100 px-2 py-0.5 rounded font-mono">Total {q.marks}</span>
                                         </div>
                                         <div className="pl-6 text-sm font-mono text-black markdown-light">
-                                            <MarkdownRenderer content={normalizeMarkscheme(q.markscheme)} />
+                                            <MarkdownRenderer content={normalizeMarkscheme(q.markscheme)} theme="light" />
                                         </div>
                                     </div>
                                 ))}
@@ -411,41 +431,6 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
 
             {/* Global Styles for PDF & formatting */}
             <style dangerouslySetInnerHTML={{__html: `
-                .markdown-light p { color: #000 !important; margin-bottom: 0.5rem; }
-                .markdown-light strong { color: #000 !important; font-weight: 700; }
-                .markdown-light ul { color: #000 !important; list-style-type: disc; padding-left: 1.5rem; }
-                .markdown-light ol { color: #000 !important; list-style-type: decimal; padding-left: 1.5rem; }
-                .markdown-light .katex { color: #000 !important; font-size: 1.0em; }
-                
-                /* Explicit Table Styling for Markschemes */
-                .markdown-light table { 
-                    width: 100%; 
-                    border-collapse: collapse; 
-                    margin-top: 10px; 
-                    font-size: 0.9rem;
-                    border: 2px solid #000 !important;
-                }
-                .markdown-light th { 
-                    text-align: left; 
-                    border-bottom: 2px solid #000 !important; 
-                    border-right: 1px solid #000 !important;
-                    padding: 8px; 
-                    background-color: #f3f3f3;
-                    font-weight: bold;
-                }
-                .markdown-light td { 
-                    border-bottom: 1px solid #000 !important; 
-                    border-right: 1px solid #000 !important;
-                    padding: 8px; 
-                    vertical-align: top; 
-                }
-                .markdown-light tr:last-child td {
-                    border-bottom: none !important;
-                }
-                .markdown-light th:last-child, .markdown-light td:last-child {
-                    border-right: none !important;
-                }
-
                 /* Print View formatting for marks */
                 .exam-question-print strong {
                     float: right;

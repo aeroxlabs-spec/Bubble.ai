@@ -221,7 +221,8 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
             {/* Input Area */}
             {uploads.length < MAX_UPLOADS ? (
                 <div 
-                    className={`relative z-10 group bg-[#0a0a0a] rounded-2xl transition-all duration-300 overflow-hidden flex flex-col
+                    // REMOVED transition-all to prevent blur. Using specific transitions.
+                    className={`relative z-10 group bg-[#0a0a0a] rounded-2xl transition-[border-color,box-shadow,background-color] duration-300 overflow-hidden flex flex-col
                         ${isDragging 
                             ? appMode === 'EXAM'
                                 ? 'border-[3px] border-dashed border-purple-500/60 shadow-[0_0_20px_rgba(168,85,247,0.15)] animate-[pulse_2s_ease-in-out_infinite]' 
@@ -237,8 +238,8 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
                     {/* Drag Overlay */}
                     {isDragging && (
                         <div className="absolute inset-0 z-20 bg-[#0a0a0a]/95 flex flex-col items-center justify-center animate-in fade-in duration-200">
-                            {/* Color Bar based on Mode */}
-                            <div className={`w-20 h-0.5 rounded-full blur-[2px] mb-8 animate-pulse ${
+                            {/* Color Bar based on Mode - REMOVED blur filter */}
+                            <div className={`w-20 h-0.5 rounded-full mb-8 animate-pulse ${
                                 appMode === 'EXAM' 
                                 ? 'bg-purple-500 shadow-[0_0_15px_rgba(168,85,247,1)]' 
                                 : 'bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,1)]'

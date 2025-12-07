@@ -79,11 +79,11 @@ const examPaperSchema: Schema = {
                 },
                 markscheme: { 
                     type: Type.STRING, 
-                    description: "Strict Markdown Table string. Columns: | Step | Working | Explanation | Marks |. CRITICAL: 1. Do NOT use newlines inside a cell. 2. Marks (M1, A1) MUST be in the last column ONLY. 3. Never return the string 'null'." 
+                    description: "Strict Markdown Table string. Columns: | Step | Working | Explanation | Marks |. CRITICAL: 1. Do NOT use newlines inside a cell. Keep each row on a SINGLE line. 2. Marks (M1, A1) MUST be in the last column ONLY. 3. To separate multiple marks, just use a SPACE (e.g. 'M1 A1'). Do NOT use <br> or HTML tags. 4. Never return the string 'null'." 
                 },
                 shortAnswer: { 
                     type: Type.STRING, 
-                    description: "Short answer in LaTeX. CRITICAL: 1. Separate each part with DOUBLE NEWLINES (\\n\\n). 2. ONLY use LaTeX for math (e.g. $x=5$). DO NOT write the plain text version next to it. DO NOT output 'null'." 
+                    description: "Short answer in LaTeX. CRITICAL: 1. Separate each part with DOUBLE NEWLINES (\\n\\n). 2. ONLY use LaTeX for math (e.g. $x=5$). DO NOT write the plain text version next to it. DO NOT output 'null'. DO NOT output duplicate info. DO NOT output the plain text explanation next to the math. DO NOT output 'x > 0 (x is greater than 0)'." 
                 },
                 hint: { type: Type.STRING, description: "One sentence hint" },
                 calculatorAllowed: { type: Type.BOOLEAN },
@@ -194,8 +194,9 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
       2. Markscheme must be a Markdown Table.
          - Columns: | Step | Working | Explanation | Marks |
          - CRITICAL: Marks (e.g. M1, A1) must be in the 'Marks' column ONLY. Do NOT put them in Explanation.
-         - Do not use newlines inside a table cell. Use spaces or punctuation.
-         - Do NOT use HTML tags like <br>.
+         - Do not use newlines inside a table cell. Use spaces for separation.
+         - Do NOT use HTML tags like <br>. Use spaces to separate multiple marks (e.g. "M1 A1").
+         - Keep each row on a SINGLE line.
       3. Use LaTeX ($...$) for ALL math and numbers.
       4. QUESTION FORMATTING:
          - Preamble first.
@@ -210,7 +211,7 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
            WRONG: "x > 0 (x is greater than 0)"
            CORRECT: "$x > 0$"
            NEVER output "null" string.
-         - 'markscheme': Start the string with | Step | ... Ensure it is a valid markdown table. NEVER output "null" string.
+         - 'markscheme': Start the string with | Step | ... Ensure it is a valid markdown table. NEVER output "null" string. Do NOT use newlines inside cells.
          - 'steps': Provide generalized steps that cover all parts of the question. USE LATEX for numbers (e.g. $1$, $5$, $\\pi$).
     `;
 
@@ -341,10 +342,13 @@ export const getMarkscheme = async (exerciseStatement: string, stepsJson: string
                     3. Output a SINGLE Markdown table with these exact columns:
                        | Step | Working | Explanation | Marks |
                     4. Ensure the table has a header row and a delimiter row (e.g. |---|---|).
-                    5. Ensure all math is valid LaTeX wrapped in $.
+                    5. Ensure all math is valid LaTeX wrapped in $ (inline math). DO NOT use block math ($$...$$) as it causes table formatting errors.
                     6. Be strictly professional and precise.
                     7. Do NOT use newlines in cells. Use spaces.
                     8. MARK COLUMN MUST BE LAST. Do not put M1 in Explanation column.
+                    9. SEPARATION: Use SPACES to separate multiple marks (e.g. "M1 A1"). Do NOT use HTML tags like <br>.
+                    10. Keep each row on a SINGLE line to avoid table breaking.
+                    11. Ensure the table markdown is NOT wrapped in a code block. Return ONLY the markdown table.
                 `
             });
             return response.text || "Markscheme generation failed.";

@@ -8,32 +8,34 @@ import rehypeKatex from 'rehype-katex';
 interface MarkdownRendererProps {
   content: string;
   className?: string;
+  theme?: 'dark' | 'light';
 }
 
-const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '' }) => {
+const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '', theme = 'dark' }) => {
+  const isDark = theme === 'dark';
+
   return (
-    <div className={`prose prose-invert max-w-none ${className}`}>
+    <div className={`prose max-w-none ${isDark ? 'prose-invert' : 'prose-light'} ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkMath, remarkGfm]}
         rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false, errorColor: '#cc0000' }]]}
         components={{
-            p: ({node, ...props}) => <p className="mb-2 leading-relaxed text-gray-300" {...props} />,
-            // Reduced font sizes for less "overwhelming" look
-            h1: ({node, ...props}) => <h1 className="text-base font-bold mb-2 text-blue-100" {...props} />,
-            h2: ({node, ...props}) => <h2 className="text-sm font-bold mb-2 text-blue-100" {...props} />,
-            ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-2 text-gray-300" {...props} />,
-            ol: ({node, ...props}) => <ol className="list-decimal pl-5 mb-2 text-gray-300" {...props} />,
-            // Reverted list items to gray (neutral), relying on strong/code for highlighting. No blue for lists.
-            li: ({node, ...props}) => <li className="pl-1 mb-1 text-gray-300 marker:text-gray-500" {...props} />,
-            // Strictly style code to avoid default "red" text
+            p: ({node, ...props}) => <p className={`mb-2 leading-relaxed ${isDark ? 'text-gray-300' : 'text-black'}`} {...props} />,
+            h1: ({node, ...props}) => <h1 className={`text-base font-bold mb-2 ${isDark ? 'text-blue-100' : 'text-black'}`} {...props} />,
+            h2: ({node, ...props}) => <h2 className={`text-sm font-bold mb-2 ${isDark ? 'text-blue-100' : 'text-black'}`} {...props} />,
+            ul: ({node, ...props}) => <ul className={`list-disc pl-5 mb-2 ${isDark ? 'text-gray-300' : 'text-black'}`} {...props} />,
+            ol: ({node, ...props}) => <ol className={`list-decimal pl-5 mb-2 ${isDark ? 'text-gray-300' : 'text-black'}`} {...props} />,
+            li: ({node, ...props}) => <li className={`pl-1 mb-1 marker:text-gray-500 ${isDark ? 'text-gray-300' : 'text-black'}`} {...props} />,
+            
+            // Code blocks
             code: ({node, className, children, ...props}) => {
                 const isMath = className?.includes('math');
                 return (
                     <code 
                         className={`font-mono text-sm px-1 py-0.5 rounded ${
                             isMath 
-                                ? 'text-blue-400 bg-transparent' // Math specific
-                                : 'text-blue-200 bg-blue-900/10' // Inline code/variables
+                                ? (isDark ? 'text-blue-400 bg-transparent' : 'text-blue-700 bg-transparent')
+                                : (isDark ? 'text-blue-200 bg-blue-900/10' : 'text-blue-800 bg-blue-100')
                         }`} 
                         {...props}
                     >
@@ -41,36 +43,40 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
                     </code>
                 )
             },
-            // Handle error spans from katex gracefully
+            
+            // Error spans
             span: ({node, className, children, ...props}) => {
                 if (className?.includes('katex-error')) {
-                    return <span className="text-red-400/80 font-mono text-[10px]" title={`${children}`}>[Math Syntax Error]</span>
+                    return <span className="text-red-500 font-mono text-[10px]" title={`${children}`}>[Math Syntax Error]</span>
                 }
                 return <span className={className} {...props}>{children}</span>
             },
-            // Strong text remains blue for "critical part" visibility
-            strong: ({node, ...props}) => <strong className="font-bold text-blue-300" {...props} />,
+
+            // Strong text
+            strong: ({node, ...props}) => <strong className={`font-bold ${isDark ? 'text-blue-300' : 'text-black'}`} {...props} />,
             
-            // Table components for official markscheme look - STRICT GRID
+            // Tables - Strict Grid with Sharp Text
             table: ({node, ...props}) => (
-                <div className="overflow-x-auto my-6 rounded border border-white/20">
-                    <table className="w-full text-left text-sm border-collapse" {...props} />
+                <div className={`overflow-x-auto my-6 rounded border ${isDark ? 'border-white/20' : 'border-black'}`}>
+                    <table className="w-full text-left text-sm border-collapse min-w-[600px] antialiased" {...props} />
                 </div>
             ),
             thead: ({node, ...props}) => (
-                <thead className="bg-[#1a1a1a] text-xs font-bold uppercase tracking-wider text-gray-300" {...props} />
+                <thead className={`${isDark ? 'bg-[#1a1a1a] text-gray-300' : 'bg-gray-200 text-black'} text-xs font-bold uppercase tracking-wider`} {...props} />
             ),
             tbody: ({node, ...props}) => (
-                <tbody className="bg-[#0e0e0e]" {...props} />
+                <tbody className={isDark ? 'bg-[#0e0e0e]' : 'bg-white'} {...props} />
             ),
             tr: ({node, ...props}) => (
-                <tr className="hover:bg-white/5 transition-colors" {...props} />
+                <tr className={`${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'} transition-colors`} {...props} />
             ),
             th: ({node, ...props}) => (
-                <th className="px-4 py-3 border border-white/20 font-mono text-blue-400 whitespace-nowrap" {...props} />
+                <th className={`px-4 py-3 border whitespace-nowrap align-top ${isDark ? 'border-white/20 text-blue-400' : 'border-black text-black'}`} {...props} />
             ),
             td: ({node, ...props}) => (
-                <td className="px-4 py-3 text-gray-300 align-top leading-relaxed border border-white/20 last:text-right last:font-mono last:text-white" {...props} />
+                <td className={`px-4 py-3 align-top leading-relaxed border whitespace-normal ${
+                    isDark ? 'border-white/20 text-gray-300' : 'border-black text-black'
+                } last:text-right last:font-mono last:whitespace-nowrap first:min-w-[50px] last:min-w-[50px]`} {...props} />
             ),
         }}
       >
