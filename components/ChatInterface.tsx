@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Pen, ChevronRight, ArrowRightLeft } from 'lucide-react';
+import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText } from 'lucide-react';
 import { ChatMessage, MathSolution } from '../types';
 import { createChatSession } from '../services/geminiService';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -11,6 +11,7 @@ interface ChatInterfaceProps {
   currentStepIndex: number;
   isOpen: boolean;
   onClose: () => void;
+  activeView: 'steps' | 'markscheme';
 }
 
 type ChatScope = 'FULL' | 'STEP';
@@ -44,7 +45,7 @@ const TypewriterMessage = ({ text, onComplete }: { text: string, onComplete?: ()
 };
 
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepIndex, isOpen, onClose }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepIndex, isOpen, onClose, activeView }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -62,6 +63,21 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
     chatSessionRef.current = null;
   }, [solution]);
 
+  // Handle activeView switch - automatically switch scope to FULL if entering Markscheme view
+  useEffect(() => {
+      if (activeView === 'markscheme') {
+          setActiveScope('FULL');
+          // Notify user if chat has already started to indicate context shift
+          if (messages.length > 0) {
+               setMessages(prev => [...prev, {
+                   role: 'model',
+                   text: `_Context switched to **Markscheme**. I'll now focus on explaining the grading criteria (M1, A1, R1)._`,
+                   timestamp: Date.now()
+               }]);
+          }
+      }
+  }, [activeView]);
+
   // Handle auto-scroll with direct manipulation for better robustness
   useEffect(() => {
     if (isOpen && messagesContainerRef.current) {
@@ -76,10 +92,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
       Problem Summary: ${solution.problemSummary}
       Final Answer: ${solution.finalAnswer}
       Full Steps JSON: ${JSON.stringify(solution.steps)}
+      ${solution.markscheme ? `Markscheme Content: ${solution.markscheme}` : 'Markscheme not yet loaded.'}
     `;
 
     let focusInstruction = "";
-    if (scope === 'STEP') {
+    if (activeView === 'markscheme') {
+        focusInstruction = `\nROLE: You are an expert IB Math AA HL Examiner.
+        CONTEXT: The user is viewing the MARKSCHEME tab.
+        TASK: Interpret the "Markscheme Content" provided. Explain why marks (M1, A1, R1, AG) are awarded.
+        INSTRUCTION: Focus mainly on the grading logic. If the user asks for a solution, show how it earns specific marks based on the scheme.`;
+    } else if (scope === 'STEP') {
         const currentStep = solution.steps[currentStepIndex];
         focusInstruction = `\nFOCUS: The user specifically wants help with STEP ${currentStepIndex + 1}: "${currentStep.title}". Prioritize explaining this specific step's logic and equation (${currentStep.keyEquation}).`;
     } else {
@@ -108,9 +130,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
 
     try {
       const currentStep = solution.steps[currentStepIndex];
-      const contextPreamble = activeScope === 'STEP' 
-        ? `[User viewing Step ${currentStepIndex + 1}: ${currentStep.title}]` 
-        : `[User viewing full problem context]`;
+      let contextPreamble = "";
+      
+      if (activeView === 'markscheme') {
+           contextPreamble = `[SYSTEM: User is in MARKSCHEME mode.
+           Reference the Markscheme Content below.
+           Explain the marking codes (M1, A1, R1).
+           Markscheme: ${solution.markscheme || "Loading..."}]`;
+      } else {
+           contextPreamble = activeScope === 'STEP' 
+            ? `[User viewing Step ${currentStepIndex + 1}: ${currentStep.title}]` 
+            : `[User viewing full problem context]`;
+      }
       
       if (!chatSessionRef.current) throw new Error("Chat session not initialized");
 
@@ -138,6 +169,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
   };
 
   const toggleScope = () => {
+      // Disable toggle if in Markscheme view
+      if (activeView === 'markscheme') return;
+      
       const newScope = activeScope === 'FULL' ? 'STEP' : 'FULL';
       initializeChat(newScope);
       // Clear history when switching scope manually to avoid confusion
@@ -150,7 +184,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
       }]);
   }
 
-  const suggestions = ["Clarify the logic", "Explain the formula", "Next step?"];
+  const suggestions = activeView === 'markscheme' 
+    ? ["Explain M1 marks", "Why A1 here?", "Show alternative method"] 
+    : ["Clarify the logic", "Explain the formula", "Next step?"];
 
   return (
     <div 
@@ -176,16 +212,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
           </div>
           
           {/* Context Switch */}
-          <button 
-            onClick={toggleScope}
-            className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#0a0a0a] border border-white/10 hover:border-blue-500/30 transition-colors group"
-          >
-               <div className={`w-1.5 h-1.5 rounded-full ${activeScope === 'STEP' ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
-               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 group-hover:text-blue-200 w-16 text-center">
-                  {activeScope === 'STEP' ? `Step ${currentStepIndex + 1}` : 'Problem'}
-               </span>
-               <ArrowRightLeft size={10} className="text-gray-600 group-hover:text-blue-400" />
-          </button>
+          {activeView === 'markscheme' ? (
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#0a0a0a] border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.1)]">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.8)]"></div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
+                      Markscheme
+                  </span>
+              </div>
+          ) : (
+              <button 
+                onClick={toggleScope}
+                className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#0a0a0a] border border-white/10 hover:border-blue-500/30 transition-colors group"
+              >
+                   <div className={`w-1.5 h-1.5 rounded-full ${activeScope === 'STEP' ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
+                   <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 group-hover:text-blue-200 w-16 text-center">
+                      {activeScope === 'STEP' ? `Step ${currentStepIndex + 1}` : 'Problem'}
+                   </span>
+                   <ArrowRightLeft size={10} className="text-gray-600 group-hover:text-blue-400" />
+              </button>
+          )}
         </div>
 
         {/* Messages */}
@@ -199,51 +244,79 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
               <div className="h-full flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
                   
                   {/* Central Pencil Icon - The "Initial" State */}
-                  {/* Reduced size to 20 per user request */}
                   <div className="animate-bounce duration-[3000ms] ease-in-out">
                      <Pen size={20} className="text-blue-400 transform -rotate-12" />
                   </div>
 
                   {!hasStarted ? (
                       // 1. Initial Mode Selection
-                      <>
-                        <div className="text-center space-y-1">
-                            <h3 className="text-lg font-bold text-white tracking-tight">Focus your session</h3>
-                            <p className="text-gray-500 text-xs px-4">Do you need help with the full problem or just the current step?</p>
-                        </div>
+                      activeView === 'markscheme' ? (
+                          <>
+                            <div className="text-center space-y-1">
+                                <h3 className="text-lg font-bold text-white tracking-tight">Markscheme Mode</h3>
+                                <p className="text-gray-500 text-xs px-4">I can help you interpret the marking codes and rubric logic.</p>
+                            </div>
+                            <div className="w-full px-2">
+                                 <button 
+                                    onClick={() => initializeChat('FULL')}
+                                    className="w-full flex items-center justify-between p-4 bg-transparent hover:bg-blue-500/5 border border-white/10 hover:border-blue-500/30 rounded-xl transition-all group text-left shadow-[0_0_15px_rgba(59,130,246,0.05)]"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-blue-500/10 p-2 rounded-lg text-blue-400 border border-blue-500/20">
+                                            <ScrollText size={18} />
+                                        </div>
+                                        <div>
+                                            <div className="text-blue-200 font-semibold text-sm">Start Analysis</div>
+                                            <div className="text-gray-500 text-[11px]">Ask about M1, A1, R1 marks</div>
+                                        </div>
+                                    </div>
+                                    <ChevronRight size={16} className="text-gray-600 group-hover:text-blue-400 transition-colors" />
+                                </button>
+                            </div>
+                          </>
+                      ) : (
+                          // Normal Step/Full selection
+                          <>
+                            <div className="text-center space-y-1">
+                                <h3 className="text-lg font-bold text-white tracking-tight">Focus your session</h3>
+                                <p className="text-gray-500 text-xs px-4">Do you need help with the full problem or just the current step?</p>
+                            </div>
 
-                        <div className="w-full space-y-3 px-2">
-                            <button 
-                                onClick={() => initializeChat('STEP')}
-                                className="w-full flex items-center justify-between p-4 bg-transparent hover:bg-blue-500/5 border border-white/10 hover:border-blue-500/30 rounded-xl transition-all group text-left"
-                            >
-                                <div>
-                                    <div className="text-blue-400 font-semibold text-sm">Current Step Only</div>
-                                    <div className="text-gray-500 text-[11px]">Deep dive into Step {currentStepIndex + 1}</div>
-                                </div>
-                                <ChevronRight size={16} className="text-gray-600 group-hover:text-blue-400 transition-colors" />
-                            </button>
+                            <div className="w-full space-y-3 px-2">
+                                <button 
+                                    onClick={() => initializeChat('STEP')}
+                                    className="w-full flex items-center justify-between p-4 bg-transparent hover:bg-blue-500/5 border border-white/10 hover:border-blue-500/30 rounded-xl transition-all group text-left"
+                                >
+                                    <div>
+                                        <div className="text-blue-400 font-semibold text-sm">Current Step Only</div>
+                                        <div className="text-gray-500 text-[11px]">Deep dive into Step {currentStepIndex + 1}</div>
+                                    </div>
+                                    <ChevronRight size={16} className="text-gray-600 group-hover:text-blue-400 transition-colors" />
+                                </button>
 
-                            <button 
-                                onClick={() => initializeChat('FULL')}
-                                className="w-full flex items-center justify-between p-4 bg-transparent hover:bg-white/5 border border-white/10 hover:border-white/20 rounded-xl transition-all group text-left"
-                            >
-                                <div>
-                                    <div className="text-white font-semibold text-sm">Entire Problem</div>
-                                    <div className="text-gray-500 text-[11px]">General questions & concepts</div>
-                                </div>
-                                <ChevronRight size={16} className="text-gray-600 group-hover:text-white transition-colors" />
-                            </button>
-                        </div>
-                      </>
+                                <button 
+                                    onClick={() => initializeChat('FULL')}
+                                    className="w-full flex items-center justify-between p-4 bg-transparent hover:bg-white/5 border border-white/10 hover:border-white/20 rounded-xl transition-all group text-left"
+                                >
+                                    <div>
+                                        <div className="text-white font-semibold text-sm">Entire Problem</div>
+                                        <div className="text-gray-500 text-[11px]">General questions & concepts</div>
+                                    </div>
+                                    <ChevronRight size={16} className="text-gray-600 group-hover:text-white transition-colors" />
+                                </button>
+                            </div>
+                          </>
+                      )
                   ) : (
                       // 2. Mode Selected but no messages yet
                       <div className="text-center space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                          <h3 className="text-lg font-bold text-white">I'm ready to help.</h3>
                          <p className="text-gray-500 text-xs px-8 leading-relaxed">
-                            {activeScope === 'STEP' 
-                                ? <span>Context set to <b>Step {currentStepIndex + 1}</b>. Ask for details, hints, or breakdown.</span>
-                                : <span>Context set to <b>Full Problem</b>. Ask about concepts or the overall strategy.</span>
+                            {activeView === 'markscheme'
+                                ? <span>Context set to <b>Markscheme</b>. Ask about specific marks or method points.</span>
+                                : activeScope === 'STEP' 
+                                    ? <span>Context set to <b>Step {currentStepIndex + 1}</b>. Ask for details, hints, or breakdown.</span>
+                                    : <span>Context set to <b>Full Problem</b>. Ask about concepts or the overall strategy.</span>
                             }
                          </p>
                       </div>
@@ -255,7 +328,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
                           <button
                             key={suggestion}
                             onClick={() => handleSendMessage(suggestion)}
-                            className="text-[10px] text-gray-500 hover:text-blue-400 px-3 py-1.5 rounded-full border border-white/10 hover:border-blue-500/30 bg-transparent transition-colors cursor-pointer"
+                            className={`text-[10px] px-3 py-1.5 rounded-full border bg-transparent transition-colors cursor-pointer ${
+                                activeView === 'markscheme'
+                                ? 'text-gray-500 hover:text-blue-400 border-white/10 hover:border-blue-500/30'
+                                : 'text-gray-500 hover:text-blue-400 border-white/10 hover:border-blue-500/30'
+                            }`}
                           >
                               {suggestion}
                           </button>

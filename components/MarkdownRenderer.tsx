@@ -55,10 +55,10 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
             // Strong text
             strong: ({node, ...props}) => <strong className={`font-bold ${isDark ? 'text-blue-300' : 'text-black'}`} {...props} />,
             
-            // Tables - Strict Grid with Sharp Text
+            // Tables - Strict Grid with Sharp Text & Fixed Proportions
             table: ({node, ...props}) => (
-                <div className={`overflow-x-auto my-6 rounded border ${isDark ? 'border-white/20' : 'border-black'}`}>
-                    <table className="w-full text-left text-sm border-collapse min-w-[600px] antialiased" {...props} />
+                <div className={`overflow-x-auto my-4 rounded-lg border ${isDark ? 'border-white/10' : 'border-black'}`}>
+                    <table className="w-full text-left text-sm border-collapse min-w-[500px]" {...props} />
                 </div>
             ),
             thead: ({node, ...props}) => (
@@ -68,15 +68,15 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
                 <tbody className={isDark ? 'bg-[#0e0e0e]' : 'bg-white'} {...props} />
             ),
             tr: ({node, ...props}) => (
-                <tr className={`${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'} transition-colors`} {...props} />
+                <tr className={`${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'} transition-colors border-b last:border-0 ${isDark ? 'border-white/5' : 'border-gray-200'}`} {...props} />
             ),
             th: ({node, ...props}) => (
-                <th className={`px-4 py-3 border whitespace-nowrap align-top ${isDark ? 'border-white/20 text-blue-400' : 'border-black text-black'}`} {...props} />
+                <th className={`px-4 py-3 font-semibold whitespace-nowrap ${isDark ? 'text-blue-400' : 'text-black'} first:w-[50px] last:w-[80px]`} {...props} />
             ),
             td: ({node, ...props}) => (
-                <td className={`px-4 py-3 align-top leading-relaxed border whitespace-normal ${
-                    isDark ? 'border-white/20 text-gray-300' : 'border-black text-black'
-                } last:text-right last:font-mono last:whitespace-nowrap first:min-w-[50px] last:min-w-[50px]`} {...props} />
+                <td className={`px-4 py-2.5 align-top leading-relaxed whitespace-pre-wrap ${
+                    isDark ? 'text-gray-300' : 'text-black'
+                } first:font-mono first:text-xs first:text-gray-500 last:font-bold last:text-right last:whitespace-nowrap`} {...props} />
             ),
         }}
       >

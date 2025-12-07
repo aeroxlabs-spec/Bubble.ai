@@ -106,8 +106,21 @@ const retryOperation = async <T>(operation: () => Promise<T>, retries = 3, delay
     try {
         return await operation();
     } catch (error: any) {
-        if (retries > 0 && (error.status === 429 || error.message?.includes('429') || error.message?.includes('quota'))) {
-            console.warn(`Quota exceeded. Retrying in ${delayMs}ms... (${retries} retries left)`);
+        // Robust retry for various network/server issues including the specific XHR error code 6
+        const isNetworkError = 
+            error.message?.includes('xhr error') || 
+            error.message?.includes('fetch failed') ||
+            error.message?.includes('network') ||
+            error.code === 6; // Specific gRPC/XHR error code
+            
+        const isServerOrQuota = 
+            error.status === 429 || 
+            error.status >= 500 || 
+            error.message?.includes('429') || 
+            error.message?.includes('quota');
+
+        if (retries > 0 && (isNetworkError || isServerOrQuota)) {
+            console.warn(`Operation failed (Status: ${error.status}, Msg: ${error.message}). Retrying in ${delayMs}ms... (${retries} retries left)`);
             await delay(delayMs);
             return retryOperation(operation, retries - 1, delayMs * 2); // Exponential backoff
         }
@@ -193,9 +206,7 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
       1. Output STRICT JSON.
       2. Markscheme must be a Markdown Table.
          - Columns: | Step | Working | Explanation | Marks |
-         - CRITICAL: Marks (e.g. M1, A1) must be in the 'Marks' column ONLY. Do NOT put them in Explanation.
-         - Do not use newlines inside a table cell. Use spaces for separation.
-         - Do NOT use HTML tags like <br>. Use spaces to separate multiple marks (e.g. "M1 A1").
+         - CRITICAL: Marks (e.g. M1, A1) must be in the 'Marks' column ONLY.
          - Keep each row on a SINGLE line.
       3. Use LaTeX ($...$) for ALL math and numbers.
       4. QUESTION FORMATTING:
@@ -326,31 +337,30 @@ export const getMarkscheme = async (exerciseStatement: string, stepsJson: string
                 model: "gemini-2.5-flash",
                 contents: `
                     You are an official IB Math AA HL Examiner. 
-                    Create a formal MARKSCHEME for the following problem:
+                    Create a formal MARKSCHEME for the following problem.
                     
                     Problem: "${exerciseStatement}"
                     Solution Context: ${stepsJson}
 
                     Formatting Rules:
-                    1. Use a standard Markscheme layout.
-                    2. Use official IB Marking codes in the "Marks" column:
-                       - **M1**: Method mark (for attempting a valid method)
-                       - **A1**: Accuracy mark (for correct values)
-                       - **R1**: Reasoning mark (for correct explanations)
-                       - **(A1)**: Implied Accuracy
-                       - **AG**: Answer Given
-                    3. Output a SINGLE Markdown table with these exact columns:
-                       | Part | Working | Explanation | Marks |
-                    4. **Organization**: The 'Part' column must clearly label the question part (e.g., "(a)", "(b)(i)"). If a step belongs to the same part, leave the cell empty or use " " to indicate continuation.
-                    5. **Math**: Ensure all math is valid LaTeX wrapped in $ (inline math). 
-                    6. **Cleanliness**: 
-                       - Do NOT use bold asterisks (**) inside ANY LaTeX expression. 
-                       - Do NOT bold the math itself.
-                       - Example: Write $2x + 1$, NOT **$2x + 1$** or $**2x + 1**$.
-                    7. Do NOT use newlines in cells. Use spaces.
-                    8. MARK COLUMN MUST BE LAST.
-                    9. SEPARATION: Use SPACES to separate multiple marks (e.g. "M1 A1"). Do NOT use HTML tags.
-                    10. Ensure the table markdown is NOT wrapped in a code block. Return ONLY the markdown table.
+                    1. **Strict Markdown Table**:
+                       - Columns: | Part | Working | Explanation | Marks |
+                       - **Column 1 (Part)**: Keep minimal (e.g. (a)).
+                       - **Column 2 (Working)**: The main math steps. LaTeX required ($...$).
+                       - **Column 3 (Explanation)**: Very brief reasoning (e.g. "Chain rule").
+                       - **Column 4 (Marks)**: Official codes ONLY (M1, A1, R1).
+                    
+                    2. **Content Density**:
+                       - NO EMPTY ROWS.
+                       - Combine related steps into one row to save space.
+                       - Do NOT use <br> tags. 
+                       - If a part has multiple marks, list them in the same cell separated by spaces (e.g. "M1 A1").
+                       
+                    3. **Cleanliness**:
+                       - Remove all unnecessary whitespace.
+                       - Do NOT bold math expressions.
+                       - Do NOT use newlines characters (\n) inside table cells.
+                       - Return ONLY the table.
                 `
             });
             return response.text || "Markscheme generation failed.";

@@ -384,14 +384,14 @@ const App: React.FC = () => {
   const normalizeMarkscheme = (text: string) => {
     if (!text || text === 'null') return "";
 
-    // 0. Aggressive Cleanup for dirty asterisks
+    // 0. Aggressive Cleanup for dirty asterisks and multiple newlines
     let clean = text.replace(/\*\*/g, ''); 
 
     // 1. Convert block math to inline math to prevent line breaks
     clean = clean.replace(/\$\$/g, '$');
     
-    // 2. Convert literal newlines to real newlines
-    clean = clean.replace(/\\n/g, '\n');
+    // 2. Convert literal newlines to real newlines, then condense multiple newlines
+    clean = clean.replace(/\\n/g, '\n').replace(/\n\s*\n/g, '\n');
     
     // 3. Remove HTML breaks (replace with space)
     clean = clean.replace(/<br\s*\/?>/gi, ' ');
@@ -969,7 +969,14 @@ const App: React.FC = () => {
       </div>
 
       {appState === AppState.SOLVED && appMode === 'SOLVER' && activeSolution && (
-          <ChatInterface key={activeTab} solution={activeSolution} currentStepIndex={currentStepIndex} isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+          <ChatInterface 
+             key={activeTab} 
+             solution={activeSolution} 
+             currentStepIndex={currentStepIndex} 
+             isOpen={isChatOpen} 
+             onClose={() => setIsChatOpen(false)} 
+             activeView={activeView} 
+          />
       )}
       
     </div>
