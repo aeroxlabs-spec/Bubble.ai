@@ -39,9 +39,19 @@ export interface UserInput {
   fileName?: string;
 }
 
-// --- EXAM CREATION MODE TYPES ---
+// --- AUTH TYPES ---
+export interface User {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl?: string;
+}
 
-export type AppMode = 'SOLVER' | 'EXAM';
+// --- MODES ---
+
+export type AppMode = 'SOLVER' | 'EXAM' | 'DRILL';
+
+// --- EXAM TYPES ---
 
 export type ExamDifficulty = 'STANDARD' | 'HARD' | 'HELL';
 
@@ -77,4 +87,24 @@ export interface ExamPaper {
   totalMarks: number;
   duration: number;
   sections: ExamSection[];
+}
+
+// --- DRILL TYPES ---
+
+export interface DrillSettings {
+  difficulty: ExamDifficulty;
+  topics: string[];
+  calculator: ExamCalculatorOption;
+}
+
+export interface DrillQuestion {
+  id: string;
+  number: number;
+  topic: string;
+  difficultyLevel: number; // 1-10
+  questionText: string;
+  shortAnswer: string;
+  markscheme: string;
+  hint: string;
+  calculatorAllowed: boolean;
 }

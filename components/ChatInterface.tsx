@@ -1,17 +1,19 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText } from 'lucide-react';
-import { ChatMessage, MathSolution } from '../types';
+import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText, Zap } from 'lucide-react';
+import { ChatMessage, MathSolution, DrillQuestion, AppMode } from '../types';
 import { createChatSession } from '../services/geminiService';
 import MarkdownRenderer from './MarkdownRenderer';
 import { Chat } from '@google/genai';
 
 interface ChatInterfaceProps {
-  solution: MathSolution;
+  solution?: MathSolution;
+  drillQuestion?: DrillQuestion;
   currentStepIndex: number;
   isOpen: boolean;
   onClose: () => void;
   activeView: 'steps' | 'markscheme';
+  mode: AppMode;
 }
 
 type ChatScope = 'FULL' | 'STEP';
@@ -45,7 +47,7 @@ const TypewriterMessage = ({ text, onComplete }: { text: string, onComplete?: ()
 };
 
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepIndex, isOpen, onClose, activeView }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, currentStepIndex, isOpen, onClose, activeView, mode }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -55,17 +57,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
   const chatSessionRef = useRef<Chat | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // If the user switches solutions, reset state completely
+  // If the user switches solutions or drill questions, reset state completely
   useEffect(() => {
     setMessages([]);
     setHasStarted(false);
     setActiveScope('FULL');
     chatSessionRef.current = null;
-  }, [solution]);
+  }, [solution, drillQuestion]);
 
   // Handle activeView switch - automatically switch scope to FULL if entering Markscheme view
   useEffect(() => {
-      if (activeView === 'markscheme') {
+      if (mode === 'SOLVER' && activeView === 'markscheme') {
           setActiveScope('FULL');
           // Notify user if chat has already started to indicate context shift
           if (messages.length > 0) {
@@ -76,7 +78,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
                }]);
           }
       }
-  }, [activeView]);
+  }, [activeView, mode]);
 
   // Handle auto-scroll with direct manipulation for better robustness
   useEffect(() => {
@@ -88,24 +90,43 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
 
   const initializeChat = (scope: ChatScope) => {
     setActiveScope(scope);
-    const baseContext = `
-      Problem Summary: ${solution.problemSummary}
-      Final Answer: ${solution.finalAnswer}
-      Full Steps JSON: ${JSON.stringify(solution.steps)}
-      ${solution.markscheme ? `Markscheme Content: ${solution.markscheme}` : 'Markscheme not yet loaded.'}
-    `;
-
+    
+    let baseContext = "";
     let focusInstruction = "";
-    if (activeView === 'markscheme') {
-        focusInstruction = `\nROLE: You are an expert IB Math AA HL Examiner.
-        CONTEXT: The user is viewing the MARKSCHEME tab.
-        TASK: Interpret the "Markscheme Content" provided. Explain why marks (M1, A1, R1, AG) are awarded.
-        INSTRUCTION: Focus mainly on the grading logic. If the user asks for a solution, show how it earns specific marks based on the scheme.`;
-    } else if (scope === 'STEP') {
-        const currentStep = solution.steps[currentStepIndex];
-        focusInstruction = `\nFOCUS: The user specifically wants help with STEP ${currentStepIndex + 1}: "${currentStep.title}". Prioritize explaining this specific step's logic and equation (${currentStep.keyEquation}).`;
-    } else {
-        focusInstruction = `\nFOCUS: The user wants help with the entire exercise. Be ready to explain the overall concept or any part of it.`;
+
+    if (mode === 'DRILL' && drillQuestion) {
+        baseContext = `
+            Drill Context:
+            Question: ${drillQuestion.questionText}
+            Topic: ${drillQuestion.topic}
+            Difficulty: ${drillQuestion.difficultyLevel}/10
+            Correct Answer: ${drillQuestion.shortAnswer}
+            Markscheme: ${drillQuestion.markscheme}
+        `;
+        focusInstruction = `\nROLE: You are an encouraging Drill Coach.
+        CONTEXT: User is practicing a Drill Question (Q${drillQuestion.number}).
+        GOAL: Help them solve it WITHOUT giving the answer immediately. Give progressive hints.
+        If they are wrong, explain the misconception.`;
+
+    } else if (mode === 'SOLVER' && solution) {
+        baseContext = `
+          Problem Summary: ${solution.problemSummary}
+          Final Answer: ${solution.finalAnswer}
+          Full Steps JSON: ${JSON.stringify(solution.steps)}
+          ${solution.markscheme ? `Markscheme Content: ${solution.markscheme}` : 'Markscheme not yet loaded.'}
+        `;
+
+        if (activeView === 'markscheme') {
+            focusInstruction = `\nROLE: You are an expert IB Math AA HL Examiner.
+            CONTEXT: The user is viewing the MARKSCHEME tab.
+            TASK: Interpret the "Markscheme Content" provided. Explain why marks (M1, A1, R1, AG) are awarded.
+            INSTRUCTION: Focus mainly on the grading logic. If the user asks for a solution, show how it earns specific marks based on the scheme.`;
+        } else if (scope === 'STEP') {
+            const currentStep = solution.steps[currentStepIndex];
+            focusInstruction = `\nFOCUS: The user specifically wants help with STEP ${currentStepIndex + 1}: "${currentStep.title}". Prioritize explaining this specific step's logic and equation (${currentStep.keyEquation}).`;
+        } else {
+            focusInstruction = `\nFOCUS: The user wants help with the entire exercise. Be ready to explain the overall concept or any part of it.`;
+        }
     }
 
     chatSessionRef.current = createChatSession(baseContext + focusInstruction);
@@ -129,18 +150,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
     setIsLoading(true);
 
     try {
-      const currentStep = solution.steps[currentStepIndex];
       let contextPreamble = "";
       
-      if (activeView === 'markscheme') {
-           contextPreamble = `[SYSTEM: User is in MARKSCHEME mode.
-           Reference the Markscheme Content below.
-           Explain the marking codes (M1, A1, R1).
-           Markscheme: ${solution.markscheme || "Loading..."}]`;
-      } else {
-           contextPreamble = activeScope === 'STEP' 
-            ? `[User viewing Step ${currentStepIndex + 1}: ${currentStep.title}]` 
-            : `[User viewing full problem context]`;
+      if (mode === 'DRILL') {
+          contextPreamble = `[System: User is asking about the Drill Question.]`;
+      } else if (mode === 'SOLVER' && solution) {
+          const currentStep = solution.steps[currentStepIndex];
+          if (activeView === 'markscheme') {
+               contextPreamble = `[SYSTEM: User is in MARKSCHEME mode.
+               Reference the Markscheme Content below.
+               Explain the marking codes (M1, A1, R1).
+               Markscheme: ${solution.markscheme || "Loading..."}]`;
+          } else {
+               contextPreamble = activeScope === 'STEP' 
+                ? `[User viewing Step ${currentStepIndex + 1}: ${currentStep.title}]` 
+                : `[User viewing full problem context]`;
+          }
       }
       
       if (!chatSessionRef.current) throw new Error("Chat session not initialized");
@@ -169,8 +194,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
   };
 
   const toggleScope = () => {
-      // Disable toggle if in Markscheme view
-      if (activeView === 'markscheme') return;
+      // Disable toggle if in Markscheme view or Drill mode
+      if (activeView === 'markscheme' || mode === 'DRILL') return;
       
       const newScope = activeScope === 'FULL' ? 'STEP' : 'FULL';
       initializeChat(newScope);
@@ -184,9 +209,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
       }]);
   }
 
-  const suggestions = activeView === 'markscheme' 
-    ? ["Explain M1 marks", "Why A1 here?", "Show alternative method"] 
-    : ["Clarify the logic", "Explain the formula", "Next step?"];
+  // Define suggestions based on Mode
+  let suggestions: string[] = [];
+  if (mode === 'DRILL') {
+      suggestions = ["I'm stuck, give me a hint", "What topic is this?", "Show me the first step"];
+  } else if (activeView === 'markscheme') {
+      suggestions = ["Explain M1 marks", "Why A1 here?", "Show alternative method"];
+  } else {
+      suggestions = ["Clarify the logic", "Explain the formula", "Next step?"];
+  }
 
   return (
     <div 
@@ -204,15 +235,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
         {/* Header */}
         <div className="flex-shrink-0 px-6 py-5 flex items-center justify-between border-b border-white/5 bg-[#151515]">
           <div className="flex items-center gap-2">
-             {/* Animated Pencil - Only visible when messages exist, simulating movement from center */}
+             {/* Animated Pencil/Zap */}
              <div className={`transition-all duration-500 ease-in-out flex items-center overflow-hidden ${messages.length > 0 ? 'w-6 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-4'}`}>
-                <Pen size={16} className="text-blue-400 flex-shrink-0" />
+                {mode === 'DRILL' ? <Zap size={16} className="text-yellow-400" /> : <Pen size={16} className="text-blue-400 flex-shrink-0" />}
              </div>
              <span className="text-white font-sans font-bold text-lg tracking-tighter">Bubble.</span>
           </div>
           
           {/* Context Switch */}
-          {activeView === 'markscheme' ? (
+          {mode === 'DRILL' ? (
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#0a0a0a] border border-yellow-500/30 shadow-[0_0_10px_rgba(234,179,8,0.1)]">
+                  <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 shadow-[0_0_5px_rgba(234,179,8,0.8)]"></div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-200">
+                      Drill Coach
+                  </span>
+              </div>
+          ) : activeView === 'markscheme' ? (
               <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#0a0a0a] border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.1)]">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.8)]"></div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
@@ -243,14 +281,41 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
           {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
                   
-                  {/* Central Pencil Icon - The "Initial" State */}
+                  {/* Central Icon */}
                   <div className="animate-bounce duration-[3000ms] ease-in-out">
-                     <Pen size={20} className="text-blue-400 transform -rotate-12" />
+                     {mode === 'DRILL' 
+                        ? <Zap size={22} className="text-yellow-400 fill-yellow-500/20" /> 
+                        : <Pen size={20} className="text-blue-400 transform -rotate-12" />
+                     }
                   </div>
 
                   {!hasStarted ? (
                       // 1. Initial Mode Selection
-                      activeView === 'markscheme' ? (
+                      mode === 'DRILL' ? (
+                          <>
+                            <div className="text-center space-y-1">
+                                <h3 className="text-lg font-bold text-white tracking-tight">Practice Assistant</h3>
+                                <p className="text-gray-500 text-xs px-4">I'm here to coach you through this drill.</p>
+                            </div>
+                            <div className="w-full px-2">
+                                 <button 
+                                    onClick={() => initializeChat('FULL')}
+                                    className="w-full flex items-center justify-between p-4 bg-transparent hover:bg-yellow-500/5 border border-white/10 hover:border-yellow-500/30 rounded-xl transition-all group text-left shadow-[0_0_15px_rgba(234,179,8,0.05)]"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-yellow-500/10 p-2 rounded-lg text-yellow-400 border border-yellow-500/20">
+                                            <Zap size={18} />
+                                        </div>
+                                        <div>
+                                            <div className="text-yellow-200 font-semibold text-sm">Start Coaching</div>
+                                            <div className="text-gray-500 text-[11px]">Hints, tips, & explanations</div>
+                                        </div>
+                                    </div>
+                                    <ChevronRight size={16} className="text-gray-600 group-hover:text-yellow-400 transition-colors" />
+                                </button>
+                            </div>
+                          </>
+                      ) : activeView === 'markscheme' ? (
                           <>
                             <div className="text-center space-y-1">
                                 <h3 className="text-lg font-bold text-white tracking-tight">Markscheme Mode</h3>
@@ -312,25 +377,27 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
                       <div className="text-center space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                          <h3 className="text-lg font-bold text-white">I'm ready to help.</h3>
                          <p className="text-gray-500 text-xs px-8 leading-relaxed">
-                            {activeView === 'markscheme'
-                                ? <span>Context set to <b>Markscheme</b>. Ask about specific marks or method points.</span>
-                                : activeScope === 'STEP' 
-                                    ? <span>Context set to <b>Step {currentStepIndex + 1}</b>. Ask for details, hints, or breakdown.</span>
-                                    : <span>Context set to <b>Full Problem</b>. Ask about concepts or the overall strategy.</span>
+                            {mode === 'DRILL'
+                                ? <span>Practice mode active. I'll provide <b>hints</b> without spoiling the answer.</span>
+                                : activeView === 'markscheme'
+                                    ? <span>Context set to <b>Markscheme</b>. Ask about specific marks or method points.</span>
+                                    : activeScope === 'STEP' 
+                                        ? <span>Context set to <b>Step {currentStepIndex + 1}</b>. Ask for details, hints, or breakdown.</span>
+                                        : <span>Context set to <b>Full Problem</b>. Ask about concepts or the overall strategy.</span>
                             }
                          </p>
                       </div>
                   )}
 
-                  {/* Suggestions - Always visible when empty */}
+                  {/* Suggestions */}
                   <div className="flex flex-wrap justify-center gap-2 pt-2">
                       {suggestions.map((suggestion) => (
                           <button
                             key={suggestion}
                             onClick={() => handleSendMessage(suggestion)}
                             className={`text-[10px] px-3 py-1.5 rounded-full border bg-transparent transition-colors cursor-pointer ${
-                                activeView === 'markscheme'
-                                ? 'text-gray-500 hover:text-blue-400 border-white/10 hover:border-blue-500/30'
+                                mode === 'DRILL'
+                                ? 'text-gray-500 hover:text-yellow-400 border-white/10 hover:border-yellow-500/30'
                                 : 'text-gray-500 hover:text-blue-400 border-white/10 hover:border-blue-500/30'
                             }`}
                           >
@@ -345,11 +412,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
                 <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm border ${
                     msg.role === 'user' 
-                    ? 'bg-[#1e293b] border-blue-500/10 text-blue-100 rounded-br-sm' 
+                    ? (mode === 'DRILL' 
+                        ? 'bg-yellow-900/20 border-yellow-500/10 text-yellow-100 rounded-br-sm' 
+                        : 'bg-[#1e293b] border-blue-500/10 text-blue-100 rounded-br-sm'
+                    ) 
                     : 'bg-[#1c1c1e] text-gray-200 border-white/5 rounded-bl-sm'
                 }`}>
                     {msg.role === 'model' ? (
-                        // Use Typewriter effect for the latest model message, static for older ones
                         (idx === messages.length - 1 && !isLoading) 
                             ? <TypewriterMessage text={msg.text} /> 
                             : <MarkdownRenderer content={msg.text} className="prose-sm" />
@@ -374,7 +443,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
 
         {/* Footer */}
         <div className="flex-shrink-0 bg-[#151515] border-t border-white/5 flex flex-col p-4">
-          <div className="flex items-center gap-2 bg-[#0a0a0a] rounded-full border border-white/10 focus-within:border-blue-500/30 transition-colors">
+          <div className={`flex items-center gap-2 bg-[#0a0a0a] rounded-full border border-white/10 transition-colors ${
+              mode === 'DRILL' ? 'focus-within:border-yellow-500/30' : 'focus-within:border-blue-500/30'
+          }`}>
               <input
               type="text"
               className="flex-1 bg-transparent border-none focus:outline-none text-sm text-gray-200 placeholder:text-gray-600 px-5 py-3"
@@ -386,7 +457,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, currentStepInde
               <button 
               onClick={() => handleSendMessage()}
               disabled={!inputValue.trim() || isLoading}
-              className="p-2 mr-2 text-blue-400 hover:bg-blue-500/10 rounded-full transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+              className={`p-2 mr-2 rounded-full transition-colors disabled:opacity-50 disabled:hover:bg-transparent ${
+                  mode === 'DRILL' 
+                  ? 'text-yellow-400 hover:bg-yellow-500/10' 
+                  : 'text-blue-400 hover:bg-blue-500/10'
+              }`}
               >
               <Send size={18} />
               </button>

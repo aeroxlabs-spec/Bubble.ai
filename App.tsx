@@ -1,20 +1,24 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper } from './types';
-import { analyzeMathInput, getMarkscheme, generateExam } from './services/geminiService';
+import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion } from './types';
+import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion } from './services/geminiService';
+import { useAuth } from './contexts/AuthContext';
+import { AuthScreens } from './components/AuthScreens';
 import UploadZone from './components/UploadZone';
 import StepCard from './components/StepCard';
 import ChatInterface from './components/ChatInterface';
 import MarkdownRenderer from './components/MarkdownRenderer';
 import ExamConfigPanel from './components/ExamConfigPanel';
 import ExamViewer from './components/ExamViewer';
-import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator } from 'lucide-react';
+import DrillConfigPanel from './components/DrillConfigPanel';
+import DrillSessionViewer from './components/DrillSessionViewer';
+import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator, Zap, LogOut, User as UserIcon } from 'lucide-react';
 
 /**
  * Magnetic Pencil Component
  * Clean, minimalistic signature icon.
  */
-const MagneticPencil = ({ onClick, isOpen }: { onClick: () => void, isOpen: boolean }) => {
+const MagneticPencil = ({ onClick, isOpen, mode }: { onClick: () => void, isOpen: boolean, mode: AppMode }) => {
   const btnRef = useRef<HTMLButtonElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
@@ -52,6 +56,12 @@ const MagneticPencil = ({ onClick, isOpen }: { onClick: () => void, isOpen: bool
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [isOpen]);
 
+  const colorClass = mode === 'DRILL' 
+    ? 'text-yellow-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]' 
+    : 'text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]';
+
+  const Icon = mode === 'DRILL' ? Zap : Pen;
+
   return (
     <div className="fixed bottom-10 right-10 z-50 pointer-events-none">
        <button
@@ -66,7 +76,7 @@ const MagneticPencil = ({ onClick, isOpen }: { onClick: () => void, isOpen: bool
         {isOpen ? (
             <X size={20} className="text-white opacity-80" />
         ) : (
-            <Pen size={20} className="text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
+            <Icon size={20} className={colorClass} />
         )}
       </button>
     </div>
@@ -352,6 +362,8 @@ const calculateTotalMarks = (text: string) => {
 };
 
 const App: React.FC = () => {
+  const { user, loading: authLoading, logout } = useAuth();
+  
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
   const [appMode, setAppMode] = useState<AppMode>('SOLVER');
   
@@ -359,6 +371,12 @@ const App: React.FC = () => {
   const [uploads, setUploads] = useState<UserInput[]>([]);
   const [solutions, setSolutions] = useState<(MathSolution | null)[]>([]); 
   const [generatedExam, setGeneratedExam] = useState<ExamPaper | null>(null);
+
+  // Drill Mode State
+  const [drillSettings, setDrillSettings] = useState<DrillSettings | null>(null);
+  const [drillQuestions, setDrillQuestions] = useState<DrillQuestion[]>([]);
+  const [currentDrillIndex, setCurrentDrillIndex] = useState(0);
+  const [loadingDrill, setLoadingDrill] = useState(false);
 
   // UI State
   const [activeTab, setActiveTab] = useState<number>(0);
@@ -369,16 +387,111 @@ const App: React.FC = () => {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [analyzingIndex, setAnalyzingIndex] = useState<number>(-1);
   const [loadingMarkscheme, setLoadingMarkscheme] = useState(false);
-  const [showExamConfig, setShowExamConfig] = useState(false);
+  const [showConfig, setShowConfig] = useState(false); // Used for both Exam and Drill config
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showActionButtons, setShowActionButtons] = useState(false);
   
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [startBackgroundEffects, setStartBackgroundEffects] = useState(false);
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
   const [isMarkschemeOpen, setIsMarkschemeOpen] = useState(true);
 
+  // Define handleReset here, before any effects that use it
+  const handleReset = () => {
+    setAppState(AppState.IDLE);
+    setSolutions([]);
+    setGeneratedExam(null);
+    setUploads([]);
+    setCurrentStepIndex(0);
+    setActiveTab(0);
+    setIsChatOpen(false);
+    setActiveView('steps');
+    setStartBackgroundEffects(false);
+    setShowConfig(false);
+    setShowActionButtons(false);
+    
+    // Drill Reset
+    setDrillSettings(null);
+    setDrillQuestions([]);
+    setCurrentDrillIndex(0);
+    setLoadingDrill(false);
+  };
+
+  // Logic to reset state when user logs out
+  useEffect(() => {
+      if (!user) {
+          handleReset();
+      }
+  }, [user]);
+
   // Computed active solution
   const activeSolution = solutions[activeTab];
   const activeInput = uploads[activeTab];
+
+  // Group steps logic (Moved up to obey Hook Rules)
+  const stepGroups = React.useMemo(() => {
+    if (!activeSolution) return [];
+    
+    const groups: { title: string; steps: { data: MathStep; index: number }[] }[] = [];
+    
+    activeSolution.steps.forEach((step, index) => {
+        const sectionTitle = step.section || "Solution";
+        if (groups.length === 0 || groups[groups.length - 1].title !== sectionTitle) {
+            groups.push({ title: sectionTitle, steps: [] });
+        }
+        groups[groups.length - 1].steps.push({ data: step, index });
+    });
+    
+    return groups;
+  }, [activeSolution]);
+
+  // Effect to ensure current step's section is open
+  useEffect(() => {
+      if (!stepGroups.length) return;
+      const activeGroup = stepGroups.find(g => g.steps.some(s => s.index === currentStepIndex));
+      if (activeGroup) {
+          setOpenSections(prev => {
+              const next = new Set(prev);
+              next.add(activeGroup.title);
+              return next;
+          });
+      }
+  }, [currentStepIndex, stepGroups]);
+
+  // Keyboard Navigation Effect
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (appState !== AppState.SOLVED || isChatOpen || activeView !== 'steps') return;
+      
+      if (appMode === 'SOLVER' && activeSolution) {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.preventDefault();
+        if (e.key === 'ArrowRight') setCurrentStepIndex(prev => Math.min(prev + 1, activeSolution.steps.length - 1));
+        else if (e.key === 'ArrowLeft') setCurrentStepIndex(prev => Math.max(prev - 1, 0));
+      } 
+      else if (appMode === 'DRILL' && drillQuestions.length > 0) {
+          if (e.key === 'ArrowRight') handleNextDrillQuestion();
+          else if (e.key === 'ArrowLeft') handlePrevDrillQuestion();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [appState, activeSolution, isChatOpen, activeView, appMode, drillQuestions, currentDrillIndex]);
+
+  // Progress Bar Effect
+  useEffect(() => {
+    if (appState === AppState.ANALYZING && appMode !== 'DRILL') {
+        const progressInterval = setInterval(() => {
+            setLoadingProgress(prev => {
+                if (prev >= 95) return prev;
+                const increment = Math.max(0.2, (95 - prev) / 30); 
+                return prev + increment;
+            });
+        }, 100);
+        return () => clearInterval(progressInterval);
+    } else {
+        setLoadingProgress(0);
+    }
+  }, [appState, appMode]);
 
   // Helper to normalize Markscheme tables (shared with ExamViewer logic)
   const normalizeMarkscheme = (text: string) => {
@@ -442,72 +555,6 @@ const App: React.FC = () => {
 
   const currentLoadingPhrases = appMode === 'SOLVER' ? solverPhrases : examPhrases;
 
-  // Group steps by section
-  const stepGroups = React.useMemo(() => {
-    if (!activeSolution) return [];
-    
-    const groups: { title: string; steps: { data: MathStep; index: number }[] }[] = [];
-    
-    activeSolution.steps.forEach((step, index) => {
-        const sectionTitle = step.section || "Solution";
-        if (groups.length === 0 || groups[groups.length - 1].title !== sectionTitle) {
-            groups.push({ title: sectionTitle, steps: [] });
-        }
-        groups[groups.length - 1].steps.push({ data: step, index });
-    });
-    
-    return groups;
-  }, [activeSolution]);
-
-  // Effect to ensure current step's section is open
-  useEffect(() => {
-      if (!stepGroups.length) return;
-      const activeGroup = stepGroups.find(g => g.steps.some(s => s.index === currentStepIndex));
-      if (activeGroup) {
-          setOpenSections(prev => {
-              const next = new Set(prev);
-              next.add(activeGroup.title);
-              return next;
-          });
-      }
-  }, [currentStepIndex, stepGroups]);
-
-  // Keyboard Navigation for Steps
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (appState !== AppState.SOLVED || !activeSolution || isChatOpen || activeView !== 'steps') return;
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.preventDefault();
-      if (e.key === 'ArrowRight') setCurrentStepIndex(prev => Math.min(prev + 1, activeSolution.steps.length - 1));
-      else if (e.key === 'ArrowLeft') setCurrentStepIndex(prev => Math.max(prev - 1, 0));
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [appState, activeSolution, isChatOpen, activeView]);
-
-  const toggleSection = (title: string) => {
-    setOpenSections(prev => {
-        const next = new Set(prev);
-        if (next.has(title)) next.delete(title);
-        else next.add(title);
-        return next;
-    });
-  };
-
-  useEffect(() => {
-    if (appState === AppState.ANALYZING) {
-        const progressInterval = setInterval(() => {
-            setLoadingProgress(prev => {
-                if (prev >= 95) return prev;
-                const increment = Math.max(0.2, (95 - prev) / 30); 
-                return prev + increment;
-            });
-        }, 100);
-        return () => clearInterval(progressInterval);
-    } else {
-        setLoadingProgress(0);
-    }
-  }, [appState]);
-
   const handleInputAdd = (input: UserInput) => {
     setUploads(prev => [...prev, input]);
     setErrorMsg(null);
@@ -522,6 +569,7 @@ const App: React.FC = () => {
       setAnalyzingIndex(0);
       setLoadingProgress(0);
       setStartBackgroundEffects(false); 
+      setShowActionButtons(false);
       setSolutions(new Array(uploads.length).fill(null));
 
       try {
@@ -558,10 +606,11 @@ const App: React.FC = () => {
   }
 
   const handleExamConfigSubmit = async (settings: ExamSettings) => {
-      setShowExamConfig(false);
+      setShowConfig(false);
       setAppState(AppState.ANALYZING);
       setLoadingProgress(0);
       setStartBackgroundEffects(false);
+      setShowActionButtons(false);
 
       try {
           const exam = await generateExam(uploads, settings);
@@ -577,26 +626,91 @@ const App: React.FC = () => {
       }
   }
 
+  // --- Drill Mode Handlers ---
+
+  const generateDrillBatch = async (startNum: number, prevDiff: number, count: number, settings: DrillSettings): Promise<DrillQuestion[]> => {
+      const promises = [];
+      let currentDiff = prevDiff;
+      for (let i = 0; i < count; i++) {
+          promises.push(generateDrillQuestion(settings, uploads, startNum + i, currentDiff));
+          // Increment difficulty logic slightly for prediction (actual func does it too)
+          currentDiff = Math.min(10, currentDiff + 0.5); 
+      }
+      return Promise.all(promises);
+  }
+
+  const handleDrillConfigSubmit = async (settings: DrillSettings) => {
+      setShowConfig(false);
+      setDrillSettings(settings);
+      setAppState(AppState.SOLVED);
+      setDrillQuestions([]);
+      setCurrentDrillIndex(0);
+      setLoadingDrill(true);
+
+      try {
+          // Generate 3 questions initially
+          const initialBatch = await generateDrillBatch(1, 0, 3, settings);
+          setDrillQuestions(initialBatch);
+      } catch (e) {
+          console.error(e);
+          setErrorMsg("Failed to start drill session.");
+          setAppState(AppState.ERROR);
+      } finally {
+          setLoadingDrill(false);
+      }
+  }
+
+  const handleNextDrillQuestion = async () => {
+      if (!drillSettings) return;
+      if (loadingDrill && currentDrillIndex >= drillQuestions.length - 1) return; // Prevent next if loading and at end
+
+      const nextIndex = currentDrillIndex + 1;
+      
+      // If we are at the last available question (or close to it), buffer more
+      // If user is at index N, and length is N+1, trigger fetch
+      if (nextIndex >= drillQuestions.length - 1 && !loadingDrill) {
+           // We are consuming the buffer, fetch more in background
+           // Don't block navigation if next exists
+           const lastQ = drillQuestions[drillQuestions.length - 1];
+           const prevDiff = lastQ.difficultyLevel;
+           const startNum = lastQ.number + 1;
+           
+           // If we are actually AT the end, show loading. 
+           // If we are just approaching, load in background.
+           if (nextIndex >= drillQuestions.length) {
+               setLoadingDrill(true);
+           }
+           
+           generateDrillBatch(startNum, prevDiff, 3, drillSettings).then(newQs => {
+               setDrillQuestions(prev => [...prev, ...newQs]);
+               setLoadingDrill(false);
+           }).catch(e => {
+               console.error("Background fetch failed", e);
+               setLoadingDrill(false);
+           });
+      }
+
+      // If we have the question, move instantly
+      if (nextIndex < drillQuestions.length) {
+          setCurrentDrillIndex(nextIndex);
+      }
+  }
+
+  const handlePrevDrillQuestion = () => {
+      if (currentDrillIndex > 0) {
+          setCurrentDrillIndex(currentDrillIndex - 1);
+      }
+  }
+
   const handleMainAction = () => {
-      if (uploads.length === 0) return;
+      if (uploads.length === 0 && appMode === 'SOLVER') return; // Solver needs upload
+      
       if (appMode === 'SOLVER') {
           startSolverFlow();
       } else {
-          setShowExamConfig(true);
+          // Both Exam and Drill open config panel first
+          setShowConfig(true);
       }
-  };
-
-  const handleReset = () => {
-    setAppState(AppState.IDLE);
-    setSolutions([]);
-    setGeneratedExam(null);
-    setUploads([]);
-    setCurrentStepIndex(0);
-    setActiveTab(0);
-    setIsChatOpen(false);
-    setActiveView('steps');
-    setStartBackgroundEffects(false);
-    setShowExamConfig(false);
   };
 
   // Markscheme Handlers
@@ -629,17 +743,43 @@ const App: React.FC = () => {
       };
       (window as any).html2pdf().set(opt).from(element).save();
   };
+  
+  const toggleSection = (title: string) => {
+    setOpenSections(prev => {
+        const next = new Set(prev);
+        if (next.has(title)) next.delete(title);
+        else next.add(title);
+        return next;
+    });
+  };
+
+  // ------------------------------------------
+  // RENDER PHASE
+  // ------------------------------------------
+  
+  // Conditional Rendering: Auth Flow
+  if (authLoading) {
+      return (
+          <div className="min-h-screen bg-black flex items-center justify-center text-white">
+              <Loader2 className="animate-spin text-blue-500" size={32} />
+          </div>
+      );
+  }
+
+  if (!user) {
+      return <AuthScreens />;
+  }
 
   const totalMarks = activeSolution?.markscheme ? calculateTotalMarks(activeSolution.markscheme) : 0;
 
   return (
     <div className="min-h-screen text-gray-100 bg-black selection:bg-blue-900/50 font-sans overflow-x-hidden text-sm">
       
-      {/* Navigation Bar - Conditional Frost Effect */}
+      {/* Navigation Bar */}
       <nav className={`sticky top-0 z-40 border-b border-white/5 transition-all duration-300 ${
           appMode === 'EXAM' 
-            ? 'bg-black/70 backdrop-blur-md' // Frosted for Exam
-            : 'bg-black/95 backdrop-blur-sm' // Standard for Solver
+            ? 'bg-black/70 backdrop-blur-md' 
+            : 'bg-black/95 backdrop-blur-sm'
       }`}>
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
@@ -654,31 +794,77 @@ const App: React.FC = () => {
              </button>
           </div>
           
-          {/* Right Side: Mode Switcher (Visible only in IDLE) */}
-          {appState === AppState.IDLE && (
-                <div className="hidden sm:flex bg-[#121212] p-1 rounded-lg border border-white/10">
-                    <button
-                    onClick={() => setAppMode('SOLVER')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${
-                        appMode === 'SOLVER' 
-                        ? 'bg-[#1e293b] text-blue-400 shadow-sm' 
-                        : 'text-gray-500 hover:text-gray-300'
-                    }`}
+          <div className="flex items-center gap-4">
+              {/* Right Side: Mode Switcher (Visible only in IDLE) */}
+              {appState === AppState.IDLE && (
+                    <div className="hidden sm:flex bg-[#121212] p-1 rounded-lg border border-white/10">
+                        <button
+                        onClick={() => setAppMode('SOLVER')}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${
+                            appMode === 'SOLVER' 
+                            ? 'bg-[#1e293b] text-blue-400 shadow-sm' 
+                            : 'text-gray-500 hover:text-gray-300'
+                        }`}
+                        >
+                        <Pen size={14} /> Solver
+                        </button>
+                        <button
+                        onClick={() => setAppMode('EXAM')}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${
+                            appMode === 'EXAM' 
+                            ? 'bg-[#1e293b] text-purple-400 shadow-sm' 
+                            : 'text-gray-500 hover:text-gray-300'
+                        }`}
+                        >
+                        <GraduationCap size={14} /> Exam Creator
+                        </button>
+                        <button
+                        onClick={() => setAppMode('DRILL')}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${
+                            appMode === 'DRILL' 
+                            ? 'bg-[#1e293b] text-yellow-400 shadow-sm' 
+                            : 'text-gray-500 hover:text-gray-300'
+                        }`}
+                        >
+                        <Zap size={14} /> Drill
+                        </button>
+                    </div>
+                )}
+                
+                {/* User Menu */}
+                <div className="relative">
+                    <button 
+                        onClick={() => setShowUserMenu(!showUserMenu)}
+                        className="w-8 h-8 flex items-center justify-center rounded-full overflow-hidden text-sm font-bold text-white hover:opacity-80 transition-opacity bg-white/5 border border-white/10 outline-none"
                     >
-                    <Pen size={14} /> Solver
+                        {user.avatarUrl ? (
+                            <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                        ) : (
+                            user.name.charAt(0).toUpperCase()
+                        )}
                     </button>
-                    <button
-                    onClick={() => setAppMode('EXAM')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${
-                        appMode === 'EXAM' 
-                        ? 'bg-[#1e293b] text-purple-400 shadow-sm' 
-                        : 'text-gray-500 hover:text-gray-300'
-                    }`}
-                    >
-                    <GraduationCap size={14} /> Exam Creator
-                    </button>
+                    
+                    {showUserMenu && (
+                        <>
+                            <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                            <div className="absolute right-0 top-full mt-2 w-48 bg-[#181818] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="px-4 py-3 border-b border-white/5">
+                                    <div className="text-sm font-bold text-white">{user.name}</div>
+                                    <div className="text-[10px] text-gray-500 truncate">{user.email}</div>
+                                </div>
+                                <div className="p-1">
+                                    <button 
+                                        onClick={logout}
+                                        className="w-full text-left px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-900/10 hover:text-red-300 rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                        <LogOut size={14} /> Sign Out
+                                    </button>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
-            )}
+          </div>
 
           {/* Tab Bar (Only visible in SOLVED state with > 1 upload for Solver) */}
           {appState === AppState.SOLVED && appMode === 'SOLVER' && uploads.length > 1 && (
@@ -712,9 +898,9 @@ const App: React.FC = () => {
           <Lightbox src={activeInput.preview!} onClose={() => setIsLightboxOpen(false)} />
       )}
 
-      {/* Magnetic Assistant (Only for Solver Mode) */}
-      {appState === AppState.SOLVED && appMode === 'SOLVER' && (
-        <MagneticPencil isOpen={isChatOpen} onClick={() => setIsChatOpen(!isChatOpen)} />
+      {/* Magnetic Assistant (Only for Solver/Drill Mode) */}
+      {appState === AppState.SOLVED && (appMode === 'SOLVER' || appMode === 'DRILL') && (
+        <MagneticPencil isOpen={isChatOpen} onClick={() => setIsChatOpen(!isChatOpen)} mode={appMode} />
       )}
 
       {/* Main Content Wrapper */}
@@ -736,12 +922,14 @@ const App: React.FC = () => {
             <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in slide-in-from-bottom-2 duration-500 relative">
                 <FallingBackgroundIcons active={startBackgroundEffects} />
                 
-                {showExamConfig ? (
-                    <ExamConfigPanel onStart={handleExamConfigSubmit} onCancel={() => setShowExamConfig(false)} />
+                {showConfig ? (
+                    appMode === 'EXAM' 
+                        ? <ExamConfigPanel onStart={handleExamConfigSubmit} onCancel={() => setShowConfig(false)} />
+                        : <DrillConfigPanel onStart={handleDrillConfigSubmit} onCancel={() => setShowConfig(false)} />
                 ) : (
                     <div className="space-y-10 w-full flex flex-col items-center z-10 relative">
                         <div className="text-center space-y-4 max-w-2xl">
-                            {appMode === 'SOLVER' ? (
+                            {appMode === 'SOLVER' && (
                                 <>
                                     <h1 className="text-5xl font-bold tracking-tight text-white">
                                         Math explained. <span className="text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">Simply.</span>
@@ -750,13 +938,24 @@ const App: React.FC = () => {
                                     Step-by-step IB HL analysis. Powered by Gemini.
                                     </p>
                                 </>
-                            ) : (
+                            )}
+                            {appMode === 'EXAM' && (
                                 <>
                                     <h1 className="text-5xl font-bold tracking-tight text-white">
                                         Create perfect <span className="text-purple-400 drop-shadow-[0_0_15px_rgba(168,85,247,0.5)]">Exams.</span>
                                     </h1>
                                     <p className="text-lg text-gray-500 font-normal max-w-md mx-auto">
                                     Upload notes or problems. Get a deployable IB paper.
+                                    </p>
+                                </>
+                            )}
+                            {appMode === 'DRILL' && (
+                                <>
+                                    <h1 className="text-5xl font-bold tracking-tight text-white">
+                                        Adaptive <span className="text-yellow-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]">Practice.</span>
+                                    </h1>
+                                    <p className="text-lg text-gray-500 font-normal max-w-md mx-auto">
+                                    Quick-fire drills that learn as you go.
                                     </p>
                                 </>
                             )}
@@ -767,36 +966,47 @@ const App: React.FC = () => {
                                 uploads={uploads}
                                 onUpload={handleInputAdd}
                                 onRemove={handleInputRemove}
-                                onFirstInteraction={() => setTimeout(() => setStartBackgroundEffects(true), 2500)}
+                                onFirstInteraction={() => {
+                                    setTimeout(() => setStartBackgroundEffects(true), 2500);
+                                    // Wait for icons to fall (approx 3s total) before showing action button
+                                    setTimeout(() => setShowActionButtons(true), 3200);
+                                }}
                                 appMode={appMode}
                             />
                             
-                            {uploads.length > 0 && (
-                                <div className="animate-in slide-in-from-bottom-2 fade-in duration-300">
-                                    <button 
-                                        onClick={handleMainAction}
-                                        className={`group flex items-center gap-2 border text-sm font-semibold px-8 py-3 rounded-full transition-all hover:scale-105 shadow-lg ${
-                                            appMode === 'SOLVER' 
-                                            ? 'bg-[#1c1c1e] hover:bg-[#252525] border-blue-500/30 text-blue-100 shadow-blue-900/10' 
-                                            : 'bg-[#1c1c1e] hover:bg-[#252525] border-purple-500/30 text-purple-100 shadow-purple-900/10'
-                                        }`}
-                                    >
-                                        {appMode === 'SOLVER' 
-                                            ? `Analyze ${uploads.length} Problem${uploads.length > 1 ? 's' : ''}` 
-                                            : 'Configure Exam Paper'
-                                        }
-                                        <ArrowRight size={16} className={`group-hover:translate-x-0.5 transition-transform ${appMode === 'SOLVER' ? 'text-blue-400' : 'text-purple-400'}`} />
-                                    </button>
-                                </div>
-                            )}
+                            {/* In Drill Mode, user can start without uploads, but we'll still show the button */}
+                            <div className={`transition-all duration-1000 ease-out ${showActionButtons ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+                                <button 
+                                    onClick={handleMainAction}
+                                    // Disable for solver if no uploads, but enable for Exam/Drill
+                                    disabled={appMode === 'SOLVER' && uploads.length === 0}
+                                    className={`group flex items-center gap-2 border text-sm font-semibold px-8 py-3 rounded-full transition-all duration-300 hover:shadow-md active:scale-95 ${
+                                        appMode === 'SOLVER' 
+                                            ? 'bg-[#1c1c1e] hover:bg-[#252525] border-blue-500/30 text-blue-100' 
+                                        : appMode === 'EXAM'
+                                            ? 'bg-[#1c1c1e] hover:bg-[#252525] border-purple-500/30 text-purple-100'
+                                        : 'bg-[#1c1c1e] hover:bg-[#252525] border-yellow-500/30 text-yellow-400'
+                                    } ${appMode === 'SOLVER' && uploads.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    {appMode === 'SOLVER' 
+                                        ? `Analyze ${uploads.length} Problem${uploads.length > 1 ? 's' : ''}` 
+                                        : appMode === 'EXAM' ? 'Configure Exam Paper' : 'Configure Drill'
+                                    }
+                                    <ArrowRight size={16} className={`group-hover:translate-x-0.5 transition-transform ${
+                                        appMode === 'SOLVER' ? 'text-blue-400' 
+                                        : appMode === 'EXAM' ? 'text-purple-400' 
+                                        : 'text-yellow-400'
+                                    }`} />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
             </div>
             )}
 
-            {/* ANALYZING State */}
-            {appState === AppState.ANALYZING && (
+            {/* ANALYZING State (Solver/Exam) */}
+            {appState === AppState.ANALYZING && appMode !== 'DRILL' && (
             <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in duration-700">
                 <div className="relative flex flex-col items-center gap-8">
                     <div className="relative group">
@@ -960,22 +1170,33 @@ const App: React.FC = () => {
                             )}
                          </div>
                     </div>
-                ) : (
+                ) : appMode === 'EXAM' && generatedExam ? (
                     // EXAM VIEWER MODE
-                    generatedExam && <ExamViewer exam={generatedExam} />
+                    <ExamViewer exam={generatedExam} />
+                ) : appMode === 'DRILL' && (
+                    // DRILL VIEWER MODE
+                    <DrillSessionViewer 
+                        question={drillQuestions[currentDrillIndex] || null} 
+                        isLoading={loadingDrill} 
+                        onNext={handleNextDrillQuestion}
+                        onPrev={handlePrevDrillQuestion}
+                        hasPrev={currentDrillIndex > 0}
+                    />
                 )
             )}
         </main>
       </div>
 
-      {appState === AppState.SOLVED && appMode === 'SOLVER' && activeSolution && (
+      {appState === AppState.SOLVED && (
           <ChatInterface 
-             key={activeTab} 
-             solution={activeSolution} 
+             key={appMode === 'DRILL' ? currentDrillIndex : activeTab} 
+             solution={appMode === 'SOLVER' ? activeSolution || undefined : undefined} 
+             drillQuestion={appMode === 'DRILL' ? drillQuestions[currentDrillIndex] : undefined}
              currentStepIndex={currentStepIndex} 
              isOpen={isChatOpen} 
              onClose={() => setIsChatOpen(false)} 
              activeView={activeView} 
+             mode={appMode}
           />
       )}
       

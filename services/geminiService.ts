@@ -1,6 +1,5 @@
-
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper } from "../types";
+import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -99,6 +98,27 @@ const examPaperSchema: Schema = {
   },
   required: ["title", "totalMarks", "duration", "sections"]
 };
+
+const drillQuestionSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    topic: { type: Type.STRING, description: "The specific topic this question covers (e.g. 'Chain Rule')." },
+    difficultyLevel: { type: Type.NUMBER, description: "Difficulty level on a scale of 1-10." },
+    questionText: { 
+        type: Type.STRING, 
+        description: "The full question. STRICT FORMATTING RULE: 1. Start with the preamble/setup text. 2. Use DOUBLE NEWLINES (\\n\\n) to separate the preamble from parts. 3. Format parts as (a), (b), etc., and separate them with double newlines. 4. Put marks at the end of each part, e.g. **[3]**. 5. Use LaTeX ($...$) for all math." 
+    },
+    shortAnswer: { type: Type.STRING, description: "The final answer in LaTeX. Separate parts with double newlines." },
+    markscheme: { 
+        type: Type.STRING, 
+        description: "A concise Markdown table for grading. | Step | Working | Marks |. No newlines in cells." 
+    },
+    hint: { type: Type.STRING, description: "A helpful nudge without giving away the answer." },
+    calculatorAllowed: { type: Type.BOOLEAN }
+  },
+  required: ["topic", "difficultyLevel", "questionText", "shortAnswer", "markscheme", "hint", "calculatorAllowed"]
+};
+
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -242,6 +262,75 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
     if (!text) throw new Error("Failed to generate exam");
     return JSON.parse(text) as ExamPaper;
   });
+};
+
+export const generateDrillQuestion = async (
+    settings: DrillSettings, 
+    inputs: UserInput[], 
+    questionNumber: number,
+    previousDifficulty: number
+): Promise<DrillQuestion> => {
+    return retryOperation(async () => {
+        const parts: any[] = [];
+        
+        inputs.forEach(input => {
+            if (input.type === 'image' || input.type === 'pdf') {
+                parts.push({ inlineData: { data: input.content, mimeType: input.mimeType } });
+            } else {
+                parts.push({ text: `Drill Material: ${input.content}` });
+            }
+        });
+
+        // Adapt difficulty: Start based on setting, then increment
+        let targetDifficulty = previousDifficulty;
+        if (questionNumber === 1) {
+            // Initial setting mapping
+            if (settings.difficulty === 'STANDARD') targetDifficulty = 3;
+            if (settings.difficulty === 'HARD') targetDifficulty = 6;
+            if (settings.difficulty === 'HELL') targetDifficulty = 8;
+        } else {
+            // Adaptive increment
+            targetDifficulty = Math.min(10, previousDifficulty + 0.5);
+        }
+
+        const prompt = `
+            Generate a SINGLE IB Math AA HL Practice Question for Drill Mode.
+            
+            Parameters:
+            - Question Number: ${questionNumber}
+            - Topic: ${settings.topics.length > 0 ? `One of: ${settings.topics.join(', ')}` : "Any Core Topic"}
+            - Target Difficulty: ${targetDifficulty}/10 (Make it slightly harder than the last one)
+            - Calculator: ${settings.calculator}
+            
+            FORMATTING RULES (CRITICAL):
+            1. **Structured Text**: You MUST separate the setup (preamble) from the parts.
+            2. **Separators**: Use DOUBLE NEWLINES (\\n\\n) between the preamble and Part (a), and between Part (a) and Part (b).
+            3. **Part Labels**: Start parts with (a), (b), (c).
+            4. **Marks**: Put marks at the end of each part in bold, e.g. **[4]**.
+            5. **Math**: Use LaTeX ($...$) for ALL math.
+            6. **JSON**: Output strict JSON.
+        `;
+        
+        parts.push({ text: prompt });
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: drillQuestionSchema,
+                temperature: 0.8 // Slightly higher variety for drills
+            }
+        });
+
+        const text = response.text;
+        if (!text) throw new Error("Failed to generate drill");
+        
+        const q = JSON.parse(text) as DrillQuestion;
+        q.id = crypto.randomUUID();
+        q.number = questionNumber;
+        return q;
+    });
 };
 
 export const createChatSession = (

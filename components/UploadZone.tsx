@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { X, Image as ImageIcon, Type as TypeIcon, Plus, Pen, Sigma, Divide, Minus, Lightbulb, Percent, Hash, FileText, GraduationCap } from 'lucide-react';
 import { UserInput, AppMode } from '../types';
@@ -72,7 +71,8 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
         return;
     }
     
-    if (appMode === 'EXAM' && !isImage && !isPdf) {
+    // Allow PDFs/Text in EXAM and DRILL modes
+    if ((appMode === 'EXAM' || appMode === 'DRILL') && !isImage && !isPdf) {
          if (!file.type.startsWith('text/')) {
              alert("Supported formats: Images (PNG/JPG) or PDF.");
          }
@@ -287,7 +287,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
                                 title="Upload File"
                             >
                                 <ImageIcon size={14} />
-                                <span>{appMode === 'EXAM' ? 'Files' : 'Image'}</span>
+                                <span>{appMode === 'EXAM' || appMode === 'DRILL' ? 'Files' : 'Image'}</span>
                             </button>
                         </div>
 
@@ -311,7 +311,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
                         ref={fileInputRef}
                         className="hidden"
                         multiple 
-                        accept={appMode === 'EXAM' ? "image/*,application/pdf" : "image/*"}
+                        accept={appMode === 'EXAM' || appMode === 'DRILL' ? "image/*,application/pdf" : "image/*"}
                         onChange={(e) => handleFiles(e.target.files)}
                     />
                 </div>
@@ -351,7 +351,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
         {uploads.length < MAX_UPLOADS && (
             <div className="flex justify-end px-2 -mt-2">
                  <p className="text-[10px] text-gray-600 font-mono tracking-tight opacity-60 hover:opacity-100 transition-opacity cursor-default">
-                    {appMode === 'EXAM' ? "Drag & Drop Multiple Files" : "Drag & Drop Image"}
+                    {appMode === 'EXAM' || appMode === 'DRILL' ? "Drag & Drop Multiple Files" : "Drag & Drop Image"}
                  </p>
             </div>
         )}
