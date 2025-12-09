@@ -104,7 +104,7 @@ export interface DrillQuestion {
   difficultyLevel: number; // 1-10
   questionText: string;
   shortAnswer: string;
-  markscheme: string;
+  steps: MathStep[]; // Structured steps instead of raw text markscheme
   hint: string;
   calculatorAllowed: boolean;
 }

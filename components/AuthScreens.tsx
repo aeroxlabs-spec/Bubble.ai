@@ -1,7 +1,6 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Pen, Zap, GraduationCap, ArrowRight, Loader2, AlertCircle, Sigma, Divide, Minus, Lightbulb, Percent, Hash, Check } from 'lucide-react';
+import { Pen, Zap, GraduationCap, ArrowRight, AlertCircle, Sigma, Divide, Minus, Lightbulb, Percent, Hash } from 'lucide-react';
 
 export const AuthScreens: React.FC = () => {
     const [view, setView] = useState<'LANDING' | 'LOGIN' | 'SIGNUP'>('LANDING');
@@ -212,7 +211,7 @@ const FeatureCard = ({ icon, title, desc, color, gradient, extraInfo }: any) => 
     )
 }
 
-// Minimal Google G Logo without white background - Width/Height reduced to 16
+// Minimal Google G Logo
 const GoogleGLogo = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M23.52 12.29C23.52 11.43 23.44 10.61 23.3 9.81H12V14.45H18.45C18.17 15.93 17.33 17.18 16.07 18.03V21H19.95C22.22 18.91 23.52 15.83 23.52 12.29Z" fill="#4285F4"/>
@@ -256,11 +255,6 @@ const OrbitalAuthAnimation = ({ onComplete }: { onComplete: () => void }) => {
                                 key={i}
                                 className={`absolute top-1/2 left-1/2 ${item.color} flex items-center justify-center`}
                                 style={{
-                                    // Strictly centered origin (-50%, -50%)
-                                    // Rotate to position
-                                    // Translate outward
-                                    // Rotate back to keep upright relative to the ring's center ray (optional, 
-                                    // here we use -angle so they align radially, creating a clean wheel look)
                                     transform: `translate(-50%, -50%) rotate(${angle}deg) translate(${radius}px) rotate(${-angle}deg)`,
                                     width: '24px',
                                     height: '24px'
@@ -290,31 +284,17 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     
-    const googleBtnRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if ((window as any).google && googleBtnRef.current) {
-            try {
-                (window as any).google.accounts.id.initialize({
-                    client_id: process.env.GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID",
-                    callback: async (response: any) => {
-                        try {
-                            await loginWithGoogle(response.credential);
-                        } catch (e: any) {
-                            setError(e.message || "Google Login Failed");
-                        }
-                    }
-                });
-                // Render invisible button on top of our custom UI with REDUCED HEIGHT (42px)
-                (window as any).google.accounts.id.renderButton(
-                    googleBtnRef.current,
-                    { theme: "filled_black", size: "large", width: "100%", height: "42" }
-                );
-            } catch (err) {
-                console.error("Google Auth Init Error", err);
-            }
+    // Simplified Google Auth Handler using Supabase Redirect
+    const handleGoogleLogin = async () => {
+        setIsLoading(true);
+        try {
+            // "credential" param not needed for Supabase OAuth trigger, we just call the wrapper
+            await loginWithGoogle(''); 
+        } catch (e: any) {
+            setError(e.message || "Google Login Failed");
+            setIsLoading(false);
         }
-    }, [loginWithGoogle]);
+    }
 
     const performAuth = async () => {
         try {
@@ -353,17 +333,15 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
                     </p>
                 </div>
                 
-                {/* Custom Google Auth Button - REDUCED HEIGHT to 42px */}
-                <div className="relative w-full h-[42px] mb-6 group">
-                     {/* The Visual Button */}
-                     <div className="absolute inset-0 w-full h-full bg-[#0a0a0a] border border-white/10 rounded-full flex items-center justify-center gap-2.5 transition-all group-hover:border-white/30 group-hover:bg-[#151515] z-0">
-                         <GoogleGLogo />
-                         <span className="text-sm font-bold text-gray-300 group-hover:text-white font-sans">Continue with Google</span>
-                     </div>
-                     
-                     {/* The Actual Google Button (Invisible Overlay) */}
-                     <div ref={googleBtnRef} className="absolute inset-0 opacity-[0.01] z-10 w-full h-full overflow-hidden cursor-pointer scale-x-[1.05] scale-y-[1.1]" />
-                </div>
+                {/* Standardized Google Auth Button for Supabase */}
+                <button 
+                    onClick={handleGoogleLogin}
+                    disabled={isLoading}
+                    className="relative w-full h-[42px] mb-6 group bg-[#0a0a0a] border border-white/10 rounded-full flex items-center justify-center gap-2.5 transition-all hover:border-white/30 hover:bg-[#151515] disabled:opacity-50"
+                >
+                     <GoogleGLogo />
+                     <span className="text-sm font-bold text-gray-300 group-hover:text-white font-sans">Continue with Google</span>
+                </button>
                 
                 <div className="flex items-center gap-4 mb-6">
                     <div className="h-px bg-white/5 flex-1" />
@@ -417,7 +395,6 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
                         </div>
                     )}
 
-                    {/* REDUCED HEIGHT: py-2.5 instead of py-3.5 */}
                     <button 
                         type="submit" 
                         disabled={isLoading}

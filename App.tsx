@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion } from './types';
 import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion } from './services/geminiService';
@@ -12,7 +13,7 @@ import ExamConfigPanel from './components/ExamConfigPanel';
 import ExamViewer from './components/ExamViewer';
 import DrillConfigPanel from './components/DrillConfigPanel';
 import DrillSessionViewer from './components/DrillSessionViewer';
-import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator, Zap, LogOut, User as UserIcon } from 'lucide-react';
+import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator, Zap, LogOut, User as UserIcon, Check } from 'lucide-react';
 
 /**
  * Magnetic Pencil Component
@@ -188,7 +189,7 @@ const TypewriterLoader = ({ phrases }: { phrases: string[] }) => {
     return (
       <div className="h-6 flex items-center justify-center text-gray-400 font-mono text-sm tracking-wide">
         <span>{text}</span>
-        <span className="w-0.5 h-4 bg-blue-500 ml-1 animate-pulse" />
+        <span className={`w-0.5 h-4 ml-1 animate-pulse bg-current`} />
       </div>
     );
   };
@@ -468,18 +469,15 @@ const App: React.FC = () => {
         if (e.key === 'ArrowRight') setCurrentStepIndex(prev => Math.min(prev + 1, activeSolution.steps.length - 1));
         else if (e.key === 'ArrowLeft') setCurrentStepIndex(prev => Math.max(prev - 1, 0));
       } 
-      else if (appMode === 'DRILL' && drillQuestions.length > 0) {
-          if (e.key === 'ArrowRight') handleNextDrillQuestion();
-          else if (e.key === 'ArrowLeft') handlePrevDrillQuestion();
-      }
+      // Drill Mode navigation is now handled within DrillSessionViewer to manage step vs question logic
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [appState, activeSolution, isChatOpen, activeView, appMode, drillQuestions, currentDrillIndex]);
+  }, [appState, activeSolution, isChatOpen, activeView, appMode]);
 
   // Progress Bar Effect
   useEffect(() => {
-    if (appState === AppState.ANALYZING && appMode !== 'DRILL') {
+    if (appState === AppState.ANALYZING) {
         const progressInterval = setInterval(() => {
             setLoadingProgress(prev => {
                 if (prev >= 95) return prev;
@@ -553,7 +551,15 @@ const App: React.FC = () => {
       "Finalizing exam paper format..."
   ];
 
-  const currentLoadingPhrases = appMode === 'SOLVER' ? solverPhrases : examPhrases;
+  const drillPhrases = [
+      "Calibrating initial difficulty...",
+      "Analyzing topic requirements...",
+      "Generating practice scenario...",
+      "Validating answer logic...",
+      "Preparing rapid-fire session..."
+  ];
+
+  const currentLoadingPhrases = appMode === 'SOLVER' ? solverPhrases : (appMode === 'EXAM' ? examPhrases : drillPhrases);
 
   const handleInputAdd = (input: UserInput) => {
     setUploads(prev => [...prev, input]);
@@ -642,7 +648,12 @@ const App: React.FC = () => {
   const handleDrillConfigSubmit = async (settings: DrillSettings) => {
       setShowConfig(false);
       setDrillSettings(settings);
-      setAppState(AppState.SOLVED);
+      // Change to ANALYZING to show the main loading screen for the initial batch
+      setAppState(AppState.ANALYZING);
+      setLoadingProgress(0);
+      setStartBackgroundEffects(false);
+      setShowActionButtons(false);
+
       setDrillQuestions([]);
       setCurrentDrillIndex(0);
       setLoadingDrill(true);
@@ -650,55 +661,92 @@ const App: React.FC = () => {
       try {
           // Generate 3 questions initially
           const initialBatch = await generateDrillBatch(1, 0, 3, settings);
-          setDrillQuestions(initialBatch);
+          setLoadingProgress(100);
+          
+          setTimeout(() => {
+              setDrillQuestions(initialBatch);
+              setAppState(AppState.SOLVED);
+              setLoadingDrill(false);
+          }, 500);
       } catch (e) {
           console.error(e);
           setErrorMsg("Failed to start drill session.");
           setAppState(AppState.ERROR);
-      } finally {
-          setLoadingDrill(false);
-      }
+      } 
   }
 
   const handleNextDrillQuestion = async () => {
       if (!drillSettings) return;
-      if (loadingDrill && currentDrillIndex >= drillQuestions.length - 1) return; // Prevent next if loading and at end
-
+      
       const nextIndex = currentDrillIndex + 1;
       
-      // If we are at the last available question (or close to it), buffer more
-      // If user is at index N, and length is N+1, trigger fetch
-      if (nextIndex >= drillQuestions.length - 1 && !loadingDrill) {
-           // We are consuming the buffer, fetch more in background
-           // Don't block navigation if next exists
+      // PREFETCH LOGIC: When user reaches second to last card
+      // If we are at index X, and length is L.
+      // Second to last is index L-2.
+      // We start fetching when we LAND on L-2 (meaning we have 2 questions left including current)
+      if (drillQuestions.length > 0 && currentDrillIndex >= drillQuestions.length - 2 && !loadingDrill) {
            const lastQ = drillQuestions[drillQuestions.length - 1];
-           const prevDiff = lastQ.difficultyLevel;
-           const startNum = lastQ.number + 1;
            
-           // If we are actually AT the end, show loading. 
-           // If we are just approaching, load in background.
-           if (nextIndex >= drillQuestions.length) {
-               setLoadingDrill(true);
-           }
+           // We set loadingDrill to true to indicate a fetch is active,
+           // but we don't necessarily block UI unless user hits the end.
+           setLoadingDrill(true);
            
-           generateDrillBatch(startNum, prevDiff, 3, drillSettings).then(newQs => {
-               setDrillQuestions(prev => [...prev, ...newQs]);
-               setLoadingDrill(false);
-           }).catch(e => {
-               console.error("Background fetch failed", e);
-               setLoadingDrill(false);
-           });
+           generateDrillBatch(lastQ.number + 1, lastQ.difficultyLevel, 3, drillSettings)
+             .then(newQs => {
+                 setDrillQuestions(prev => [...prev, ...newQs]);
+                 setLoadingDrill(false);
+             })
+             .catch(e => {
+                 console.error("Background fetch failed", e);
+                 setLoadingDrill(false);
+             });
       }
 
-      // If we have the question, move instantly
+      // NAVIGATION LOGIC
       if (nextIndex < drillQuestions.length) {
+          // Immediate transition if we have the question
           setCurrentDrillIndex(nextIndex);
+      } else {
+          // If we hit the end (next question not ready), we stay on current and show loading on button
+          if (!loadingDrill) {
+              // Safety fallback: if we somehow hit end without fetch active
+              setLoadingDrill(true);
+              const lastQ = drillQuestions[drillQuestions.length - 1];
+              generateDrillBatch(lastQ.number + 1, lastQ.difficultyLevel, 3, drillSettings)
+                 .then(newQs => {
+                     setDrillQuestions(prev => [...prev, ...newQs]);
+                     setLoadingDrill(false);
+                     setCurrentDrillIndex(prev => prev + 1); // Auto-advance once loaded
+                 });
+          }
       }
   }
+
+  // To implement auto-advance after loading:
+  const [waitingForNext, setWaitingForNext] = useState(false);
+  
+  useEffect(() => {
+      if (waitingForNext && drillQuestions.length > currentDrillIndex + 1) {
+          setWaitingForNext(false);
+          setCurrentDrillIndex(prev => prev + 1);
+      }
+  }, [drillQuestions.length, waitingForNext, currentDrillIndex]);
+
+  // Updated handleNextDrillQuestion wrapper to set waiting state
+  const handleNextWithWait = () => {
+      if (currentDrillIndex + 1 < drillQuestions.length) {
+          handleNextDrillQuestion(); // Normal logic (prefetch check inside)
+      } else {
+          setWaitingForNext(true);
+          handleNextDrillQuestion(); // Triggers fetch if needed
+      }
+  };
+
 
   const handlePrevDrillQuestion = () => {
       if (currentDrillIndex > 0) {
           setCurrentDrillIndex(currentDrillIndex - 1);
+          setWaitingForNext(false); // Cancel any forward wait
       }
   }
 
@@ -771,6 +819,10 @@ const App: React.FC = () => {
   }
 
   const totalMarks = activeSolution?.markscheme ? calculateTotalMarks(activeSolution.markscheme) : 0;
+
+  // Determine if next button should be in loading state
+  // It is loading if we are explicitly waiting for next question OR if we are at the end and currently fetching
+  const isNextButtonLoading = waitingForNext || (loadingDrill && currentDrillIndex === drillQuestions.length - 1 && waitingForNext);
 
   return (
     <div className="min-h-screen text-gray-100 bg-black selection:bg-blue-900/50 font-sans overflow-x-hidden text-sm">
@@ -1005,19 +1057,23 @@ const App: React.FC = () => {
             </div>
             )}
 
-            {/* ANALYZING State (Solver/Exam) */}
-            {appState === AppState.ANALYZING && appMode !== 'DRILL' && (
+            {/* ANALYZING State (Solver/Exam/Drill) */}
+            {appState === AppState.ANALYZING && (
             <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in duration-700">
                 <div className="relative flex flex-col items-center gap-8">
                     <div className="relative group">
                         {/* Removed blur-xl to prevent artifacts */}
-                        <div className={`absolute inset-0 rounded-full animate-pulse ${appMode === 'SOLVER' ? 'bg-blue-500/5' : 'bg-purple-500/5'}`}></div>
+                        <div className={`absolute inset-0 rounded-full animate-pulse ${
+                            appMode === 'SOLVER' ? 'bg-blue-500/5' : (appMode === 'EXAM' ? 'bg-purple-500/5' : 'bg-yellow-500/5')
+                        }`}></div>
                         <div className="relative z-10 animate-bounce duration-[2000ms]">
                              <div className="animate-[spin_3s_ease-in-out_infinite]">
                                 {appMode === 'SOLVER' ? (
                                     <Pen size={24} className="text-blue-400 transform -rotate-45" />
-                                ) : (
+                                ) : appMode === 'EXAM' ? (
                                     <GraduationCap size={24} className="text-purple-400" />
+                                ) : (
+                                    <Zap size={24} className="text-yellow-400" />
                                 )}
                              </div>
                         </div>
@@ -1034,7 +1090,9 @@ const App: React.FC = () => {
                             className={`h-full shadow-[0_0_10px_rgba(59,130,246,0.5)] transition-all duration-300 ease-out ${
                                 appMode === 'SOLVER' 
                                 ? 'bg-gradient-to-r from-blue-600 to-blue-400' 
-                                : 'bg-gradient-to-r from-purple-600 to-purple-400'
+                                : appMode === 'EXAM'
+                                    ? 'bg-gradient-to-r from-purple-600 to-purple-400'
+                                    : 'bg-gradient-to-r from-yellow-600 to-yellow-400'
                             }`}
                             style={{ width: `${loadingProgress}%` }}
                         />
@@ -1042,7 +1100,7 @@ const App: React.FC = () => {
                     </div>
                     <div 
                         className={`absolute top-full mt-2 text-[10px] font-bold transition-all duration-300 ease-linear ${
-                            appMode === 'SOLVER' ? 'text-blue-400' : 'text-purple-400'
+                            appMode === 'SOLVER' ? 'text-blue-400' : (appMode === 'EXAM' ? 'text-purple-400' : 'text-yellow-400')
                         }`}
                         style={{ left: `${Math.min(95, Math.max(0, loadingProgress - 2))}%` }}
                     >
@@ -1178,7 +1236,8 @@ const App: React.FC = () => {
                     <DrillSessionViewer 
                         question={drillQuestions[currentDrillIndex] || null} 
                         isLoading={loadingDrill} 
-                        onNext={handleNextDrillQuestion}
+                        isNextLoading={isNextButtonLoading}
+                        onNext={handleNextWithWait}
                         onPrev={handlePrevDrillQuestion}
                         hasPrev={currentDrillIndex > 0}
                     />

@@ -1,7 +1,39 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper to safely get API key without crashing if process is undefined
+const getApiKey = () => {
+    try {
+        // Fallback to process.env (Node/Webpack/Standard)
+        if (typeof process !== 'undefined' && process.env?.API_KEY) {
+            return process.env.API_KEY;
+        }
+    } catch(e) {}
+    
+    try {
+        // Check import.meta.env without VITE_ prefix if configured via custom build
+        // @ts-ignore
+        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.API_KEY) {
+            // @ts-ignore
+            return import.meta.env.API_KEY;
+        }
+    } catch(e) {}
+
+    return "";
+};
+
+// Lazy initialization of the AI client
+let aiInstance: GoogleGenAI | null = null;
+
+const getAiClient = () => {
+    if (!aiInstance) {
+        const apiKey = getApiKey();
+        // We allow initialization with empty key to prevent crash on load, 
+        // but actual calls will fail if key is missing.
+        aiInstance = new GoogleGenAI({ apiKey: apiKey || "MISSING_KEY" });
+    }
+    return aiInstance;
+};
 
 const mathSolutionSchema: Schema = {
   type: Type.OBJECT,
@@ -106,17 +138,30 @@ const drillQuestionSchema: Schema = {
     difficultyLevel: { type: Type.NUMBER, description: "Difficulty level on a scale of 1-10." },
     questionText: { 
         type: Type.STRING, 
-        description: "The full question. STRICT FORMATTING RULE: 1. Start with the preamble/setup text. 2. Use DOUBLE NEWLINES (\\n\\n) to separate the preamble from parts. 3. Format parts as (a), (b), etc., and separate them with double newlines. 4. Put marks at the end of each part, e.g. **[3]**. 5. Use LaTeX ($...$) for all math." 
+        description: "The full question. STRICT FORMATTING: 1. Start with the preamble/setup text. 2. Use DOUBLE NEWLINES (\\n\\n) to separate the preamble from Part (a). 3. Use DOUBLE NEWLINES between all parts. 4. CRITICAL: Do NOT include marks (e.g. [4]) in the text. 5. CRITICAL: Use LaTeX ($...$) for ALL math expressions and numbers." 
     },
-    shortAnswer: { type: Type.STRING, description: "The final answer in LaTeX. Separate parts with double newlines." },
-    markscheme: { 
+    shortAnswer: { 
         type: Type.STRING, 
-        description: "A concise Markdown table for grading. | Step | Working | Marks |. No newlines in cells." 
+        description: "The final answer. CRITICAL FORMATTING: 1. Use strict LaTeX ($...$) for math. 2. SEPARATE EACH PART WITH DOUBLE NEWLINES (\\n\\n) so they appear on separate lines. Example: '(a) $x = 5$ \\n\\n (b) $y = 10$'." 
+    },
+    steps: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          section: { type: Type.STRING, description: "Part (a), etc." },
+          title: { type: Type.STRING, description: "Short title for this step." },
+          explanation: { type: Type.STRING, description: "Concise explanation." },
+          keyEquation: { type: Type.STRING, description: "LaTeX result." },
+        },
+        required: ["section", "title", "explanation", "keyEquation"],
+      },
+      description: "Detailed step-by-step solution. Break the problem into small, atomic logical steps. Ensure high quality and clarity."
     },
     hint: { type: Type.STRING, description: "A helpful nudge without giving away the answer." },
     calculatorAllowed: { type: Type.BOOLEAN }
   },
-  required: ["topic", "difficultyLevel", "questionText", "shortAnswer", "markscheme", "hint", "calculatorAllowed"]
+  required: ["topic", "difficultyLevel", "questionText", "shortAnswer", "steps", "hint", "calculatorAllowed"]
 };
 
 
@@ -171,7 +216,7 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
               }
           ];
     
-        const response = await ai.models.generateContent({
+        const response = await getAiClient().models.generateContent({
           model: "gemini-2.5-flash", 
           contents: { parts },
           config: {
@@ -248,7 +293,7 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
 
     parts.push({ text: prompt });
 
-    const response = await ai.models.generateContent({
+    const response = await getAiClient().models.generateContent({
         model: "gemini-2.5-flash",
         contents: { parts },
         config: {
@@ -296,30 +341,41 @@ export const generateDrillQuestion = async (
         const prompt = `
             Generate a SINGLE IB Math AA HL Practice Question for Drill Mode.
             
+            CONTEXT & STYLE GUIDELINES:
+            1. **Variety & Randomness**: The user requires HIGH variety. 
+               - Mix VERY EASY concepts (definitions, basic computation) with VERY HARD multi-step problems. 
+               - Do not just output standard "Solve for x" questions. 
+               - Use diverse topics: Complex Numbers, Vectors, Calculus, Probability, Proofs.
+               - Even if the target difficulty is high, occasionally throw in a conceptual "easy" question to test basics.
+            2. **Style**: Emulate the rigor and style of high-quality resources like **Christos Nikolaidis (MAA Exercises)** or **IB HL Past Papers**.
+            3. **Anti-Repetition**: Ensure this question is significantly different from a generic textbook example. Use unique parameters.
+            
             Parameters:
             - Question Number: ${questionNumber}
-            - Topic: ${settings.topics.length > 0 ? `One of: ${settings.topics.join(', ')}` : "Any Core Topic"}
-            - Target Difficulty: ${targetDifficulty}/10 (Make it slightly harder than the last one)
+            - Topic: ${settings.topics.length > 0 ? `Focus on: ${settings.topics.join(', ')}` : "Any Core Topic"}
+            - Target Difficulty: ${targetDifficulty}/10. (But allow variance +/- 2).
             - Calculator: ${settings.calculator}
             
             FORMATTING RULES (CRITICAL):
-            1. **Structured Text**: You MUST separate the setup (preamble) from the parts.
-            2. **Separators**: Use DOUBLE NEWLINES (\\n\\n) between the preamble and Part (a), and between Part (a) and Part (b).
+            1. **Structured Text**: separate the setup (preamble) from the parts using DOUBLE NEWLINES (\\n\\n).
+            2. **Separators**: Use DOUBLE NEWLINES (\\n\\n) between every part (a), (b), etc. Each part MUST start on a new line.
             3. **Part Labels**: Start parts with (a), (b), (c).
-            4. **Marks**: Put marks at the end of each part in bold, e.g. **[4]**.
-            5. **Math**: Use LaTeX ($...$) for ALL math.
-            6. **JSON**: Output strict JSON.
+            4. **NO MARKS**: Do NOT include marks like [4] or [5] in the question text. This is purely for practice.
+            5. **Math formatting**: Use strict LaTeX ($...$) for ALL math expressions and numbers.
+            6. **Smart Solver Solution**: The 'steps' field must be a structured array of logical steps (title, explanation, keyEquation), mimicking the high-quality breakdown of a Smart Solver. Do NOT just dump text.
+            7. **Short Answer**: Ensure ALL parts are separated by DOUBLE NEWLINES (\\n\\n) in the shortAnswer field so they render on separate lines.
+            8. **JSON**: Output strict JSON.
         `;
         
         parts.push({ text: prompt });
 
-        const response = await ai.models.generateContent({
+        const response = await getAiClient().models.generateContent({
             model: "gemini-2.5-flash",
             contents: { parts },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: drillQuestionSchema,
-                temperature: 0.8 // Slightly higher variety for drills
+                temperature: 0.95 // High temperature for maximum variety
             }
         });
 
@@ -337,7 +393,7 @@ export const createChatSession = (
   initialContext: string,
   history: { role: string; parts: { text: string }[] }[] = []
 ) => {
-  const chat = ai.chats.create({
+  const chat = getAiClient().chats.create({
     model: "gemini-2.5-flash",
     config: {
       systemInstruction: `You are an expert IB Math AA HL Examiner and Tutor named Bubble. 
@@ -364,7 +420,7 @@ export const createChatSession = (
 export const getStepHint = async (step: MathStep, problemContext: string): Promise<string> => {
   return retryOperation(async () => {
       try {
-        const response = await ai.models.generateContent({
+        const response = await getAiClient().models.generateContent({
           model: "gemini-2.5-flash",
           contents: `
             Context: "${problemContext}"
@@ -386,7 +442,7 @@ export const getStepHint = async (step: MathStep, problemContext: string): Promi
 export const getStepBreakdown = async (step: MathStep, problemContext: string): Promise<string[]> => {
     return retryOperation(async () => {
         try {
-          const response = await ai.models.generateContent({
+          const response = await getAiClient().models.generateContent({
             model: "gemini-2.5-flash",
             contents: `
               Context: "${problemContext}"
@@ -422,7 +478,7 @@ export const getStepBreakdown = async (step: MathStep, problemContext: string): 
 export const getMarkscheme = async (exerciseStatement: string, stepsJson: string): Promise<string> => {
     return retryOperation(async () => {
         try {
-            const response = await ai.models.generateContent({
+            const response = await getAiClient().models.generateContent({
                 model: "gemini-2.5-flash",
                 contents: `
                     You are an official IB Math AA HL Examiner. 

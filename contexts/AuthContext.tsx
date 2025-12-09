@@ -1,6 +1,8 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 import { authService } from '../services/authService';
+import { supabase } from '../services/supabaseClient';
 
 interface AuthContextType {
     user: User | null;
@@ -17,6 +19,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
 
+    // Initial check
     useEffect(() => {
         const initAuth = async () => {
             try {
@@ -29,6 +32,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         };
         initAuth();
+
+        // Listen for Supabase Auth changes (crucial for OAuth redirects)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' && session?.user) {
+                const mappedUser: User = {
+                    id: session.user.id,
+                    name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || "User",
+                    email: session.user.email || "",
+                    avatarUrl: session.user.user_metadata?.avatar_url
+                };
+                setUser(mappedUser);
+                setLoading(false);
+            } else if (event === 'SIGNED_OUT') {
+                setUser(null);
+                setLoading(false);
+            }
+        });
+
+        return () => {
+            subscription.unsubscribe();
+        };
     }, []);
 
     const login = async (email: string, password: string) => {
@@ -42,8 +66,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const loginWithGoogle = async (credential: string) => {
-        const user = await authService.loginWithGoogle(credential);
-        setUser(user);
+        await authService.loginWithGoogle();
+        // User state will be updated by the onAuthStateChange listener after redirect
     };
 
     const logout = async () => {

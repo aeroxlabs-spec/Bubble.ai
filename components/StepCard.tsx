@@ -1,8 +1,9 @@
 
+
 import React, { useRef, useEffect, useState } from 'react';
 import { MathStep } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
-import { ArrowRight, Plus, Lightbulb, ListStart, ChevronLeft, ChevronRight, Copy, Check } from 'lucide-react';
+import { ArrowRight, Plus, Lightbulb, ListStart, ChevronLeft, ChevronRight, Copy, Check, X } from 'lucide-react';
 import { getStepHint, getStepBreakdown } from '../services/geminiService';
 
 interface StepCardProps {
@@ -15,11 +16,15 @@ interface StepCardProps {
   onPrev?: () => void;
   isFirst?: boolean;
   isLast?: boolean;
+  mode?: 'SOLVER' | 'DRILL';
+  nextLabel?: string;
+  prevLabel?: string;
 }
 
 const StepCard: React.FC<StepCardProps> = ({ 
   step, index, isActive, problemContext, onClick,
-  onNext, onPrev, isFirst, isLast 
+  onNext, onPrev, isFirst, isLast, mode = 'SOLVER',
+  nextLabel, prevLabel
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   
@@ -42,9 +47,34 @@ const StepCard: React.FC<StepCardProps> = ({
   const touchEndX = useRef<number | null>(null);
   const minSwipeDistance = 50;
 
+  // Theme Configuration
+  const theme = {
+      SOLVER: {
+          activeBg: 'bg-[#121212]',
+          activeBorder: 'border-blue-500/30',
+          activeShadow: 'shadow-blue-900/5',
+          numberActive: 'bg-[#1e293b] text-blue-400 border-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]',
+          breakdownActive: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
+          breakdownHover: 'hover:text-blue-400 hover:bg-blue-500/5',
+          nextBtn: 'border-blue-500/30 text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/50 hover:text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.05)] hover:shadow-[0_0_20px_rgba(59,130,246,0.15)]',
+          breakdownTitle: 'text-blue-400',
+          breakdownNumber: 'text-blue-400 border-blue-500/10 bg-blue-500/5 shadow-[0_0_10px_rgba(59,130,246,0.1)]',
+      },
+      DRILL: {
+          activeBg: 'bg-[#121212]',
+          activeBorder: 'border-yellow-500/30',
+          activeShadow: 'shadow-yellow-900/5',
+          numberActive: 'bg-yellow-900/20 text-yellow-400 border-yellow-500/20 shadow-[0_0_10px_rgba(234,179,8,0.1)]',
+          breakdownActive: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
+          breakdownHover: 'hover:text-yellow-400 hover:bg-yellow-500/5',
+          nextBtn: 'border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 hover:border-yellow-500/50 hover:text-yellow-300 shadow-[0_0_15px_rgba(234,179,8,0.05)] hover:shadow-[0_0_20px_rgba(234,179,8,0.15)]',
+          breakdownTitle: 'text-yellow-400',
+          breakdownNumber: 'text-yellow-400 border-yellow-500/10 bg-yellow-500/5 shadow-[0_0_10px_rgba(234,179,8,0.1)]',
+      }
+  }[mode];
+
   useEffect(() => {
     if (isActive && cardRef.current) {
-      // Adjusted delay and behavior for smoother focus
       const timer = setTimeout(() => {
         cardRef.current?.scrollIntoView({ 
           behavior: 'smooth', 
@@ -56,25 +86,22 @@ const StepCard: React.FC<StepCardProps> = ({
     }
   }, [isActive]);
 
-  // Breakdown Animation Effect
   useEffect(() => {
     if (showBreakdown && breakdownContent) {
         setVisibleSubSteps(0);
-        // Start sequential reveal
         const interval = setInterval(() => {
             setVisibleSubSteps(prev => {
                 if (prev < breakdownContent.length) return prev + 1;
                 clearInterval(interval);
                 return prev;
             });
-        }, 500); // 500ms delay per step for interactive feel
+        }, 500);
         return () => clearInterval(interval);
     } else {
         setVisibleSubSteps(0);
     }
   }, [showBreakdown, breakdownContent]);
 
-  // Swipe Handlers
   const onTouchStart = (e: React.TouchEvent) => {
     touchEndX.current = null;
     touchStartX.current = e.targetTouches[0].clientX;
@@ -107,13 +134,11 @@ const StepCard: React.FC<StepCardProps> = ({
         return; 
     }
     
-    // Toggle off if already showing
     if (showHint) {
         setShowHint(false);
         return;
     }
 
-    // If we have content but it's hidden, just show it
     if (hintContent) {
         setShowHint(true);
         return;
@@ -138,13 +163,11 @@ const StepCard: React.FC<StepCardProps> = ({
           return;
       }
       
-      // Toggle off if already showing
       if (showBreakdown) {
           setShowBreakdown(false);
           return;
       }
 
-      // If we have content but it's hidden, just show it
       if (breakdownContent) {
           setShowBreakdown(true);
           return;
@@ -178,7 +201,7 @@ const StepCard: React.FC<StepCardProps> = ({
       onTouchEnd={onTouchEnd}
       className={`group relative rounded-xl transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] cursor-pointer overflow-hidden border scroll-mt-32
         ${isActive 
-          ? 'bg-[#121212] border-blue-500/30 shadow-lg shadow-blue-900/5' 
+          ? `${theme.activeBg} ${theme.activeBorder} shadow-lg ${theme.activeShadow}` 
           : 'bg-black border-white/10 hover:border-white/20 hover:bg-[#0a0a0a]'
         }`}
     >
@@ -187,7 +210,7 @@ const StepCard: React.FC<StepCardProps> = ({
             {/* Step Number */}
             <div className={`flex flex-shrink-0 items-center justify-center w-8 h-8 rounded-lg text-sm font-mono font-bold transition-colors duration-300
                 ${isActive 
-                    ? 'bg-[#1e293b] text-blue-400 border border-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]' 
+                    ? theme.numberActive
                     : 'bg-[#1c1c1e] text-gray-500 group-hover:bg-[#2c2c2e] group-hover:text-gray-300'
                 }`}>
                 {index + 1}
@@ -196,9 +219,8 @@ const StepCard: React.FC<StepCardProps> = ({
             <div className="flex-1 min-w-0">
                 {/* Header Row */}
                 <div className="flex items-center justify-between mb-2 gap-4">
-                     {/* Title using MarkdownRenderer for math support in titles, flattened to behave like inline-block */}
                      <div className={`font-medium text-base truncate transition-colors duration-300 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-200'}`}>
-                        <MarkdownRenderer content={step.title} className="inline-block [&>p]:mb-0 [&>p]:inline" />
+                        <MarkdownRenderer content={step.title} className="inline-block [&>p]:mb-0 [&>p]:inline" mode={mode} />
                     </div>
                     
                     {/* Action Buttons */}
@@ -209,8 +231,8 @@ const StepCard: React.FC<StepCardProps> = ({
                             disabled={loadingBreakdown}
                             className={`relative w-8 h-8 rounded-md transition-all duration-300 flex items-center justify-center border
                                 ${(showBreakdown || loadingBreakdown) 
-                                    ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' 
-                                    : 'bg-transparent border-transparent text-gray-600 hover:text-blue-400 hover:bg-blue-500/5'
+                                    ? theme.breakdownActive
+                                    : `bg-transparent border-transparent text-gray-600 ${theme.breakdownHover}`
                                 }`}
                             title="Break down this step"
                         >
@@ -256,30 +278,27 @@ const StepCard: React.FC<StepCardProps> = ({
                 </div>
 
                 {/* Content Area */}
-                {/* Smoother ease-out-quart transition */}
                 <div className={`transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] overflow-hidden ${isActive ? 'max-h-[2500px] opacity-100 mt-5' : 'max-h-0 opacity-0'}`}>
                     <div className="space-y-6">
                         
-                        {/* Explanation Block */}
                         <div className="text-gray-300 text-sm leading-relaxed">
-                            <MarkdownRenderer content={step.explanation} />
+                            <MarkdownRenderer content={step.explanation} mode={mode} />
                         </div>
                         
-                        {/* Breakdown Block (Appears if requested) */}
                         {showBreakdown && breakdownContent && (
                             <div className="animate-in fade-in slide-in-from-top-2 duration-200 bg-[#0e0e0e] rounded-lg p-4 border border-white/5">
                                  <div className="flex items-center gap-2 mb-3">
-                                     <ListStart size={14} className="text-blue-400"/>
-                                     <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Step Breakdown</span>
+                                     <ListStart size={14} className={theme.breakdownTitle} />
+                                     <span className={`text-[10px] font-bold uppercase tracking-widest ${theme.breakdownTitle}`}>Step Breakdown</span>
                                 </div>
                                 <div className="space-y-4">
                                     {breakdownContent.slice(0, visibleSubSteps).map((subStep, i) => (
                                         <div key={i} className="flex gap-4 text-xs text-gray-400 group/item animate-in fade-in slide-in-from-left-4 duration-500">
-                                            <div className="flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-blue-400 text-xs font-mono font-bold border border-blue-500/10 bg-blue-500/5 mt-0.5 shadow-[0_0_10px_rgba(59,130,246,0.1)]">
+                                            <div className={`flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold border mt-0.5 ${theme.breakdownNumber}`}>
                                                 {i + 1}
                                             </div>
                                             <div className="leading-relaxed pt-0.5 w-full">
-                                                <MarkdownRenderer content={subStep} className="text-gray-300" />
+                                                <MarkdownRenderer content={subStep} className="text-gray-300" mode={mode} />
                                             </div>
                                         </div>
                                     ))}
@@ -287,11 +306,7 @@ const StepCard: React.FC<StepCardProps> = ({
                             </div>
                         )}
 
-                        {/* Math Block */}
-                        {/* Improved padding and centering logic to avoid touching sides */}
                         <div className="group/math bg-[#050505] rounded-xl py-8 px-6 border border-white/10 font-mono text-xl overflow-x-auto relative shadow-inner flex flex-col justify-center min-h-[6rem] hover:border-white/20 transition-colors">
-                            
-                            {/* Copy Button */}
                             <button
                                 onClick={handleCopy}
                                 className={`absolute top-2 right-2 p-1.5 rounded-md transition-all duration-200 backdrop-blur-sm border ${
@@ -305,58 +320,57 @@ const StepCard: React.FC<StepCardProps> = ({
                             </button>
 
                             <div className="text-white w-full text-center">
-                                {/* Wrapper to ensure horizontal centering but left-align if overflow */}
                                 <div className="inline-block min-w-full text-center">
-                                    <MarkdownRenderer content={`$$ ${step.keyEquation} $$`} />
+                                    <MarkdownRenderer content={`$$ ${step.keyEquation} $$`} mode={mode} />
                                 </div>
                             </div>
                         </div>
 
-                        {/* Hint Block (Appears if requested) */}
                         {showHint && hintContent && (
                             <div className="bg-[#12110b] rounded-lg p-5 border-l-4 border-yellow-500 animate-in fade-in slide-in-from-top-2 duration-200">
                                 <div className="flex items-center gap-2 mb-2">
                                      <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-500">Tutor Tip</span>
                                 </div>
                                 <div className="text-gray-300 text-xs leading-relaxed italic">
-                                    <MarkdownRenderer content={hintContent} />
+                                    <MarkdownRenderer content={hintContent} mode={mode} />
                                 </div>
                             </div>
                         )}
 
-                        {/* Navigation Footer */}
                         <div className="flex items-center justify-between pt-6 border-t border-white/5 mt-6 pb-1">
                             <button
                                 onClick={(e) => { e.stopPropagation(); onPrev?.(); }}
-                                disabled={isFirst}
+                                disabled={isFirst && !prevLabel}
                                 className={`flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-lg transition-all duration-200 border border-transparent ${
-                                    isFirst 
+                                    isFirst && !prevLabel
                                         ? 'text-gray-800 cursor-not-allowed' 
                                         : 'text-gray-400 hover:text-white hover:bg-white/5 hover:border-white/10'
                                 }`}
                             >
-                                <ChevronLeft size={16} />
-                                Previous
+                                {prevLabel === 'Close' ? <X size={16}/> : <ChevronLeft size={16} />}
+                                {prevLabel || 'Previous'}
                             </button>
 
                             <button
                                 onClick={(e) => { e.stopPropagation(); onNext?.(); }}
-                                disabled={isLast}
+                                disabled={isLast && !nextLabel}
                                 className={`flex items-center gap-2 text-xs font-bold px-5 py-2.5 rounded-lg transition-all duration-300 border ${
-                                    isLast 
+                                    isLast && !nextLabel
                                         ? 'text-gray-800 border-transparent cursor-not-allowed bg-[#0f0f0f]' 
-                                        : 'bg-transparent border-blue-500/30 text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/50 hover:text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.05)] hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] active:scale-95'
+                                        : `bg-transparent ${theme.nextBtn} active:scale-95`
                                 }`}
                             >
-                                Next Step
-                                <ChevronRight size={16} />
+                                {nextLabel || 'Next Step'}
+                                {nextLabel === 'Close' ? <X size={16} /> : <ChevronRight size={16} />}
                             </button>
                         </div>
                     </div>
                 </div>
 
                 {!isActive && (
-                    <div className="flex items-center text-xs text-gray-600 mt-2 group-hover:text-blue-400 transition-colors font-bold uppercase tracking-wide pl-1">
+                    <div className={`flex items-center text-xs text-gray-600 mt-2 transition-colors font-bold uppercase tracking-wide pl-1 ${
+                        mode === 'DRILL' ? 'group-hover:text-yellow-400' : 'group-hover:text-blue-400'
+                    }`}>
                         <span>Show details</span>
                         <ArrowRight size={12} className="ml-1" />
                     </div>

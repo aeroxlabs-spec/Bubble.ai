@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText, Zap } from 'lucide-react';
 import { ChatMessage, MathSolution, DrillQuestion, AppMode } from '../types';
@@ -19,7 +20,7 @@ interface ChatInterfaceProps {
 type ChatScope = 'FULL' | 'STEP';
 
 // Typewriter component for the typing effect
-const TypewriterMessage = ({ text, onComplete }: { text: string, onComplete?: () => void }) => {
+const TypewriterMessage = ({ text, onComplete, mode }: { text: string, onComplete?: () => void, mode: AppMode }) => {
     const [displayedText, setDisplayedText] = useState('');
     const index = useRef(0);
 
@@ -43,7 +44,7 @@ const TypewriterMessage = ({ text, onComplete }: { text: string, onComplete?: ()
         return () => clearInterval(intervalId);
     }, [text]);
 
-    return <MarkdownRenderer content={displayedText} className="prose-sm" />;
+    return <MarkdownRenderer content={displayedText} className="prose-sm" mode={mode} />;
 };
 
 
@@ -101,7 +102,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
             Topic: ${drillQuestion.topic}
             Difficulty: ${drillQuestion.difficultyLevel}/10
             Correct Answer: ${drillQuestion.shortAnswer}
-            Markscheme: ${drillQuestion.markscheme}
+            Solution Steps: ${JSON.stringify(drillQuestion.steps)}
         `;
         focusInstruction = `\nROLE: You are an encouraging Drill Coach.
         CONTEXT: User is practicing a Drill Question (Q${drillQuestion.number}).
@@ -420,8 +421,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                 }`}>
                     {msg.role === 'model' ? (
                         (idx === messages.length - 1 && !isLoading) 
-                            ? <TypewriterMessage text={msg.text} /> 
-                            : <MarkdownRenderer content={msg.text} className="prose-sm" />
+                            ? <TypewriterMessage text={msg.text} mode={mode} /> 
+                            : <MarkdownRenderer content={msg.text} className="prose-sm" mode={mode} />
                     ) : (
                         <p>{msg.text}</p>
                     )}
@@ -444,7 +445,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
         {/* Footer */}
         <div className="flex-shrink-0 bg-[#151515] border-t border-white/5 flex flex-col p-4">
           <div className={`flex items-center gap-2 bg-[#0a0a0a] rounded-full border border-white/10 transition-colors ${
-              mode === 'DRILL' ? 'focus-within:border-yellow-500/30' : 'focus-within:border-blue-500/30'
+              mode === 'DRILL' 
+              ? 'focus-within:border-yellow-500/30 shadow-none' // Muted glow
+              : 'focus-within:border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
           }`}>
               <input
               type="text"
