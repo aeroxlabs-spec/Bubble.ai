@@ -11,6 +11,8 @@ const getApiKey = () => {
         if (process.env.API_KEY) key = process.env.API_KEY;
         else if (process.env.REACT_APP_API_KEY) key = process.env.REACT_APP_API_KEY;
         else if (process.env.VITE_API_KEY) key = process.env.VITE_API_KEY;
+        // Next.js
+        else if (process.env.NEXT_PUBLIC_API_KEY) key = process.env.NEXT_PUBLIC_API_KEY;
     }
 
     // 2. Check for Vite-specific import.meta.env (Frontend)
@@ -22,6 +24,8 @@ const getApiKey = () => {
                 if (import.meta.env.VITE_API_KEY) key = import.meta.env.VITE_API_KEY;
                 // @ts-ignore
                 else if (import.meta.env.API_KEY) key = import.meta.env.API_KEY;
+                 // @ts-ignore
+                else if (import.meta.env.REACT_APP_API_KEY) key = import.meta.env.REACT_APP_API_KEY;
             }
         } catch(e) {}
     }
@@ -241,6 +245,8 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
            - GOOD: $x = 3$, $\\sin(x)$, $45^\\circ$
         2. Do NOT output plain text math.
         3. Break down solutions into clear, logical steps.
+        4. If a Markscheme is requested or implied, it MUST be a Markdown Table:
+           | Step | Working | Explanation | Marks |
         `;
 
         const parts = isImage 
