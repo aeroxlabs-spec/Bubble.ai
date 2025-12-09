@@ -44,7 +44,7 @@ const TypewriterMessage = ({ text, onComplete, mode }: { text: string, onComplet
         return () => clearInterval(intervalId);
     }, [text]);
 
-    return <MarkdownRenderer content={displayedText} className="prose-sm" mode={mode} />;
+    return <MarkdownRenderer content={displayedText} className="prose-sm leading-snug" mode={mode} />;
 };
 
 
@@ -222,52 +222,52 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
 
   return (
     <div 
-      className={`fixed bottom-28 right-8 w-[380px] h-[550px] max-h-[70vh] z-40 flex flex-col transition-all duration-300 ease-in-out font-sans
+      className={`fixed bottom-24 right-6 w-[350px] h-[480px] max-h-[65vh] z-40 flex flex-col transition-all duration-300 ease-in-out font-sans
         ${isOpen 
             ? 'opacity-100 translate-y-0 pointer-events-auto' 
             : 'opacity-0 translate-y-8 pointer-events-none'
         }`}
     >
       {/* Background */}
-      <div className="absolute inset-0 bg-[#121212] rounded-[1.5rem] border border-white/10 shadow-xl flex flex-col" />
+      <div className="absolute inset-0 bg-[#121212] rounded-[1.25rem] border border-white/10 shadow-2xl flex flex-col" />
       
-      <div className="relative flex flex-col h-full z-10 overflow-hidden rounded-[1.5rem]">
+      <div className="relative flex flex-col h-full z-10 overflow-hidden rounded-[1.25rem]">
         
         {/* Header */}
-        <div className="flex-shrink-0 px-6 py-5 flex items-center justify-between border-b border-white/5 bg-[#151515]">
+        <div className="flex-shrink-0 px-5 py-4 flex items-center justify-between border-b border-white/5 bg-[#151515]">
           <div className="flex items-center gap-2">
              {/* Animated Pencil/Zap */}
-             <div className={`transition-all duration-500 ease-in-out flex items-center overflow-hidden ${messages.length > 0 ? 'w-6 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-4'}`}>
-                {mode === 'DRILL' ? <Zap size={16} className="text-yellow-400" /> : <Pen size={16} className="text-blue-400 flex-shrink-0" />}
+             <div className={`transition-all duration-500 ease-in-out flex items-center overflow-hidden ${messages.length > 0 ? 'w-5 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-4'}`}>
+                {mode === 'DRILL' ? <Zap size={14} className="text-yellow-400" /> : <Pen size={14} className="text-blue-400 flex-shrink-0" />}
              </div>
-             <span className="text-white font-sans font-bold text-lg tracking-tighter">Bubble.</span>
+             <span className="text-white font-sans font-bold text-base tracking-tighter">Bubble.</span>
           </div>
           
           {/* Context Switch */}
           {mode === 'DRILL' ? (
-              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#0a0a0a] border border-yellow-500/30 shadow-[0_0_10px_rgba(234,179,8,0.1)]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 shadow-[0_0_5px_rgba(234,179,8,0.8)]"></div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-200">
+              <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0a0a0a] border border-yellow-500/30 shadow-[0_0_10px_rgba(234,179,8,0.1)]">
+                  <div className="w-1 h-1 rounded-full bg-yellow-500 shadow-[0_0_5px_rgba(234,179,8,0.8)]"></div>
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-yellow-200">
                       Drill Coach
                   </span>
               </div>
           ) : activeView === 'markscheme' ? (
-              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#0a0a0a] border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.1)]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.8)]"></div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
+              <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0a0a0a] border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.1)]">
+                  <div className="w-1 h-1 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.8)]"></div>
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-blue-200">
                       Markscheme
                   </span>
               </div>
           ) : (
               <button 
                 onClick={toggleScope}
-                className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#0a0a0a] border border-white/10 hover:border-blue-500/30 transition-colors group"
+                className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0a0a0a] border border-white/10 hover:border-blue-500/30 transition-colors group"
               >
-                   <div className={`w-1.5 h-1.5 rounded-full ${activeScope === 'STEP' ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
-                   <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 group-hover:text-blue-200 w-16 text-center">
+                   <div className={`w-1 h-1 rounded-full ${activeScope === 'STEP' ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
+                   <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 group-hover:text-blue-200 w-14 text-center">
                       {activeScope === 'STEP' ? `Step ${currentStepIndex + 1}` : 'Problem'}
                    </span>
-                   <ArrowRightLeft size={10} className="text-gray-600 group-hover:text-blue-400" />
+                   <ArrowRightLeft size={8} className="text-gray-600 group-hover:text-blue-400" />
               </button>
           )}
         </div>
@@ -275,18 +275,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
         {/* Messages */}
         <div 
             ref={messagesContainerRef}
-            className="flex-1 min-h-0 overflow-y-auto p-5 pb-6 space-y-5 bg-[#0e0e0e] overflow-x-hidden overscroll-contain"
+            className="flex-1 min-h-0 overflow-y-auto p-4 pb-5 space-y-4 bg-[#0e0e0e] overflow-x-hidden overscroll-contain"
             style={{ scrollBehavior: 'auto' }} 
         >
           {/* Empty State / Initial Selection View */}
           {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
+              <div className="h-full flex flex-col items-center justify-center space-y-5 animate-in fade-in zoom-in-95 duration-300">
                   
                   {/* Central Icon */}
                   <div className="animate-bounce duration-[3000ms] ease-in-out">
                      {mode === 'DRILL' 
-                        ? <Zap size={22} className="text-yellow-400 fill-yellow-500/20" /> 
-                        : <Pen size={20} className="text-blue-400 transform -rotate-12" />
+                        ? <Zap size={20} className="text-yellow-400 fill-yellow-500/20" /> 
+                        : <Pen size={18} className="text-blue-400 transform -rotate-12" />
                      }
                   </div>
 
@@ -294,81 +294,81 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                       // 1. Initial Mode Selection
                       mode === 'DRILL' ? (
                           <>
-                            <div className="text-center space-y-1">
-                                <h3 className="text-lg font-bold text-white tracking-tight">Practice Assistant</h3>
-                                <p className="text-gray-500 text-xs px-4">I'm here to coach you through this drill.</p>
+                            <div className="text-center space-y-0.5">
+                                <h3 className="text-base font-bold text-white tracking-tight">Practice Assistant</h3>
+                                <p className="text-gray-500 text-[10px] px-4">I'm here to coach you through this drill.</p>
                             </div>
                             <div className="w-full px-2">
                                  <button 
                                     onClick={() => initializeChat('FULL')}
-                                    className="w-full flex items-center justify-between p-4 bg-transparent hover:bg-yellow-500/5 border border-white/10 hover:border-yellow-500/30 rounded-xl transition-all group text-left shadow-[0_0_15px_rgba(234,179,8,0.05)]"
+                                    className="w-full flex items-center justify-between p-3 bg-transparent hover:bg-yellow-500/5 border border-white/10 hover:border-yellow-500/30 rounded-xl transition-all group text-left shadow-[0_0_15px_rgba(234,179,8,0.05)]"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className="bg-yellow-500/10 p-2 rounded-lg text-yellow-400 border border-yellow-500/20">
-                                            <Zap size={18} />
+                                        <div className="bg-yellow-500/10 p-1.5 rounded-lg text-yellow-400 border border-yellow-500/20">
+                                            <Zap size={16} />
                                         </div>
                                         <div>
-                                            <div className="text-yellow-200 font-semibold text-sm">Start Coaching</div>
-                                            <div className="text-gray-500 text-[11px]">Hints, tips, & explanations</div>
+                                            <div className="text-yellow-200 font-semibold text-xs">Start Coaching</div>
+                                            <div className="text-gray-500 text-[10px]">Hints, tips, & explanations</div>
                                         </div>
                                     </div>
-                                    <ChevronRight size={16} className="text-gray-600 group-hover:text-yellow-400 transition-colors" />
+                                    <ChevronRight size={14} className="text-gray-600 group-hover:text-yellow-400 transition-colors" />
                                 </button>
                             </div>
                           </>
                       ) : activeView === 'markscheme' ? (
                           <>
-                            <div className="text-center space-y-1">
-                                <h3 className="text-lg font-bold text-white tracking-tight">Markscheme Mode</h3>
-                                <p className="text-gray-500 text-xs px-4">I can help you interpret the marking codes and rubric logic.</p>
+                            <div className="text-center space-y-0.5">
+                                <h3 className="text-base font-bold text-white tracking-tight">Markscheme Mode</h3>
+                                <p className="text-gray-500 text-[10px] px-4">I can help you interpret the marking codes.</p>
                             </div>
                             <div className="w-full px-2">
                                  <button 
                                     onClick={() => initializeChat('FULL')}
-                                    className="w-full flex items-center justify-between p-4 bg-transparent hover:bg-blue-500/5 border border-white/10 hover:border-blue-500/30 rounded-xl transition-all group text-left shadow-[0_0_15px_rgba(59,130,246,0.05)]"
+                                    className="w-full flex items-center justify-between p-3 bg-transparent hover:bg-blue-500/5 border border-white/10 hover:border-blue-500/30 rounded-xl transition-all group text-left shadow-[0_0_15px_rgba(59,130,246,0.05)]"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className="bg-blue-500/10 p-2 rounded-lg text-blue-400 border border-blue-500/20">
-                                            <ScrollText size={18} />
+                                        <div className="bg-blue-500/10 p-1.5 rounded-lg text-blue-400 border border-blue-500/20">
+                                            <ScrollText size={16} />
                                         </div>
                                         <div>
-                                            <div className="text-blue-200 font-semibold text-sm">Start Analysis</div>
-                                            <div className="text-gray-500 text-[11px]">Ask about M1, A1, R1 marks</div>
+                                            <div className="text-blue-200 font-semibold text-xs">Start Analysis</div>
+                                            <div className="text-gray-500 text-[10px]">Ask about M1, A1, R1 marks</div>
                                         </div>
                                     </div>
-                                    <ChevronRight size={16} className="text-gray-600 group-hover:text-blue-400 transition-colors" />
+                                    <ChevronRight size={14} className="text-gray-600 group-hover:text-blue-400 transition-colors" />
                                 </button>
                             </div>
                           </>
                       ) : (
                           // Normal Step/Full selection
                           <>
-                            <div className="text-center space-y-1">
-                                <h3 className="text-lg font-bold text-white tracking-tight">Focus your session</h3>
-                                <p className="text-gray-500 text-xs px-4">Do you need help with the full problem or just the current step?</p>
+                            <div className="text-center space-y-0.5">
+                                <h3 className="text-base font-bold text-white tracking-tight">Focus your session</h3>
+                                <p className="text-gray-500 text-[10px] px-4">Full problem or just the current step?</p>
                             </div>
 
-                            <div className="w-full space-y-3 px-2">
+                            <div className="w-full space-y-2.5 px-2">
                                 <button 
                                     onClick={() => initializeChat('STEP')}
-                                    className="w-full flex items-center justify-between p-4 bg-transparent hover:bg-blue-500/5 border border-white/10 hover:border-blue-500/30 rounded-xl transition-all group text-left"
+                                    className="w-full flex items-center justify-between p-3 bg-transparent hover:bg-blue-500/5 border border-white/10 hover:border-blue-500/30 rounded-xl transition-all group text-left"
                                 >
                                     <div>
-                                        <div className="text-blue-400 font-semibold text-sm">Current Step Only</div>
-                                        <div className="text-gray-500 text-[11px]">Deep dive into Step {currentStepIndex + 1}</div>
+                                        <div className="text-blue-400 font-semibold text-xs">Current Step Only</div>
+                                        <div className="text-gray-500 text-[10px]">Deep dive into Step {currentStepIndex + 1}</div>
                                     </div>
-                                    <ChevronRight size={16} className="text-gray-600 group-hover:text-blue-400 transition-colors" />
+                                    <ChevronRight size={14} className="text-gray-600 group-hover:text-blue-400 transition-colors" />
                                 </button>
 
                                 <button 
                                     onClick={() => initializeChat('FULL')}
-                                    className="w-full flex items-center justify-between p-4 bg-transparent hover:bg-white/5 border border-white/10 hover:border-white/20 rounded-xl transition-all group text-left"
+                                    className="w-full flex items-center justify-between p-3 bg-transparent hover:bg-white/5 border border-white/10 hover:border-white/20 rounded-xl transition-all group text-left"
                                 >
                                     <div>
-                                        <div className="text-white font-semibold text-sm">Entire Problem</div>
-                                        <div className="text-gray-500 text-[11px]">General questions & concepts</div>
+                                        <div className="text-white font-semibold text-xs">Entire Problem</div>
+                                        <div className="text-gray-500 text-[10px]">General questions & concepts</div>
                                     </div>
-                                    <ChevronRight size={16} className="text-gray-600 group-hover:text-white transition-colors" />
+                                    <ChevronRight size={14} className="text-gray-600 group-hover:text-white transition-colors" />
                                 </button>
                             </div>
                           </>
@@ -376,8 +376,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                   ) : (
                       // 2. Mode Selected but no messages yet
                       <div className="text-center space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                         <h3 className="text-lg font-bold text-white">I'm ready to help.</h3>
-                         <p className="text-gray-500 text-xs px-8 leading-relaxed">
+                         <h3 className="text-base font-bold text-white">I'm ready to help.</h3>
+                         <p className="text-gray-500 text-[10px] px-6 leading-relaxed">
                             {mode === 'DRILL'
                                 ? <span>Practice mode active. I'll provide <b>hints</b> without spoiling the answer.</span>
                                 : activeView === 'markscheme'
@@ -391,12 +391,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                   )}
 
                   {/* Suggestions */}
-                  <div className="flex flex-wrap justify-center gap-2 pt-2">
+                  <div className="flex flex-wrap justify-center gap-1.5 pt-1">
                       {suggestions.map((suggestion) => (
                           <button
                             key={suggestion}
                             onClick={() => handleSendMessage(suggestion)}
-                            className={`text-[10px] px-3 py-1.5 rounded-full border bg-transparent transition-colors cursor-pointer ${
+                            className={`text-[9px] px-2.5 py-1 rounded-full border bg-transparent transition-colors cursor-pointer ${
                                 mode === 'DRILL'
                                 ? 'text-gray-500 hover:text-yellow-400 border-white/10 hover:border-yellow-500/30'
                                 : 'text-gray-500 hover:text-blue-400 border-white/10 hover:border-blue-500/30'
@@ -411,7 +411,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
             // Message List
             messages.map((msg, idx) => (
                 <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm border ${
+                <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-xs leading-relaxed border ${
                     msg.role === 'user' 
                     ? (mode === 'DRILL' 
                         ? 'bg-yellow-900/20 border-yellow-500/10 text-yellow-100 rounded-br-sm' 
@@ -422,7 +422,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                     {msg.role === 'model' ? (
                         (idx === messages.length - 1 && !isLoading) 
                             ? <TypewriterMessage text={msg.text} mode={mode} /> 
-                            : <MarkdownRenderer content={msg.text} className="prose-sm" mode={mode} />
+                            : <MarkdownRenderer content={msg.text} className="prose-sm leading-snug" mode={mode} />
                     ) : (
                         <p>{msg.text}</p>
                     )}
@@ -433,17 +433,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
 
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-[#1c1c1e] px-4 py-3 rounded-2xl rounded-bl-sm border border-white/5 flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse" />
-                <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse delay-100" />
-                <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse delay-200" />
+              <div className="bg-[#1c1c1e] px-3 py-2 rounded-2xl rounded-bl-sm border border-white/5 flex items-center gap-1">
+                <div className="w-1 h-1 bg-gray-500 rounded-full animate-pulse" />
+                <div className="w-1 h-1 bg-gray-500 rounded-full animate-pulse delay-100" />
+                <div className="w-1 h-1 bg-gray-500 rounded-full animate-pulse delay-200" />
               </div>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 bg-[#151515] border-t border-white/5 flex flex-col p-4">
+        <div className="flex-shrink-0 bg-[#151515] border-t border-white/5 flex flex-col p-3">
           <div className={`flex items-center gap-2 bg-[#0a0a0a] rounded-full border border-white/10 transition-colors ${
               mode === 'DRILL' 
               ? 'focus-within:border-yellow-500/30 shadow-none' // Muted glow
@@ -451,7 +451,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
           }`}>
               <input
               type="text"
-              className="flex-1 bg-transparent border-none focus:outline-none text-sm text-gray-200 placeholder:text-gray-600 px-5 py-3"
+              className="flex-1 bg-transparent border-none focus:outline-none text-xs text-gray-200 placeholder:text-gray-600 px-4 py-2.5"
               placeholder={hasStarted ? "Ask a follow-up..." : "Select an option..."}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
@@ -460,13 +460,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
               <button 
               onClick={() => handleSendMessage()}
               disabled={!inputValue.trim() || isLoading}
-              className={`p-2 mr-2 rounded-full transition-colors disabled:opacity-50 disabled:hover:bg-transparent ${
+              className={`p-1.5 mr-1.5 rounded-full transition-colors disabled:opacity-50 disabled:hover:bg-transparent ${
                   mode === 'DRILL' 
                   ? 'text-yellow-400 hover:bg-yellow-500/10' 
                   : 'text-blue-400 hover:bg-blue-500/10'
               }`}
               >
-              <Send size={18} />
+              <Send size={14} />
               </button>
           </div>
         </div>

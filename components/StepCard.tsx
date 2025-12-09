@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useRef, useEffect, useState } from 'react';
 import { MathStep } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -205,10 +207,10 @@ const StepCard: React.FC<StepCardProps> = ({
           : 'bg-black border-white/10 hover:border-white/20 hover:bg-[#0a0a0a]'
         }`}
     >
-      <div className="p-6">
-        <div className="flex items-start gap-5">
+      <div className="p-5">
+        <div className="flex items-start gap-4">
             {/* Step Number */}
-            <div className={`flex flex-shrink-0 items-center justify-center w-8 h-8 rounded-lg text-sm font-mono font-bold transition-colors duration-300
+            <div className={`flex flex-shrink-0 items-center justify-center w-7 h-7 rounded-lg text-xs font-mono font-bold transition-colors duration-300
                 ${isActive 
                     ? theme.numberActive
                     : 'bg-[#1c1c1e] text-gray-500 group-hover:bg-[#2c2c2e] group-hover:text-gray-300'
@@ -219,7 +221,7 @@ const StepCard: React.FC<StepCardProps> = ({
             <div className="flex-1 min-w-0">
                 {/* Header Row */}
                 <div className="flex items-center justify-between mb-2 gap-4">
-                     <div className={`font-medium text-base truncate transition-colors duration-300 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-200'}`}>
+                     <div className={`font-medium text-sm truncate transition-colors duration-300 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-200'}`}>
                         <MarkdownRenderer content={step.title} className="inline-block [&>p]:mb-0 [&>p]:inline" mode={mode} />
                     </div>
                     
@@ -229,7 +231,7 @@ const StepCard: React.FC<StepCardProps> = ({
                         <button
                             onClick={handleBreakdownClick}
                             disabled={loadingBreakdown}
-                            className={`relative w-8 h-8 rounded-md transition-all duration-300 flex items-center justify-center border
+                            className={`relative w-7 h-7 rounded-md transition-all duration-300 flex items-center justify-center border
                                 ${(showBreakdown || loadingBreakdown) 
                                     ? theme.breakdownActive
                                     : `bg-transparent border-transparent text-gray-600 ${theme.breakdownHover}`
@@ -238,7 +240,7 @@ const StepCard: React.FC<StepCardProps> = ({
                         >
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <Plus 
-                                    size={18} 
+                                    size={16} 
                                     className={`transition-all duration-500 ${
                                         loadingBreakdown 
                                             ? 'animate-pulse opacity-50' 
@@ -254,7 +256,7 @@ const StepCard: React.FC<StepCardProps> = ({
                         <button
                             onClick={handleHintClick}
                             disabled={loadingHint}
-                            className={`relative w-8 h-8 rounded-md transition-all duration-300 flex items-center justify-center border
+                            className={`relative w-7 h-7 rounded-md transition-all duration-300 flex items-center justify-center border
                                 ${(showHint || loadingHint) 
                                     ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500' 
                                     : 'bg-transparent border-transparent text-gray-600 hover:text-yellow-500 hover:bg-yellow-500/10'
@@ -263,7 +265,7 @@ const StepCard: React.FC<StepCardProps> = ({
                         >
                              <div className="absolute inset-0 flex items-center justify-center">
                                 <Lightbulb 
-                                    size={18} 
+                                    size={16} 
                                     className={`transition-all duration-500 ${
                                         loadingHint 
                                             ? 'animate-pulse opacity-50 fill-yellow-500/50' 
@@ -278,8 +280,8 @@ const StepCard: React.FC<StepCardProps> = ({
                 </div>
 
                 {/* Content Area */}
-                <div className={`transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] overflow-hidden ${isActive ? 'max-h-[2500px] opacity-100 mt-5' : 'max-h-0 opacity-0'}`}>
-                    <div className="space-y-6">
+                <div className={`transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] overflow-hidden ${isActive ? 'max-h-[2500px] opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
+                    <div className="space-y-5">
                         
                         <div className="text-gray-300 text-sm leading-relaxed">
                             <MarkdownRenderer content={step.explanation} mode={mode} />
@@ -294,7 +296,7 @@ const StepCard: React.FC<StepCardProps> = ({
                                 <div className="space-y-4">
                                     {breakdownContent.slice(0, visibleSubSteps).map((subStep, i) => (
                                         <div key={i} className="flex gap-4 text-xs text-gray-400 group/item animate-in fade-in slide-in-from-left-4 duration-500">
-                                            <div className={`flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold border mt-0.5 ${theme.breakdownNumber}`}>
+                                            <div className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-[10px] font-mono font-bold border mt-0.5 ${theme.breakdownNumber}`}>
                                                 {i + 1}
                                             </div>
                                             <div className="leading-relaxed pt-0.5 w-full">
@@ -306,7 +308,7 @@ const StepCard: React.FC<StepCardProps> = ({
                             </div>
                         )}
 
-                        <div className="group/math bg-[#050505] rounded-xl py-8 px-6 border border-white/10 font-mono text-xl overflow-x-auto relative shadow-inner flex flex-col justify-center min-h-[6rem] hover:border-white/20 transition-colors">
+                        <div className="group/math bg-[#050505] rounded-xl py-6 px-5 border border-white/10 font-mono text-lg overflow-x-auto relative shadow-inner flex flex-col justify-center min-h-[5rem] hover:border-white/20 transition-colors">
                             <button
                                 onClick={handleCopy}
                                 className={`absolute top-2 right-2 p-1.5 rounded-md transition-all duration-200 backdrop-blur-sm border ${
@@ -327,7 +329,7 @@ const StepCard: React.FC<StepCardProps> = ({
                         </div>
 
                         {showHint && hintContent && (
-                            <div className="bg-[#12110b] rounded-lg p-5 border-l-4 border-yellow-500 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <div className="bg-[#12110b] rounded-lg p-4 border-l-4 border-yellow-500 animate-in fade-in slide-in-from-top-2 duration-200">
                                 <div className="flex items-center gap-2 mb-2">
                                      <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-500">Tutor Tip</span>
                                 </div>
@@ -337,42 +339,42 @@ const StepCard: React.FC<StepCardProps> = ({
                             </div>
                         )}
 
-                        <div className="flex items-center justify-between pt-6 border-t border-white/5 mt-6 pb-1">
+                        <div className="flex items-center justify-between pt-5 border-t border-white/5 mt-5 pb-1">
                             <button
                                 onClick={(e) => { e.stopPropagation(); onPrev?.(); }}
                                 disabled={isFirst && !prevLabel}
-                                className={`flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-lg transition-all duration-200 border border-transparent ${
+                                className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg transition-all duration-200 border border-transparent ${
                                     isFirst && !prevLabel
                                         ? 'text-gray-800 cursor-not-allowed' 
                                         : 'text-gray-400 hover:text-white hover:bg-white/5 hover:border-white/10'
                                 }`}
                             >
-                                {prevLabel === 'Close' ? <X size={16}/> : <ChevronLeft size={16} />}
+                                {prevLabel === 'Close' ? <X size={14}/> : <ChevronLeft size={14} />}
                                 {prevLabel || 'Previous'}
                             </button>
 
                             <button
                                 onClick={(e) => { e.stopPropagation(); onNext?.(); }}
                                 disabled={isLast && !nextLabel}
-                                className={`flex items-center gap-2 text-xs font-bold px-5 py-2.5 rounded-lg transition-all duration-300 border ${
+                                className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg transition-all duration-300 border ${
                                     isLast && !nextLabel
                                         ? 'text-gray-800 border-transparent cursor-not-allowed bg-[#0f0f0f]' 
                                         : `bg-transparent ${theme.nextBtn} active:scale-95`
                                 }`}
                             >
                                 {nextLabel || 'Next Step'}
-                                {nextLabel === 'Close' ? <X size={16} /> : <ChevronRight size={16} />}
+                                {nextLabel === 'Close' ? <X size={14} /> : <ChevronRight size={14} />}
                             </button>
                         </div>
                     </div>
                 </div>
 
                 {!isActive && (
-                    <div className={`flex items-center text-xs text-gray-600 mt-2 transition-colors font-bold uppercase tracking-wide pl-1 ${
+                    <div className={`flex items-center text-[10px] text-gray-600 mt-2 transition-colors font-bold uppercase tracking-wide pl-1 ${
                         mode === 'DRILL' ? 'group-hover:text-yellow-400' : 'group-hover:text-blue-400'
                     }`}>
                         <span>Show details</span>
-                        <ArrowRight size={12} className="ml-1" />
+                        <ArrowRight size={10} className="ml-1" />
                     </div>
                 )}
             </div>

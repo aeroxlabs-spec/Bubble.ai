@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion } from './types';
 import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics } from './services/geminiService';
@@ -831,7 +833,7 @@ const App: React.FC = () => {
   const diagnostics = getSystemDiagnostics();
 
   return (
-    <div className="min-h-screen text-gray-100 bg-black selection:bg-blue-900/50 font-sans overflow-x-hidden text-sm">
+    <div className="min-h-screen text-gray-100 bg-black selection:bg-blue-900/50 font-sans overflow-x-hidden text-[15px]">
       
       {/* Navigation Bar */}
       <nav className={`sticky top-0 z-40 border-b border-white/5 transition-all duration-300 ${
@@ -963,7 +965,7 @@ const App: React.FC = () => {
 
       {/* Main Content Wrapper */}
       <div className="relative z-10">
-        <main className="mx-auto px-6 py-12 max-w-5xl">
+        <main className="mx-auto px-6 py-8 max-w-6xl">
             
             {/* Error State with Diagnostic Panel */}
             {appState === AppState.ERROR && (
@@ -1183,7 +1185,7 @@ const App: React.FC = () => {
                                     </div>
                                 )}
 
-                                <div className="bg-[#0a0a0a] rounded-xl p-6 border border-white/10">
+                                <div className="bg-[#0a0a0a] rounded-xl p-5 border border-white/10">
                                     <div className="space-y-6">
                                         <div>
                                             <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Summary</h3>
