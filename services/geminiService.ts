@@ -1,43 +1,47 @@
+
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from "../types";
 
-// Helper to safely get API key without crashing
+// Helper to safely get API key with exhaustive checks for various build environments
 const getApiKey = () => {
-    // 1. Priority: Vite/Netlify/Vercel standard (Must be prefixed with VITE_)
+    let key = "";
+
+    // 1. Vite / Netlify / Vercel Standard (Most likely to work)
     try {
         // @ts-ignore
-        if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) {
+        if (typeof import.meta !== 'undefined' && import.meta.env) {
             // @ts-ignore
-            return import.meta.env.VITE_API_KEY;
-        }
-    } catch(e) {}
-
-    // 2. Fallback: Next.js / Vercel alternative convention
-    try {
-        // @ts-ignore
-        if (typeof import.meta !== 'undefined' && import.meta.env?.NEXT_PUBLIC_API_KEY) {
+            if (import.meta.env.VITE_API_KEY) key = import.meta.env.VITE_API_KEY;
             // @ts-ignore
-            return import.meta.env.NEXT_PUBLIC_API_KEY;
+            else if (import.meta.env.API_KEY) key = import.meta.env.API_KEY;
         }
     } catch(e) {}
 
-    // 3. Fallback: Check for non-prefixed (if manually configured in vite config)
-    try {
-        // @ts-ignore
-        if (typeof import.meta !== 'undefined' && import.meta.env?.API_KEY) {
-            // @ts-ignore
-            return import.meta.env.API_KEY;
-        }
-    } catch(e) {}
+    // 2. Process Env (Fallback for custom builds)
+    if (!key) {
+        try {
+            if (typeof process !== 'undefined' && process.env) {
+                if (process.env.VITE_API_KEY) key = process.env.VITE_API_KEY;
+                else if (process.env.REACT_APP_API_KEY) key = process.env.REACT_APP_API_KEY;
+                else if (process.env.API_KEY) key = process.env.API_KEY;
+            }
+        } catch(e) {}
+    }
 
-    // 4. Fallback: Node process (local dev or polyfilled)
-    try {
-        if (typeof process !== 'undefined' && process.env?.API_KEY) {
-            return process.env.API_KEY;
-        }
-    } catch(e) {}
+    return key;
+};
 
-    return "";
+export const getSystemDiagnostics = () => {
+    const key = getApiKey();
+    return {
+        hasApiKey: !!key && key.length > 10,
+        keyLength: key ? key.length : 0,
+        keyPrefix: key ? key.substring(0, 4) + "..." : "N/A",
+        envCheck: {
+            vite: typeof import.meta !== 'undefined' && !!(import.meta as any).env?.VITE_API_KEY,
+            process: typeof process !== 'undefined' && !!process.env?.VITE_API_KEY,
+        }
+    }
 };
 
 // Lazy initialization of the AI client
@@ -46,10 +50,10 @@ let aiInstance: GoogleGenAI | null = null;
 const getAiClient = () => {
     if (!aiInstance) {
         const apiKey = getApiKey();
-        if (!apiKey || apiKey.includes("your_api_key")) {
+        // Check for empty or placeholder keys
+        if (!apiKey || apiKey.includes("your_api_key") || apiKey.length < 10) {
             console.warn("Gemini API Key is missing or invalid.");
-            // We allow returning a client with a dummy key to prevent crash on load,
-            // but we tag it so we can throw a clear error when used.
+            // Return a dummy client that will fail gracefully when called
             aiInstance = new GoogleGenAI({ apiKey: "MISSING_KEY" });
         } else {
             aiInstance = new GoogleGenAI({ apiKey: apiKey });
@@ -61,8 +65,10 @@ const getAiClient = () => {
 // Helper to validate client before use
 const ensureClientReady = () => {
     const client = getAiClient();
-    if (getApiKey() === "" || (client as any).apiKey === "MISSING_KEY") {
-        throw new Error("API Key missing. Please set VITE_API_KEY in your Vercel/Netlify settings and Redeploy.");
+    const apiKey = getApiKey();
+    
+    if (!apiKey || apiKey.length < 10 || (client as any).apiKey === "MISSING_KEY") {
+        throw new Error(`API Key Config Error. Status: ${apiKey ? 'Invalid' : 'Missing'}. Please ensure VITE_API_KEY is set in Vercel/Netlify Environment Variables.`);
     }
     return client;
 };

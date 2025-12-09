@@ -1,8 +1,9 @@
 
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion } from './types';
-import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion } from './services/geminiService';
+import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics } from './services/geminiService';
 import { useAuth } from './contexts/AuthContext';
 import { AuthScreens } from './components/AuthScreens';
 import UploadZone from './components/UploadZone';
@@ -13,7 +14,7 @@ import ExamConfigPanel from './components/ExamConfigPanel';
 import ExamViewer from './components/ExamViewer';
 import DrillConfigPanel from './components/DrillConfigPanel';
 import DrillSessionViewer from './components/DrillSessionViewer';
-import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator, Zap, LogOut, User as UserIcon, Check } from 'lucide-react';
+import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator, Zap, LogOut, User as UserIcon, Check, AlertCircle } from 'lucide-react';
 
 /**
  * Magnetic Pencil Component
@@ -410,6 +411,7 @@ const App: React.FC = () => {
     setStartBackgroundEffects(false);
     setShowConfig(false);
     setShowActionButtons(false);
+    setErrorMsg(null);
     
     // Drill Reset
     setDrillSettings(null);
@@ -825,6 +827,9 @@ const App: React.FC = () => {
   // It is loading if we are explicitly waiting for next question OR if we are at the end and currently fetching
   const isNextButtonLoading = waitingForNext || (loadingDrill && currentDrillIndex === drillQuestions.length - 1 && waitingForNext);
 
+  // Diagnostic Data
+  const diagnostics = getSystemDiagnostics();
+
   return (
     <div className="min-h-screen text-gray-100 bg-black selection:bg-blue-900/50 font-sans overflow-x-hidden text-sm">
       
@@ -960,13 +965,56 @@ const App: React.FC = () => {
       <div className="relative z-10">
         <main className="mx-auto px-6 py-12 max-w-5xl">
             
-            {/* Error State */}
+            {/* Error State with Diagnostic Panel */}
             {appState === AppState.ERROR && (
-                <div className="mb-8 p-4 bg-[#1a0505] border border-red-900/50 rounded-lg text-red-400 flex items-center justify-between max-w-2xl mx-auto text-sm">
-                    <div className="flex items-center gap-3">
-                        <span className="font-bold">Error</span> {errorMsg}
+                <div className="mb-8 max-w-2xl mx-auto space-y-4">
+                    <div className="p-4 bg-[#1a0505] border border-red-900/50 rounded-lg text-red-400 flex flex-col gap-4">
+                        <div className="flex items-center gap-3">
+                            <AlertCircle size={20} className="text-red-500" />
+                            <span className="font-bold text-lg">Analysis Failed</span> 
+                        </div>
+                        <p className="text-sm bg-red-950/30 p-3 rounded font-mono text-red-300 border border-red-900/30">
+                            {errorMsg || "Unknown error occurred."}
+                        </p>
+                        <div className="flex justify-end">
+                             <button onClick={handleReset} className="font-bold text-xs bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded transition-colors">
+                                Try Again
+                             </button>
+                        </div>
                     </div>
-                    <button onClick={handleReset} className="font-medium hover:text-red-300 transition-colors">Retry</button>
+
+                    {/* New System Diagnosis Panel */}
+                    <div className="bg-[#111] border border-white/10 rounded-lg p-5 text-xs font-mono text-gray-400 shadow-xl">
+                         <h3 className="text-gray-200 font-bold mb-4 uppercase tracking-wider flex items-center gap-2">
+                             <Zap size={14} className="text-yellow-500" /> System Diagnostics
+                         </h3>
+                         
+                         <div className="grid grid-cols-2 gap-y-3 gap-x-8 border-t border-white/5 pt-4">
+                             <div className="text-gray-500">API Key Status</div>
+                             <div className={`font-bold ${diagnostics.hasApiKey ? "text-green-400" : "text-red-500"}`}>
+                                 {diagnostics.hasApiKey ? "DETECTED" : "MISSING / INVALID"}
+                             </div>
+
+                             <div className="text-gray-500">Key Length</div>
+                             <div>{diagnostics.keyLength > 0 ? `${diagnostics.keyLength} chars` : "0"}</div>
+
+                             <div className="text-gray-500">Vite Environment</div>
+                             <div className={diagnostics.envCheck.vite ? "text-green-400" : "text-gray-600"}>
+                                 {diagnostics.envCheck.vite ? "VITE_API_KEY Found" : "Not Found"}
+                             </div>
+
+                             <div className="text-gray-500">Process Environment</div>
+                             <div className={diagnostics.envCheck.process ? "text-green-400" : "text-gray-600"}>
+                                 {diagnostics.envCheck.process ? "process.env Found" : "Not Found"}
+                             </div>
+                         </div>
+                         
+                         {!diagnostics.hasApiKey && (
+                            <div className="mt-5 p-3 bg-yellow-900/10 border border-yellow-500/20 rounded text-yellow-500/80 leading-relaxed">
+                                <strong>Action Required:</strong> Please go to your Vercel/Netlify dashboard and ensure you have added an Environment Variable named <code className="bg-black px-1 py-0.5 rounded text-yellow-300">VITE_API_KEY</code> with your Gemini API key value.
+                            </div>
+                         )}
+                    </div>
                 </div>
             )}
 
