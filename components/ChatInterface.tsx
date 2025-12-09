@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText, Zap } from 'lucide-react';
 import { ChatMessage, MathSolution, DrillQuestion, AppMode } from '../types';
@@ -14,6 +15,7 @@ interface ChatInterfaceProps {
   onClose: () => void;
   activeView: 'steps' | 'markscheme';
   mode: AppMode;
+  userName: string; // Add userName prop
 }
 
 type ChatScope = 'FULL' | 'STEP';
@@ -45,7 +47,7 @@ const TypewriterMessage = ({ text, onComplete, mode }: { text: string, onComplet
 };
 
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, currentStepIndex, isOpen, onClose, activeView, mode }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, currentStepIndex, isOpen, onClose, activeView, mode, userName }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -95,9 +97,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
             Topic: ${drillQuestion.topic}
             Difficulty: ${drillQuestion.difficultyLevel}/10
             Correct Answer: ${drillQuestion.shortAnswer}
-            Solution Steps: ${JSON.stringify(drillQuestion.steps)}
+            ${drillQuestion.steps ? `Solution Steps: ${JSON.stringify(drillQuestion.steps)}` : 'Solution steps not yet generated.'}
         `;
-        focusInstruction = `\nROLE: You are an encouraging Drill Coach.
+        focusInstruction = `\nROLE: You are an encouraging Drill Coach. User: ${userName}.
         CONTEXT: User is practicing a Drill Question (Q${drillQuestion.number}).
         GOAL: Help them solve it WITHOUT giving the answer immediately. Give progressive hints.
         If they are wrong, explain the misconception.`;
@@ -111,15 +113,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
         `;
 
         if (activeView === 'markscheme') {
-            focusInstruction = `\nROLE: You are an expert IB Math AA HL Examiner.
+            focusInstruction = `\nROLE: You are an expert IB Math AA HL Examiner. User: ${userName}.
             CONTEXT: The user is viewing the MARKSCHEME tab.
             TASK: Interpret the "Markscheme Content" provided. Explain why marks (M1, A1, R1, AG) are awarded.
             INSTRUCTION: Focus mainly on the grading logic. If the user asks for a solution, show how it earns specific marks based on the scheme.`;
         } else if (scope === 'STEP') {
             const currentStep = solution.steps[currentStepIndex];
-            focusInstruction = `\nFOCUS: The user specifically wants help with STEP ${currentStepIndex + 1}: "${currentStep.title}". Prioritize explaining this specific step's logic and equation (${currentStep.keyEquation}).`;
+            focusInstruction = `\nFOCUS: The user (${userName}) specifically wants help with STEP ${currentStepIndex + 1}: "${currentStep.title}". Prioritize explaining this specific step's logic and equation (${currentStep.keyEquation}).`;
         } else {
-            focusInstruction = `\nFOCUS: The user wants help with the entire exercise. Be ready to explain the overall concept or any part of it.`;
+            focusInstruction = `\nFOCUS: The user (${userName}) wants help with the entire exercise. Be ready to explain the overall concept or any part of it.`;
         }
     }
 
@@ -205,7 +207,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
       suggestions = ["Clarify the logic", "Explain the formula", "Next step?"];
   }
 
-  // UPDATED: Larger dimensions (w-[420px] h-[600px]) for prominence
   return (
     <div 
       className={`fixed bottom-24 right-6 w-[420px] h-[600px] max-h-[75vh] z-40 flex flex-col transition-all duration-300 ease-in-out font-sans
@@ -275,8 +276,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                       mode === 'DRILL' ? (
                           <>
                             <div className="text-center space-y-1">
-                                <h3 className="text-lg font-bold text-white tracking-tight">Practice Assistant</h3>
-                                <p className="text-gray-500 text-xs px-4">I'm here to coach you through this drill.</p>
+                                <h3 className="text-lg font-bold text-white tracking-tight">Hello, {userName}</h3>
+                                <p className="text-gray-500 text-xs px-4">I'm your Practice Assistant for this drill.</p>
                             </div>
                             <div className="w-full px-4">
                                  <button 
@@ -299,7 +300,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                       ) : activeView === 'markscheme' ? (
                           <>
                             <div className="text-center space-y-1">
-                                <h3 className="text-lg font-bold text-white tracking-tight">Markscheme Mode</h3>
+                                <h3 className="text-lg font-bold text-white tracking-tight">Hello, {userName}</h3>
                                 <p className="text-gray-500 text-xs px-4">I can help you interpret the marking codes.</p>
                             </div>
                             <div className="w-full px-4">
@@ -323,8 +324,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                       ) : (
                           <>
                             <div className="text-center space-y-1">
-                                <h3 className="text-lg font-bold text-white tracking-tight">Focus your session</h3>
-                                <p className="text-gray-500 text-xs px-4">Full problem or just the current step?</p>
+                                <h3 className="text-lg font-bold text-white tracking-tight">Hello, {userName}</h3>
+                                <p className="text-gray-500 text-xs px-4">Ready to solve this problem?</p>
                             </div>
 
                             <div className="w-full space-y-3 px-4">
@@ -354,7 +355,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                       )
                   ) : (
                       <div className="text-center space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                         <h3 className="text-lg font-bold text-white">I'm ready to help.</h3>
+                         <h3 className="text-lg font-bold text-white">I'm ready to help, {userName}.</h3>
                          <p className="text-gray-500 text-xs px-6 leading-relaxed">
                             {mode === 'DRILL'
                                 ? <span>Practice mode active. I'll provide <b>hints</b> without spoiling the answer.</span>

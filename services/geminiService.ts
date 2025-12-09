@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from "../types";
 
@@ -171,6 +172,7 @@ const examPaperSchema: Schema = {
   required: ["title", "totalMarks", "duration", "sections"]
 };
 
+// Initial Generation Schema (No Steps)
 const drillQuestionSchema: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -184,25 +186,64 @@ const drillQuestionSchema: Schema = {
         type: Type.STRING, 
         description: "Answer. STRICT RULES: 1. Use LaTeX ($...$) for ALL math. 2. Separate parts with \\n\\n. 3. Format: '(a) $x=...$ \\n\\n (b) $y=...$'." 
     },
-    steps: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          section: { type: Type.STRING },
-          title: { type: Type.STRING },
-          explanation: { type: Type.STRING },
-          keyEquation: { type: Type.STRING },
-        },
-        required: ["section", "title", "explanation", "keyEquation"],
-      },
-    },
+    // steps removed from here, generated later
     hint: { type: Type.STRING },
     calculatorAllowed: { type: Type.BOOLEAN }
   },
-  required: ["topic", "difficultyLevel", "questionText", "shortAnswer", "steps", "hint", "calculatorAllowed"]
+  required: ["topic", "difficultyLevel", "questionText", "shortAnswer", "hint", "calculatorAllowed"]
 };
 
+// Dedicated On-Demand Solution Schema
+const drillSolutionSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+        steps: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                section: {
+                    type: Type.STRING,
+                    description: "Section name (e.g., 'Part (a)').",
+                },
+                title: {
+                    type: Type.STRING,
+                    description: "Step title. Use LaTeX ($...$) for math.",
+                },
+                explanation: {
+                    type: Type.STRING,
+                    description: "Explanation. Highlight 1-2 keywords with **bold**. Use LaTeX ($...$) for ALL math terms.",
+                },
+                keyEquation: {
+                    type: Type.STRING,
+                    description: "The core equation in LaTeX (without $ delimiters).",
+                },
+                },
+                required: ["section", "title", "explanation", "keyEquation"],
+            },
+            description: "Full Smart-Solver style step-by-step solution."
+        }
+    },
+    required: ["steps"]
+};
+
+// Schema specifically for the single question validation step
+const questionValidationSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+        id: { type: Type.STRING },
+        number: { type: Type.STRING },
+        marks: { type: Type.INTEGER },
+        questionText: { type: Type.STRING },
+        steps: { type: Type.ARRAY, items: { type: Type.STRING } },
+        markscheme: { type: Type.STRING },
+        shortAnswer: { type: Type.STRING },
+        hint: { type: Type.STRING },
+        calculatorAllowed: { type: Type.BOOLEAN },
+        graphSvg: { type: Type.STRING }
+    },
+    required: ["id", "number", "marks", "questionText", "markscheme", "shortAnswer", "calculatorAllowed", "steps"]
+};
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -287,6 +328,47 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
   });
 };
 
+// REVIEWER FUNCTION: Audits a single question and regenerates if flawed
+const reviewAndRefineQuestion = async (originalQ: any): Promise<any> => {
+    return retryOperation(async () => {
+        const client = ensureClientReady();
+        
+        const prompt = `
+        You are a strict IB Math QA Auditor. 
+        Review the following generated question for:
+        1. **Syntax Errors**: Ensure no broken LaTeX, missing brackets, or 'xeq3' artifacts.
+        2. **Math Logic**: Does the question make mathematical sense? Is it solvable?
+        3. **Formatting**: 
+           - Markscheme MUST be a Markdown Table.
+           - Short Answer MUST separate parts with \\n\\n.
+           - ALL numbers must be in LaTeX ($...$).
+        
+        INPUT QUESTION JSON:
+        ${JSON.stringify(originalQ)}
+        
+        TASK:
+        - If the question is perfect, output it exactly as is.
+        - If ANY error exists (syntax, logic, format), REWRITE the specific fields to fix it.
+        - Ensure the 'markscheme' field is a valid Markdown string table: | Step | Working | Explanation | Marks |
+        - Ensure 'shortAnswer' uses double newlines between parts.
+        `;
+
+        const response = await client.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts: [{ text: prompt }] },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: questionValidationSchema,
+                temperature: 0.3 // Low temperature for strict correction
+            }
+        });
+
+        const text = response.text;
+        if (!text) return originalQ; // Fallback to original if correction fails
+        return JSON.parse(text);
+    });
+};
+
 export const generateExam = async (inputs: UserInput[], settings: ExamSettings): Promise<ExamPaper> => {
   return retryOperation(async () => {
     const client = ensureClientReady();
@@ -300,6 +382,7 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
         }
     });
 
+    // 1. DRAFTING PHASE
     const prompt = `
       Create an IB Math AA HL Exam.
       
@@ -335,7 +418,16 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
 
     const text = response.text;
     if (!text) throw new Error("No response from Gemini");
-    return JSON.parse(text) as ExamPaper;
+    const draftPaper = JSON.parse(text) as ExamPaper;
+
+    // 2. AUDIT PHASE: Loop through all sections and questions to validate/fix
+    // We use Promise.all to audit sections in parallel, but limit concurrency if needed (implicit via network)
+    const refinedSections = await Promise.all(draftPaper.sections.map(async (section) => {
+        const refinedQuestions = await Promise.all(section.questions.map(q => reviewAndRefineQuestion(q)));
+        return { ...section, questions: refinedQuestions };
+    }));
+
+    return { ...draftPaper, sections: refinedSections };
   });
 };
 
@@ -353,16 +445,17 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
         });
 
         // Dynamic difficulty adjustment
-        let targetDifficulty = prevDifficulty === 0 ? 5 : prevDifficulty;
+        let targetDifficulty = prevDifficulty;
         if (questionNumber > 1) {
             targetDifficulty = Math.min(10, targetDifficulty + 0.5); 
         }
 
+        // Updated Prompt: Do NOT ask for steps initially
         const prompt = `
-        Generate Drill Question #${questionNumber} (IB Math AA HL).
+        Generate Drill Question #${questionNumber} (IB Math AA HL style).
         
         SETTINGS:
-        - Difficulty: ${targetDifficulty}/10
+        - Target Difficulty: ${targetDifficulty}/10
         - Topics: ${settings.topics.join(', ') || "Mixed"}
         
         STRICT FORMATTING RULES:
@@ -373,8 +466,8 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
         3. Short Answer:
            - Separate parts with double newlines (\\n\\n).
            - LaTeX only.
-        4. Steps:
-           - Smart Solver style (detailed, structured).
+        
+        NOTE: Do not generate the full solution steps yet. Just the question, answer, and hint.
         `;
 
         parts.push({ text: prompt });
@@ -395,9 +488,53 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
         
         q.number = questionNumber;
         q.difficultyLevel = targetDifficulty;
+        // Ensure steps is empty initially
+        q.steps = []; 
         return q;
     });
 }
+
+// NEW FUNCTION: On-Demand Solution Generation
+export const generateDrillSolution = async (question: DrillQuestion): Promise<MathStep[]> => {
+    return retryOperation(async () => {
+        const client = ensureClientReady();
+        
+        const prompt = `
+        You are an expert IB Math AA HL tutor (Smart Solver Mode).
+        
+        CONTEXT:
+        Question: ${question.questionText}
+        Correct Answer: ${question.shortAnswer}
+        Topic: ${question.topic}
+        Difficulty: ${question.difficultyLevel}/10
+        
+        TASK:
+        Generate a detailed, step-by-step solution for this problem.
+        
+        STRICT FORMATTING RULES:
+        1. Output a JSON object with a 'steps' array.
+        2. ALL math, numbers, variables must be wrapped in LaTeX delimiters ($...$).
+        3. Break down solutions into clear, logical steps.
+        4. "explanation" should be verbose and educational. Highlight keywords with **bold**.
+        5. "keyEquation" must be pure LaTeX (no $ delimiters).
+        `;
+
+        const response = await client.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts: [{ text: prompt }] },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: drillSolutionSchema,
+                temperature: 0.5 // Lower temperature for more accurate math steps
+            }
+        });
+
+        const text = response.text;
+        if (!text) throw new Error("Failed to generate solution");
+        const result = JSON.parse(text);
+        return result.steps as MathStep[];
+    });
+};
 
 export const getStepHint = async (step: MathStep, context: string): Promise<string> => {
     try {

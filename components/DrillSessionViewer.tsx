@@ -1,9 +1,10 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { DrillQuestion } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
 import StepCard from './StepCard';
-import { Calculator, Zap, ArrowRight, ArrowLeft, CheckCircle2, BookOpen, Lightbulb, Copy, Check } from 'lucide-react';
+import { Calculator, Zap, ArrowRight, ArrowLeft, CheckCircle2, BookOpen, Lightbulb, Copy, Check, Loader2 } from 'lucide-react';
 
 interface DrillSessionViewerProps {
     question: DrillQuestion | null;
@@ -12,6 +13,8 @@ interface DrillSessionViewerProps {
     onNext: () => void;
     onPrev?: () => void;
     hasPrev?: boolean;
+    onGenerateSolution?: () => void; // New callback
+    isGeneratingSolution?: boolean; // Loading state for solution
 }
 
 const TypewriterLoader = ({ phrases, speed = 50 }: { phrases: string[], speed?: number }) => {
@@ -45,7 +48,10 @@ const TypewriterLoader = ({ phrases, speed = 50 }: { phrases: string[], speed?: 
     return <span>{text}</span>;
 };
 
-const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoading, isNextLoading, onNext, onPrev, hasPrev }) => {
+const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ 
+    question, isLoading, isNextLoading, onNext, onPrev, hasPrev,
+    onGenerateSolution, isGeneratingSolution
+}) => {
     const [showHint, setShowHint] = useState(false);
     const [showAnswer, setShowAnswer] = useState(false);
     const [showSolution, setShowSolution] = useState(false);
@@ -59,20 +65,35 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
         setActiveStepIndex(0);
     }, [question]);
 
+    // Handle solution click logic: check if steps exist or need generation
+    const handleSolutionClick = () => {
+        if (!question) return;
+        
+        if (question.steps && question.steps.length > 0) {
+            setShowSolution(!showSolution);
+        } else {
+            // No steps yet, trigger generation
+            if (onGenerateSolution && !isGeneratingSolution) {
+                setShowSolution(true); // Open the view, will show loader
+                onGenerateSolution();
+            }
+        }
+    };
+
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'ArrowRight') {
-                if (showSolution) {
-                    if (activeStepIndex < (question?.steps.length || 0) - 1) {
+                if (showSolution && question?.steps && question.steps.length > 0) {
+                    if (activeStepIndex < question.steps.length - 1) {
                         setActiveStepIndex(prev => prev + 1);
                     } else {
                         setShowSolution(false);
                     }
-                } else if (!isNextLoading) {
+                } else if (!isNextLoading && !isGeneratingSolution) {
                     onNext();
                 }
             } else if (e.key === 'ArrowLeft') {
-                if (showSolution) {
+                if (showSolution && question?.steps && question.steps.length > 0) {
                     if (activeStepIndex > 0) {
                         setActiveStepIndex(prev => prev - 1);
                     } else {
@@ -86,7 +107,7 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [showSolution, activeStepIndex, question, onNext, onPrev, hasPrev, isNextLoading]);
+    }, [showSolution, activeStepIndex, question, onNext, onPrev, hasPrev, isNextLoading, isGeneratingSolution]);
 
 
     const handleCopy = () => {
@@ -263,14 +284,15 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
                              </button>
 
                              <button 
-                                onClick={() => setShowSolution(!showSolution)}
+                                onClick={handleSolutionClick}
+                                disabled={isGeneratingSolution}
                                 className={`text-xs font-bold px-3 py-2 rounded-lg transition-colors flex items-center gap-2 border ${
                                     showSolution 
                                     ? 'bg-white/5 border-white/10 text-white' 
                                     : 'bg-transparent border-transparent text-gray-500 hover:text-gray-300'
                                 }`}
                              >
-                                <BookOpen size={14} />
+                                {isGeneratingSolution ? <Loader2 size={14} className="animate-spin" /> : <BookOpen size={14} />}
                                 Step-by-Step Solution
                              </button>
                          </div>
@@ -286,7 +308,7 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
 
                              <button 
                                 onClick={onNext}
-                                disabled={isNextLoading}
+                                disabled={isNextLoading || isGeneratingSolution}
                                 className={`
                                     relative overflow-hidden font-bold text-xs px-6 py-2.5 rounded-lg flex items-center gap-2 transition-all min-w-[140px] justify-center
                                     ${isNextLoading 
@@ -335,37 +357,46 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
                                 <div className="text-[10px] uppercase tracking-widest text-yellow-400 font-bold pl-1 flex items-center gap-2">
                                     <BookOpen size={12}/> Detailed Analysis
                                 </div>
-                                <div className="space-y-4">
-                                    {question.steps.map((step, index) => (
-                                        <StepCard 
-                                            key={index}
-                                            step={step}
-                                            index={index}
-                                            isActive={activeStepIndex === index}
-                                            problemContext={question.questionText}
-                                            onClick={() => setActiveStepIndex(index)}
-                                            onNext={() => {
-                                                if (index < question.steps.length - 1) {
-                                                    setActiveStepIndex(index + 1);
-                                                } else {
-                                                    setShowSolution(false);
-                                                }
-                                            }}
-                                            onPrev={() => {
-                                                if (index > 0) {
-                                                    setActiveStepIndex(index - 1);
-                                                } else {
-                                                    setShowSolution(false);
-                                                }
-                                            }}
-                                            isFirst={index === 0}
-                                            isLast={index === question.steps.length - 1}
-                                            prevLabel={index === 0 ? "Close" : undefined}
-                                            nextLabel={index === question.steps.length - 1 ? "Close" : undefined}
-                                            mode="DRILL"
-                                        />
-                                    ))}
-                                </div>
+                                {isGeneratingSolution ? (
+                                     <div className="bg-[#121212] border border-yellow-500/20 rounded-xl p-8 flex flex-col items-center justify-center space-y-4">
+                                         <div className="animate-bounce duration-[2000ms]">
+                                            <Zap size={24} className="text-yellow-400 fill-yellow-500/20" />
+                                         </div>
+                                         <div className="text-gray-300 text-xs font-mono">
+                                            <TypewriterLoader phrases={["Generating step-by-step solution...", "Analyzing logic...", "Writing explanations..."]} speed={40} />
+                                         </div>
+                                     </div>
+                                ) : question.steps && question.steps.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {question.steps.map((step, index) => (
+                                            <StepCard 
+                                                key={index}
+                                                step={step}
+                                                index={index}
+                                                isActive={activeStepIndex === index}
+                                                problemContext={question.questionText}
+                                                onClick={() => setActiveStepIndex(index)}
+                                                onNext={() => {
+                                                    if (index < question.steps.length - 1) {
+                                                        setActiveStepIndex(index + 1);
+                                                    } else {
+                                                        setShowSolution(false);
+                                                    }
+                                                }}
+                                                onPrev={() => {
+                                                    if (index > 0) {
+                                                        setActiveStepIndex(index - 1);
+                                                    } else {
+                                                        setShowSolution(false);
+                                                    }
+                                                }}
+                                                isFirst={index === 0}
+                                                isLast={index === question.steps.length - 1}
+                                                mode="DRILL"
+                                            />
+                                        ))}
+                                    </div>
+                                ) : null}
                             </div>
                         )}
                     </div>

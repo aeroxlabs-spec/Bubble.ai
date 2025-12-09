@@ -1,7 +1,8 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
-import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion } from './types';
-import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics } from './services/geminiService';
+import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from './types';
+import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution } from './services/geminiService';
 import { useAuth } from './contexts/AuthContext';
 import { AuthScreens } from './components/AuthScreens';
 import UploadZone from './components/UploadZone';
@@ -307,6 +308,14 @@ const calculateTotalMarks = (text: string) => {
     return score;
 };
 
+const getBaseDifficulty = (diff: ExamDifficulty) => {
+    switch (diff) {
+        case 'HELL': return 9;
+        case 'HARD': return 6;
+        default: return 3; // STANDARD
+    }
+};
+
 const App: React.FC = () => {
   const { user, loading: authLoading, logout } = useAuth();
   
@@ -321,6 +330,7 @@ const App: React.FC = () => {
   const [drillQuestions, setDrillQuestions] = useState<DrillQuestion[]>([]);
   const [currentDrillIndex, setCurrentDrillIndex] = useState(0);
   const [loadingDrill, setLoadingDrill] = useState(false);
+  const [loadingDrillSolution, setLoadingDrillSolution] = useState(false); // State for solution gen
 
   const [activeTab, setActiveTab] = useState<number>(0);
   const [activeView, setActiveView] = useState<'steps' | 'markscheme'>('steps');
@@ -356,6 +366,7 @@ const App: React.FC = () => {
     setDrillQuestions([]);
     setCurrentDrillIndex(0);
     setLoadingDrill(false);
+    setLoadingDrillSolution(false);
   };
 
   useEffect(() => {
@@ -461,11 +472,11 @@ const App: React.FC = () => {
   ];
 
   const examPhrases = [
-      "Reviewing source material...",
-      "Drafting Section A questions...",
-      "Designing complex problems for Section B...",
+      "Drafting initial questions...",
       "Calculating mark allocations...",
-      "Finalizing exam paper format..."
+      "Auditing math logic...",
+      "Verifying LaTeX syntax...",
+      "Standardizing markschemes..."
   ];
 
   const drillPhrases = [
@@ -570,8 +581,10 @@ const App: React.FC = () => {
       setCurrentDrillIndex(0);
       setLoadingDrill(true);
 
+      const startDiff = getBaseDifficulty(settings.difficulty);
+
       try {
-          const initialBatch = await generateDrillBatch(1, 0, 3, settings);
+          const initialBatch = await generateDrillBatch(1, startDiff, 3, settings);
           setLoadingProgress(100);
           
           setTimeout(() => {
@@ -621,6 +634,27 @@ const App: React.FC = () => {
           }
       }
   }
+
+  // Handler to generate Drill Solution On Demand
+  const handleGenerateDrillSolution = async () => {
+      const currentQ = drillQuestions[currentDrillIndex];
+      if (!currentQ) return;
+      if (currentQ.steps && currentQ.steps.length > 0) return; // Already exists
+
+      setLoadingDrillSolution(true);
+      try {
+          const steps = await generateDrillSolution(currentQ);
+          setDrillQuestions(prev => {
+              const updated = [...prev];
+              updated[currentDrillIndex] = { ...currentQ, steps };
+              return updated;
+          });
+      } catch (e) {
+          console.error("Failed to generate solution steps", e);
+      } finally {
+          setLoadingDrillSolution(false);
+      }
+  };
 
   const [waitingForNext, setWaitingForNext] = useState(false);
   
@@ -724,14 +758,11 @@ const App: React.FC = () => {
       }`}>
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
-             <button 
-                onClick={handleReset}
-                className="group flex items-center gap-2 focus:outline-none"
-             >
-                <span className="font-sans font-bold text-2xl tracking-tighter text-white transition-all duration-300 ease-out hover:text-white hover:drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
+             <div className="group flex items-center gap-2 focus:outline-none pointer-events-none select-none">
+                <span className="font-sans font-bold text-2xl tracking-tighter text-white">
                     Bubble.
                 </span>
-             </button>
+             </div>
           </div>
           
           <div className="flex items-center gap-4">
@@ -770,6 +801,15 @@ const App: React.FC = () => {
                     </div>
                 )}
                 
+                {appState !== AppState.IDLE && (
+                    <button 
+                        onClick={handleReset} 
+                        className="text-xs font-bold text-gray-500 hover:text-white px-3 py-1.5 border border-white/10 rounded-md hover:bg-white/5 transition-colors"
+                    >
+                        Back to Home
+                    </button>
+                )}
+
                 <div className="relative">
                     <button 
                         onClick={() => setShowUserMenu(!showUserMenu)}
@@ -1149,6 +1189,8 @@ const App: React.FC = () => {
                         onNext={handleNextWithWait}
                         onPrev={handlePrevDrillQuestion}
                         hasPrev={currentDrillIndex > 0}
+                        onGenerateSolution={handleGenerateDrillSolution}
+                        isGeneratingSolution={loadingDrillSolution}
                     />
                 )
             )}
@@ -1165,6 +1207,7 @@ const App: React.FC = () => {
              onClose={() => setIsChatOpen(false)} 
              activeView={activeView} 
              mode={appMode}
+             userName={user.name}
           />
       )}
       
