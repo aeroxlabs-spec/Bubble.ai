@@ -47,79 +47,49 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
         (window as any).html2pdf().set(opt).from(element).save();
     };
 
-    /**
-     * Helper to normalize text from API that might contain literal "\n" strings.
-     * Converts single newlines to double newlines to enforce Markdown paragraph breaks.
-     * Useful for Question Text, Short Answers, and Lists.
-     */
     const normalizeMarkdown = (text: string) => {
         if (!text || text === 'null') return "";
         return text.replace(/\\n/g, '\n').replace(/\n/g, '\n\n');
     };
 
-    /**
-     * Helper to normalize Markscheme tables.
-     * Ensures strict Markdown table formatting.
-     * - Removes literal "null" strings.
-     * - Replaces HTML <br> tags with spaces to avoid raw tag display.
-     * - Merges broken lines to ensure valid table rows.
-     */
     const normalizeMarkscheme = (text: string) => {
         if (!text || text === 'null') return "";
 
-        // 1. Convert block math to inline math to prevent line breaks
-        let clean = text.replace(/\$\$/g, '$');
-        
-        // 2. Convert literal newlines to real newlines
+        let clean = text.replace(/\*\*/g, ''); 
+        clean = clean.replace(/\$\$/g, '$');
         clean = clean.replace(/\\n/g, '\n');
-        
-        // 3. Remove HTML breaks (replace with space)
         clean = clean.replace(/<br\s*\/?>/gi, ' ');
 
-        // 4. Robust Line Merging for broken tables
         const lines = clean.split('\n');
         const mergedLines: string[] = [];
         
         lines.forEach((line) => {
             const trimmed = line.trim();
             if (!trimmed) return;
-            
-            // If line starts with '|', it's a valid row start (or header separator).
             if (trimmed.startsWith('|')) {
-                mergedLines.push(trimmed);
+                const fixedLine = trimmed.replace(/\|\|/g, '| |');
+                mergedLines.push(fixedLine);
             } else {
-                // Otherwise it's likely a broken continuation. Append to previous line.
                 if (mergedLines.length > 0) {
                     mergedLines[mergedLines.length - 1] += ' ' + trimmed;
                 } else {
-                    // Fallback for header text or garbage before table
                     mergedLines.push(trimmed);
                 }
             }
         });
 
-        // 5. Ensure it renders as a table block by checking for double newline prefix
         return '\n\n' + mergedLines.join('\n');
     };
 
-    /**
-     * Parses the question text to separate Preamble from Parts.
-     * Looks for blocks that end with marks like **[x]**.
-     */
     const QuestionBodyRenderer = ({ text }: { text: string }) => {
-        // CRITICAL FIX: Normalize literal '\n' sequences that might come from the API
         const normalizedText = text.replace(/\\n/g, '\n');
-        
-        // Split by double newline to separate logic blocks
         const blocks = normalizedText.split(/\n\n+/).filter(b => b.trim());
         
         const parts = [];
         let preamble = [];
         let foundFirstPart = false;
 
-        // Pattern to find marks at the end of a string: [number] or **[number]**
         const marksRegex = /\s*(\*\*\[\d+\]\*\*|\[\d+\])\s*$/;
-        // Pattern to detect start of a part: (a), (b), (c), (i), (ii)
         const partStartRegex = /^(\([a-z]+\)|\([iv]+\))/i;
 
         for (const block of blocks) {
@@ -134,9 +104,8 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                 let content = block;
 
                 if (match) {
-                    marks = match[1]; // e.g. **[4]**
+                    marks = match[1];
                     content = block.replace(marksRegex, '').trim();
-                    // Clean marks for display (remove bold markers if present)
                     marks = marks.replace(/\*\*/g, '');
                 }
 
@@ -148,20 +117,18 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
 
         return (
             <div className="space-y-6 w-full">
-                {/* Preamble Section - Normal flow */}
                 {preamble.length > 0 && (
                     <div className="text-gray-200 leading-relaxed font-serif text-base">
-                        <MarkdownRenderer content={preamble.join('\n\n')} />
+                        <MarkdownRenderer content={preamble.join('\n\n')} mode="EXAM" />
                     </div>
                 )}
 
-                {/* Parts Section - Grid Layout for separation */}
                 {parts.length > 0 && (
                     <div className="space-y-4 w-full">
                         {parts.map((part, idx) => (
                             <div key={idx} className="flex items-start justify-between gap-8 w-full group/part">
                                 <div className="flex-1 min-w-0 text-gray-200 leading-relaxed font-serif text-base pt-0.5">
-                                     <MarkdownRenderer content={part.content} />
+                                     <MarkdownRenderer content={part.content} mode="EXAM" />
                                 </div>
                                 {part.marks && (
                                     <div className="flex-shrink-0 pt-0.5">
@@ -180,7 +147,6 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
 
     return (
         <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
-            {/* Control Bar */}
             <div className="flex items-center justify-between bg-[#121212]/80 backdrop-blur-md p-4 rounded-xl border border-white/10 sticky top-20 z-30 shadow-2xl">
                 <div className="flex items-center gap-4">
                     <h2 className="text-lg font-bold text-white hidden sm:block truncate max-w-[200px]">{exam.title}</h2>
@@ -205,7 +171,6 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                 </div>
             </div>
 
-            {/* Interactive Questions List */}
             <div className="space-y-12">
                 {exam.sections.map((section, sIdx) => (
                     <div key={sIdx} className="space-y-6">
@@ -216,7 +181,6 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
 
                         {section.questions.map((q) => (
                             <div key={q.id} className="bg-[#0f0f0f] border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors shadow-lg group">
-                                {/* Question Header */}
                                 <div className="bg-[#161616] px-6 py-4 flex items-center justify-between border-b border-white/5">
                                     <div className="flex items-center gap-4">
                                         <span className="text-sm font-mono font-bold text-white">Q{q.number}</span>
@@ -234,7 +198,6 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                         )}
                                     </div>
                                     
-                                    {/* Copy Button */}
                                     <button 
                                         onClick={() => handleCopy(q.questionText, q.id)}
                                         className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-gray-500 hover:text-white rounded bg-white/5 hover:bg-white/10"
@@ -244,11 +207,9 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                     </button>
                                 </div>
 
-                                {/* Question Body with Custom Renderer */}
                                 <div className="p-8">
                                     <QuestionBodyRenderer text={q.questionText} />
                                     
-                                    {/* Graph Renderer (If present and valid) */}
                                     {q.graphSvg && (
                                         <div className="mt-8 flex justify-center">
                                             <div className="bg-black border border-white/10 rounded-lg p-4 max-w-[500px] w-full shadow-inner" 
@@ -258,11 +219,8 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                     )}
                                 </div>
 
-                                {/* Interactive Footer */}
                                 <div className="bg-[#0a0a0a] border-t border-white/5 p-4 flex flex-col gap-2">
-                                    {/* Action Buttons Row */}
                                     <div className="flex flex-wrap items-center gap-3">
-                                        {/* Solution Steps Button */}
                                         <button 
                                             onClick={() => toggleSet(q.id, openSolSteps, setOpenSolSteps)}
                                             className="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1.5"
@@ -304,9 +262,7 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                         )}
                                     </div>
 
-                                    {/* Expandable Content Area */}
                                     <div className="space-y-3 mt-1">
-                                        {/* Solution Steps */}
                                         {openSolSteps.has(q.id) && q.steps && (
                                             <div className="animate-in slide-in-from-top-2 fade-in duration-200 bg-[#121212] border border-blue-500/20 rounded-lg p-4">
                                                 <div className="text-[10px] uppercase tracking-widest text-blue-500 font-bold mb-3 flex items-center gap-2">
@@ -316,41 +272,36 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                                     {q.steps.map((step, idx) => (
                                                         <li key={idx} className="flex gap-3 text-sm text-gray-300">
                                                             <span className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center bg-blue-500/10 text-blue-400 text-[10px] font-bold mt-0.5">{idx + 1}</span>
-                                                            <span className="leading-relaxed"><MarkdownRenderer content={normalizeMarkdown(step)} /></span>
+                                                            <span className="leading-relaxed"><MarkdownRenderer content={normalizeMarkdown(step)} mode="EXAM" /></span>
                                                         </li>
                                                     ))}
                                                 </ul>
                                             </div>
                                         )}
 
-                                        {/* Short Answer */}
                                         {openAnswers.has(q.id) && (
                                             <div className="animate-in slide-in-from-top-2 fade-in duration-200 bg-[#121212] border border-gray-700/30 rounded-lg p-3">
                                                 <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1">Final Answer</div>
                                                 <div className="text-gray-300 font-mono text-sm">
-                                                    {/* normalized to enforce paragraph breaks for each part */}
-                                                    <MarkdownRenderer content={normalizeMarkdown(q.shortAnswer)} />
+                                                    <MarkdownRenderer content={normalizeMarkdown(q.shortAnswer)} mode="EXAM" />
                                                 </div>
                                             </div>
                                         )}
 
-                                        {/* Hint */}
                                         {activeHints.has(q.id) && q.hint && (
                                             <div className="animate-in slide-in-from-top-2 fade-in duration-200 bg-yellow-900/10 border border-yellow-500/20 rounded-lg p-3">
                                                 <div className="text-[10px] uppercase tracking-widest text-yellow-500 font-bold mb-1 flex items-center gap-1"><Lightbulb size={10}/> Hint</div>
                                                 <div className="text-gray-300 text-sm italic">
-                                                    <MarkdownRenderer content={q.hint} />
+                                                    <MarkdownRenderer content={q.hint} mode="EXAM" />
                                                 </div>
                                             </div>
                                         )}
 
-                                        {/* Full Markscheme Table */}
                                         {openSteps.has(q.id) && (
                                             <div className="animate-in slide-in-from-top-2 fade-in duration-300 bg-[#121212] border border-purple-500/20 rounded-lg p-4">
                                                 <div className="text-[10px] uppercase tracking-widest text-purple-500 font-bold mb-2">Detailed Markscheme</div>
                                                 <div className="text-gray-300 text-sm">
-                                                    {/* Use specific normalizer for tables to PREVENT double newlines from breaking rows */}
-                                                    <MarkdownRenderer content={normalizeMarkscheme(q.markscheme)} />
+                                                    <MarkdownRenderer content={normalizeMarkscheme(q.markscheme)} mode="EXAM" />
                                                 </div>
                                             </div>
                                         )}
@@ -362,7 +313,6 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                 ))}
             </div>
 
-            {/* Off-screen Printable Exam Paper */}
             <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '800px' }}>
                 <div id="offscreen-exam-paper" className="bg-white text-black p-12 font-serif">
                     <div className="border-b-2 border-black pb-4 mb-8 flex justify-between items-start">
@@ -392,8 +342,7 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                     <div key={q.id} className="grid grid-cols-12 gap-4 mb-8 break-inside-avoid">
                                         <div className="col-span-1 font-bold text-lg">{q.number}.</div>
                                         <div className="col-span-11 text-base leading-relaxed markdown-light exam-question-print">
-                                            {/* Reuse simple renderer for print */}
-                                            <MarkdownRenderer content={q.questionText} className="text-black" theme="light" />
+                                            <MarkdownRenderer content={q.questionText} className="text-black" theme="light" mode="EXAM" />
                                             <div className="mt-8 h-20 border-l-2 border-gray-200" />
                                         </div>
                                     </div>
@@ -419,7 +368,7 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                             <span className="text-xs bg-gray-100 px-2 py-0.5 rounded font-mono">Total {q.marks}</span>
                                         </div>
                                         <div className="pl-6 text-sm font-mono text-black markdown-light">
-                                            <MarkdownRenderer content={normalizeMarkscheme(q.markscheme)} theme="light" />
+                                            <MarkdownRenderer content={normalizeMarkscheme(q.markscheme)} theme="light" mode="EXAM" />
                                         </div>
                                     </div>
                                 ))}
@@ -429,9 +378,7 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                 </div>
             </div>
 
-            {/* Global Styles for PDF & formatting */}
             <style dangerouslySetInnerHTML={{__html: `
-                /* Print View formatting for marks */
                 .exam-question-print strong {
                     float: right;
                     color: #000;

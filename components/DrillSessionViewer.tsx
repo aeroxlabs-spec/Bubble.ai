@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { DrillQuestion } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -53,7 +52,6 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
     const [copied, setCopied] = useState(false);
     const [activeStepIndex, setActiveStepIndex] = useState(0);
 
-    // Reset state when question changes
     useEffect(() => {
         setShowHint(false);
         setShowAnswer(false);
@@ -61,7 +59,6 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
         setActiveStepIndex(0);
     }, [question]);
 
-    // Keyboard Navigation Logic
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'ArrowRight') {
@@ -69,7 +66,6 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
                     if (activeStepIndex < (question?.steps.length || 0) - 1) {
                         setActiveStepIndex(prev => prev + 1);
                     } else {
-                        // Close solution if at the end and pressing right
                         setShowSolution(false);
                     }
                 } else if (!isNextLoading) {
@@ -80,7 +76,6 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
                     if (activeStepIndex > 0) {
                         setActiveStepIndex(prev => prev - 1);
                     } else {
-                        // Close solution if at the start and pressing left
                         setShowSolution(false);
                     }
                 } else if (hasPrev) {
@@ -101,7 +96,6 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
         setTimeout(() => setCopied(false), 2000);
     };
     
-    // Determine difficulty color based on level
     const getDifficultyColor = (level: number) => {
         if (level <= 3) return "bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]";
         if (level <= 6) return "bg-yellow-500 shadow-[0_0_5px_rgba(234,179,8,0.5)]";
@@ -116,11 +110,7 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
         return "text-blue-400";
     };
 
-    /**
-     * Parses the question text to separate Preamble from Parts.
-     */
     const QuestionBodyRenderer = ({ text }: { text: string }) => {
-        // Double newlines ensure distinct blocks
         const normalizedText = text.replace(/\\n/g, '\n');
         const blocks = normalizedText.split(/\n\n+/).filter(b => b.trim());
         
@@ -164,7 +154,6 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
         );
     };
 
-    // Initial Loading State (Only when NO question exists yet)
     if (!question && isLoading) {
         return (
              <div className="max-w-3xl mx-auto space-y-6 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -191,7 +180,6 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
 
     return (
         <div className="max-w-3xl mx-auto space-y-6 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Header / Stats */}
             <div className="flex items-center justify-between px-2">
                 <div className="flex items-center gap-4">
                     <span className="text-white font-bold text-xl tracking-tight">Q{question.number}</span>
@@ -200,7 +188,6 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
                 </div>
                 
                 <div className="flex items-center gap-3">
-                     {/* Difficulty Dots */}
                      <div className="flex gap-0.5">
                         {[...Array(10)].map((_, i) => (
                             <div 
@@ -219,11 +206,9 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
                 </div>
             </div>
 
-            {/* Main Card */}
             <div className="bg-[#121212] border border-white/10 rounded-2xl shadow-2xl overflow-hidden relative group">
                 <div className="absolute top-0 left-0 w-full h-1 bg-yellow-500/50"></div>
                 
-                {/* Tools Header */}
                 <div className="bg-[#181818] border-b border-white/5 px-6 py-3 flex items-center justify-between">
                      <div className="flex items-center gap-3">
                         {question.calculatorAllowed ? (
@@ -246,12 +231,10 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
                      </button>
                 </div>
 
-                {/* Question Body with Exam-Style Renderer */}
                 <div className="p-8 min-h-[150px]">
                     <QuestionBodyRenderer text={question.questionText} />
                 </div>
 
-                {/* Interactive Footer */}
                 <div className="bg-[#0a0a0a] border-t border-white/5 p-4 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                          <div className="flex gap-3">
@@ -325,7 +308,6 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
                          </div>
                     </div>
                     
-                    {/* Content Drawers */}
                     <div className="space-y-4 pt-2">
                         {showHint && question.hint && (
                             <div className="animate-in slide-in-from-top-2 duration-200 bg-yellow-900/10 border border-yellow-500/20 rounded-lg p-3">
@@ -341,7 +323,6 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
                                 <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Short Answer</div>
                                 <div className="text-white text-sm font-medium">
                                     <MarkdownRenderer 
-                                        // Robustly replace newlines with double newlines for ReactMarkdown to recognize breaks
                                         content={question.shortAnswer.replace(/\\n/g, '\n').replace(/\n/g, '\n\n')} 
                                         mode="DRILL" 
                                     />
@@ -349,7 +330,6 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
                             </div>
                         )}
 
-                        {/* Smart Solver Style Solution */}
                         {showSolution && (
                             <div className="animate-in slide-in-from-top-4 duration-300 space-y-4">
                                 <div className="text-[10px] uppercase tracking-widest text-yellow-400 font-bold pl-1 flex items-center gap-2">
@@ -364,8 +344,6 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
                                             isActive={activeStepIndex === index}
                                             problemContext={question.questionText}
                                             onClick={() => setActiveStepIndex(index)}
-                                            
-                                            // Navigation Logic for Steps
                                             onNext={() => {
                                                 if (index < question.steps.length - 1) {
                                                     setActiveStepIndex(index + 1);
@@ -380,13 +358,10 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({ question, isLoa
                                                     setShowSolution(false);
                                                 }
                                             }}
-                                            
-                                            // Edge Case Handling: First/Last steps can close the solution
                                             isFirst={index === 0}
                                             isLast={index === question.steps.length - 1}
                                             prevLabel={index === 0 ? "Close" : undefined}
                                             nextLabel={index === question.steps.length - 1 ? "Close" : undefined}
-
                                             mode="DRILL"
                                         />
                                     ))}

@@ -6,24 +6,22 @@ import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettin
 const getApiKey = () => {
     let key = "";
 
-    // 1. Vite / Netlify / Vercel Standard (Most likely to work)
-    try {
-        // @ts-ignore
-        if (typeof import.meta !== 'undefined' && import.meta.env) {
-            // @ts-ignore
-            if (import.meta.env.VITE_API_KEY) key = import.meta.env.VITE_API_KEY;
-            // @ts-ignore
-            else if (import.meta.env.API_KEY) key = import.meta.env.API_KEY;
-        }
-    } catch(e) {}
+    // 1. Check for standard API_KEY (Node/Process) - Priority for Backend/Direct
+    if (typeof process !== 'undefined' && process.env) {
+        if (process.env.API_KEY) key = process.env.API_KEY;
+        else if (process.env.REACT_APP_API_KEY) key = process.env.REACT_APP_API_KEY;
+        else if (process.env.VITE_API_KEY) key = process.env.VITE_API_KEY;
+    }
 
-    // 2. Process Env (Fallback for custom builds)
+    // 2. Check for Vite-specific import.meta.env (Frontend)
     if (!key) {
         try {
-            if (typeof process !== 'undefined' && process.env) {
-                if (process.env.VITE_API_KEY) key = process.env.VITE_API_KEY;
-                else if (process.env.REACT_APP_API_KEY) key = process.env.REACT_APP_API_KEY;
-                else if (process.env.API_KEY) key = process.env.API_KEY;
+            // @ts-ignore
+            if (typeof import.meta !== 'undefined' && import.meta.env) {
+                // @ts-ignore
+                if (import.meta.env.VITE_API_KEY) key = import.meta.env.VITE_API_KEY;
+                // @ts-ignore
+                else if (import.meta.env.API_KEY) key = import.meta.env.API_KEY;
             }
         } catch(e) {}
     }
@@ -78,11 +76,11 @@ const mathSolutionSchema: Schema = {
   properties: {
     exerciseStatement: {
       type: Type.STRING,
-      description: "The full, coherent text of the exercise. CRITICAL: Use LaTeX wrapped in $ symbols for ALL math expressions (e.g. 'Find $f(x)$ where $x > 0$'). If the image text is messy, reconstruct it into perfect English sentences. Do not output fragmented letters.",
+      description: "The full text of the exercise. CRITICAL: Use LaTeX ($...$) for EVERY number, variable, and expression. Example: write '$3$' not '3', write '$x$' not 'x'. Do NOT output plain text math.",
     },
     problemSummary: {
       type: Type.STRING,
-      description: "A concise summary of the math problem identified in the image.",
+      description: "A concise summary using LaTeX for all math.",
     },
     steps: {
       type: Type.ARRAY,
@@ -91,19 +89,19 @@ const mathSolutionSchema: Schema = {
         properties: {
           section: {
             type: Type.STRING,
-            description: "The section of the problem this step belongs to (e.g., 'Part (a)', 'Part (b)', 'Section 1'). Use 'Solution' if there are no parts.",
+            description: "Section name (e.g., 'Part (a)').",
           },
           title: {
             type: Type.STRING,
-            description: "A short title for this step (e.g., 'Find the derivative').",
+            description: "Step title. Use LaTeX ($...$) for math.",
           },
           explanation: {
             type: Type.STRING,
-            description: "A VERY CONCISE explanation. Short sentences. Highlight ONLY 1-2 keywords per step using **bold**. DO NOT highlight entire phrases.",
+            description: "Explanation. Highlight 1-2 keywords with **bold**. Use LaTeX ($...$) for ALL math terms.",
           },
           keyEquation: {
             type: Type.STRING,
-            description: "The primary mathematical result or equation for this step in LaTeX format (without $ delimiters).",
+            description: "The core equation in LaTeX (without $ delimiters).",
           },
         },
         required: ["section", "title", "explanation", "keyEquation"],
@@ -111,7 +109,7 @@ const mathSolutionSchema: Schema = {
     },
     finalAnswer: {
       type: Type.STRING,
-      description: "The final result. Rules: 1. Format as a Markdown list. 2. Use **(a)**, **(b)** style for part labels (this makes them blue). 3. Do NOT bold the mathematical answer itself (keep it plain LaTeX). 4. Do NOT include any marks (e.g. [4]) in this field. 5. Use LaTeX $...$ for math.",
+      description: "Final result. CRITICAL: 1. Use Markdown list format. 2. Separate parts (a), (b) with double newlines (\\n\\n). 3. Use LaTeX ($...$) for ALL math. 4. NO marks ([4]).",
     },
   },
   required: ["exerciseStatement", "problemSummary", "steps", "finalAnswer"],
@@ -120,7 +118,7 @@ const mathSolutionSchema: Schema = {
 const examPaperSchema: Schema = {
   type: Type.OBJECT,
   properties: {
-    title: { type: Type.STRING, description: "Title (e.g. 'Calculus Mock')" },
+    title: { type: Type.STRING },
     totalMarks: { type: Type.INTEGER },
     duration: { type: Type.INTEGER },
     sections: {
@@ -128,7 +126,7 @@ const examPaperSchema: Schema = {
       items: {
         type: Type.OBJECT,
         properties: {
-          title: { type: Type.STRING, description: "Section Name" },
+          title: { type: Type.STRING },
           questions: {
             type: Type.ARRAY,
             items: {
@@ -139,24 +137,24 @@ const examPaperSchema: Schema = {
                 marks: { type: Type.INTEGER },
                 questionText: { 
                     type: Type.STRING, 
-                    description: "Question Text. IMPORTANT: 1. Put the General Exercise Statement first. 2. Use a DOUBLE NEWLINE (\\n\\n) to separate the statement from parts. 3. Each part (a, b...) must also be separated by \\n\\n. 4. Put marks at the end of parts like **[4]**. 5. Use LaTeX $...$." 
+                    description: "Question text. CRITICAL: Use LaTeX ($...$) for EVERY number and variable. Separate parts with \\n\\n. Marks at end like **[4]**." 
                 },
                 steps: {
                     type: Type.ARRAY,
                     items: { type: Type.STRING },
-                    description: "3-5 bullet points on how to solve this. CRITICAL: WRAP ALL NUMBERS AND MATH IN LATEX ($...$). Do not use plain text numbers."
+                    description: "Simplified solution steps in LaTeX ($...$)."
                 },
                 markscheme: { 
                     type: Type.STRING, 
-                    description: "Strict Markdown Table string. Columns: | Step | Working | Explanation | Marks |. CRITICAL: 1. Do NOT use newlines inside a cell. Keep each row on a SINGLE line. 2. Marks (M1, A1) MUST be in the last column ONLY. 3. To separate multiple marks, just use a SPACE (e.g. 'M1 A1'). Do NOT use <br> or HTML tags. 4. Never return the string 'null'." 
+                    description: "STRICT Markdown Table: | Step | Working | Explanation | Marks |. Rows separated by newline. Marks (M1, A1) in last column. Use LaTeX ($...$) for all math." 
                 },
                 shortAnswer: { 
                     type: Type.STRING, 
-                    description: "Short answer in LaTeX. CRITICAL: 1. Separate each part with DOUBLE NEWLINES (\\n\\n). 2. ONLY use LaTeX for math (e.g. $x=5$). DO NOT write the plain text version next to it. DO NOT output 'null'. DO NOT output duplicate info. DO NOT output the plain text explanation next to the math. DO NOT output 'x > 0 (x is greater than 0)'." 
+                    description: "Final Answer in LaTeX. CRITICAL: Separate parts with \\n\\n. Example: '(a) $x=1$ \\n\\n (b) $y=2$'. Use LaTeX ($...$) for all math." 
                 },
-                hint: { type: Type.STRING, description: "One sentence hint" },
+                hint: { type: Type.STRING },
                 calculatorAllowed: { type: Type.BOOLEAN },
-                graphSvg: { type: Type.STRING, description: "Optional SVG string for high-precision graph questions if absolutely necessary. Viewbox 0 0 400 400. White stroke, black background. Use <text> tags for labels. Draw axes clearly." }
+                graphSvg: { type: Type.STRING }
               },
               required: ["id", "number", "marks", "questionText", "markscheme", "shortAnswer", "calculatorAllowed", "steps"]
             }
@@ -172,31 +170,30 @@ const examPaperSchema: Schema = {
 const drillQuestionSchema: Schema = {
   type: Type.OBJECT,
   properties: {
-    topic: { type: Type.STRING, description: "The specific topic this question covers (e.g. 'Chain Rule')." },
-    difficultyLevel: { type: Type.NUMBER, description: "Difficulty level on a scale of 1-10." },
+    topic: { type: Type.STRING },
+    difficultyLevel: { type: Type.NUMBER },
     questionText: { 
         type: Type.STRING, 
-        description: "The full question. STRICT FORMATTING: 1. Start with the preamble/setup text. 2. Use DOUBLE NEWLINES (\\n\\n) to separate the preamble from Part (a). 3. Use DOUBLE NEWLINES between all parts. 4. CRITICAL: Do NOT include marks (e.g. [4]) in the question text. 5. CRITICAL: Use LaTeX ($...$) for ALL math expressions and numbers." 
+        description: "Question text. STRICT RULES: 1. Use LaTeX ($...$) for ALL numbers/math. 2. Separate parts with \\n\\n. 3. NO marks shown." 
     },
     shortAnswer: { 
         type: Type.STRING, 
-        description: "The final answer. CRITICAL FORMATTING: 1. Use strict LaTeX ($...$) for math. 2. SEPARATE EACH PART WITH DOUBLE NEWLINES (\\n\\n) so they appear on separate lines. Example: '(a) $x = 5$ \\n\\n (b) $y = 10$'." 
+        description: "Answer. STRICT RULES: 1. Use LaTeX ($...$) for ALL math. 2. Separate parts with \\n\\n. 3. Format: '(a) $x=...$ \\n\\n (b) $y=...$'." 
     },
     steps: {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
         properties: {
-          section: { type: Type.STRING, description: "Part (a), etc." },
-          title: { type: Type.STRING, description: "Short title for this step." },
-          explanation: { type: Type.STRING, description: "Concise explanation." },
-          keyEquation: { type: Type.STRING, description: "LaTeX result." },
+          section: { type: Type.STRING },
+          title: { type: Type.STRING },
+          explanation: { type: Type.STRING },
+          keyEquation: { type: Type.STRING },
         },
         required: ["section", "title", "explanation", "keyEquation"],
       },
-      description: "Detailed step-by-step solution. Break the problem into small, atomic logical steps. Ensure high quality and clarity."
     },
-    hint: { type: Type.STRING, description: "A helpful nudge without giving away the answer." },
+    hint: { type: Type.STRING },
     calculatorAllowed: { type: Type.BOOLEAN }
   },
   required: ["topic", "difficultyLevel", "questionText", "shortAnswer", "steps", "hint", "calculatorAllowed"]
@@ -209,12 +206,11 @@ const retryOperation = async <T>(operation: () => Promise<T>, retries = 3, delay
     try {
         return await operation();
     } catch (error: any) {
-        // Robust retry for various network/server issues including the specific XHR error code 6
         const isNetworkError = 
             error.message?.includes('xhr error') || 
             error.message?.includes('fetch failed') ||
             error.message?.includes('network') ||
-            error.code === 6; // Specific gRPC/XHR error code
+            error.code === 6;
             
         const isServerOrQuota = 
             error.status === 429 || 
@@ -223,9 +219,9 @@ const retryOperation = async <T>(operation: () => Promise<T>, retries = 3, delay
             error.message?.includes('quota');
 
         if (retries > 0 && (isNetworkError || isServerOrQuota)) {
-            console.warn(`Operation failed (Status: ${error.status}, Msg: ${error.message}). Retrying in ${delayMs}ms... (${retries} retries left)`);
+            console.warn(`Operation failed. Retrying... (${retries} left)`);
             await delay(delayMs);
-            return retryOperation(operation, retries - 1, delayMs * 2); // Exponential backoff
+            return retryOperation(operation, retries - 1, delayMs * 2);
         }
         throw error;
     }
@@ -237,6 +233,16 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
         const client = ensureClientReady();
         const isImage = input.type === 'image';
         
+        const systemPrompt = `
+        You are an expert IB Math AA HL tutor. 
+        CRITICAL FORMATTING RULES:
+        1. ALL math, numbers, variables must be wrapped in LaTeX delimiters ($...$).
+           - BAD: x = 3, sin(x), 45 degrees
+           - GOOD: $x = 3$, $\\sin(x)$, $45^\\circ$
+        2. Do NOT output plain text math.
+        3. Break down solutions into clear, logical steps.
+        `;
+
         const parts = isImage 
           ? [
               {
@@ -246,12 +252,12 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
                 },
               },
               {
-                text: "You are an expert IB Math AA HL tutor. Analyze this image. \n\n1. **Transcription**: Transcribe the exercise statement exactly. If the text is blurry or cut off, RECONSTRUCT the logical mathematical problem statement into clear, coherent English. Use standard LaTeX delimiters ($...$) for all math expressions.\n\n2. **Solution**: Solve it step-by-step. Break down the solution into clear, logical steps.\n\n3. **Formatting**: BE EXTREMELY CONCISE. Short, punchy sentences. Highlight ONLY the most critical 1-2 keywords per step using **bold**. Use LaTeX for math. Provide the output strictly as JSON.",
+                text: `${systemPrompt}\nAnalyze this image. Transcribe the exercise exactly using LaTeX. Solve it step-by-step.`,
               },
             ]
           : [
               {
-                text: `You are an expert IB Math AA HL tutor. Solve the following math problem:\n\n"${input.content}"\n\n1. **Restatement**: Restate the problem clearly in the exerciseStatement field, using LaTeX ($...$).\n\n2. **Solution**: Solve it step-by-step. Break down the solution into clear, logical steps.\n\n3. **Formatting**: BE EXTREMELY CONCISE. Short, punchy sentences. Highlight ONLY the most critical 1-2 keywords per step using **bold**. Use LaTeX for math. Provide the output strictly as JSON.`,
+                text: `${systemPrompt}\nSolve this problem: "${input.content}"`,
               }
           ];
     
@@ -280,7 +286,6 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
     const client = ensureClientReady();
     const parts: any[] = [];
     
-    // Add all uploaded content to context
     inputs.forEach(input => {
         if (input.type === 'image' || input.type === 'pdf') {
             parts.push({ inlineData: { data: input.content, mimeType: input.mimeType } });
@@ -289,15 +294,6 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
         }
     });
 
-    let calcInstruction = "";
-    if (settings.calculator === 'YES') {
-        calcInstruction = "Questions MUST be Calculator Allowed. Adjust numbers if needed.";
-    } else if (settings.calculator === 'NO') {
-        calcInstruction = "Questions MUST be No Calculator. Adjust numbers if needed.";
-    } else {
-        calcInstruction = "Mix of Calc and No Calc.";
-    }
-
     const prompt = `
       Create an IB Math AA HL Exam.
       
@@ -305,27 +301,18 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
       - Difficulty: ${settings.difficulty}
       - Duration: ${settings.durationMinutes} min
       - Topics: ${settings.topics.join(', ') || "General"}
-      - Mode: ${calcInstruction}
 
-      OUTPUT RULES:
-      1. Output STRICT JSON.
-      2. Markscheme must be a Markdown Table.
-         - Columns: | Step | Working | Explanation | Marks |
-         - CRITICAL: Marks (e.g. M1, A1) must be in the 'Marks' column ONLY.
-         - Keep each row on a SINGLE line.
-      3. Use LaTeX ($...$) for ALL math and numbers.
-      4. QUESTION FORMATTING:
-         - Preamble first.
-         - Double Newline (\\n\\n).
-         - Parts (a), (b)... separate by Double Newline (\\n\\n).
-         - Marks at the VERY END of parts: **[4]**.
-      5. CONSTRAINT: NO GRAPHING QUESTIONS. Do not ask students to draw graphs or analyze visual plots, as the exam is text/LaTeX based. Focus on Algebra, Calculus, and Logic.
-      6. STRUCTURAL INTEGRITY:
-         - Keep all parts of a question (a, b, c) inside a SINGLE 'questionText' field. Do not split them into separate question objects.
-         - 'shortAnswer': Use DOUBLE NEWLINES (\\n\\n) to separate parts. Example: "(a) $x=2$ \\n\\n (b) $y=5$". 
-           IMPORTANT: Do NOT include the plain text version of the math. Only output the LaTeX.
-           WRONG: "x > 0 (x is greater than 0)"
-           CORRECT: "$x > 0$"
+      CRITICAL FORMATTING RULES (STRICT ENFORCEMENT):
+      1. ALL numbers, variables, and math must be in LaTeX ($...$).
+         - BAD: "Find x when y is 3"
+         - GOOD: "Find $x$ when $y$ is $3$"
+      2. Markscheme MUST be a Markdown Table:
+         | Step | Working | Explanation | Marks |
+         - M1, A1, R1 codes in the 'Marks' column ONLY.
+      3. Short Answer:
+         - Separate parts (a), (b) with double newlines (\\n\\n).
+         - Use LaTeX for the answer.
+      4. Do NOT output plain text for math symbols.
     `;
 
     parts.push({ text: prompt });
@@ -362,37 +349,26 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
         // Dynamic difficulty adjustment
         let targetDifficulty = prevDifficulty === 0 ? 5 : prevDifficulty;
         if (questionNumber > 1) {
-            targetDifficulty = Math.min(10, targetDifficulty + 0.5); // Slight ramp up
+            targetDifficulty = Math.min(10, targetDifficulty + 0.5); 
         }
 
-        // Christos Nikolaidis Style Injection
-        const styleGuide = `
-        STYLE GUIDE (Christos Nikolaidis / IB High Level):
-        - Questions should be RIGOROUS and conceptually deep.
-        - Avoid standard boilerplate questions.
-        - Combine multiple topics (e.g. Complex Numbers + Polynomials, or Calculus + Trig).
-        - Use precise IB terminology ("Hence or otherwise", "Show that").
-        - Questions should feel like "Hard Exam Questions" not just textbook drills.
-        `;
-
         const prompt = `
-        Generate Drill Question #${questionNumber}.
+        Generate Drill Question #${questionNumber} (IB Math AA HL).
         
         SETTINGS:
-        - Target Difficulty: ${targetDifficulty}/10
-        - Base Topics: ${settings.topics.join(', ') || "Mixed IB AA HL Topics"}
-        - Calculator: ${settings.calculator}
+        - Difficulty: ${targetDifficulty}/10
+        - Topics: ${settings.topics.join(', ') || "Mixed"}
         
-        ${styleGuide}
-
-        INSTRUCTIONS:
-        1. Create a SINGLE, unique, high-quality IB Math AA HL question.
-        2. Ensure it is distinct from previous generic questions. 
-        3. Break it down into parts (a), (b) if necessary for structure.
-        4. "steps" field MUST be a detailed "Smart Solver" style walkthrough, NOT a markscheme.
-           - Break the solution into logical teaching steps.
-           - Explain the 'Why', not just the 'How'.
-        5. Output strictly JSON.
+        STRICT FORMATTING RULES:
+        1. ALL math/numbers must be LaTeX ($...$). No plain text numbers.
+        2. Question Text:
+           - Separate parts with double newlines (\\n\\n).
+           - NO marks indicated.
+        3. Short Answer:
+           - Separate parts with double newlines (\\n\\n).
+           - LaTeX only.
+        4. Steps:
+           - Smart Solver style (detailed, structured).
         `;
 
         parts.push({ text: prompt });
@@ -403,7 +379,7 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
             config: {
                 responseMimeType: "application/json",
                 responseSchema: drillQuestionSchema,
-                temperature: 0.8 // Higher temperature for variety
+                temperature: 0.8 
             },
         });
 
@@ -411,7 +387,6 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
         if (!text) throw new Error("No response");
         const q = JSON.parse(text) as DrillQuestion;
         
-        // Ensure metadata is set correctly
         q.number = questionNumber;
         q.difficultyLevel = targetDifficulty;
         return q;
@@ -428,14 +403,12 @@ export const getStepHint = async (step: MathStep, context: string): Promise<stri
                     Context: ${context}
                     Current Step: ${step.title} - ${step.explanation}
                     Equation: ${step.keyEquation}
-
-                    Task: Provide a helpful, Socratic hint for a student stuck on this step. 
-                    Do NOT give the answer. Point them to the relevant formula or concept.
-                    Max 1-2 sentences.
+                    
+                    Task: Provide a hint. Use LaTeX ($...$) for all math.
                 `}]
             }
         });
-        return response.text || "Review the formula booklet for this topic.";
+        return response.text || "Review the formula booklet.";
     } catch (e) {
         return "Try breaking this step down further.";
     }
@@ -449,12 +422,11 @@ export const getStepBreakdown = async (step: MathStep, context: string): Promise
             contents: {
                 parts: [{ text: `
                     Context: ${context}
-                    Current Step: ${step.title}
+                    Step: ${step.title}
                     Equation: ${step.keyEquation}
-
-                    Task: Break this single step down into 3-4 smaller, atomic sub-steps.
-                    Explain exactly how we get from the previous state to this result.
-                    Output as a JSON array of strings.
+                    
+                    Task: Break down into 3-4 sub-steps. Use LaTeX ($...$) for all math.
+                    Output JSON array of strings.
                 `}]
             },
             config: {
@@ -467,7 +439,7 @@ export const getStepBreakdown = async (step: MathStep, context: string): Promise
         });
         return JSON.parse(response.text || "[]");
     } catch (e) {
-        return ["Analyze the equation terms.", "Apply standard algebraic rules."];
+        return ["Analyze terms.", "Simplify expression."];
     }
 }
 
@@ -484,8 +456,8 @@ export const getMarkscheme = async (question: string, solution: string): Promise
                     Task: Convert this into a strict IB Markdown Markscheme Table.
                     Columns: | Step | Working | Explanation | Marks |
                     Rules:
-                    1. Use M1, A1, R1, AG codes in the Marks column.
-                    2. Keep descriptions concise.
+                    1. Use M1, A1, R1, AG codes in the 'Marks' column.
+                    2. Use LaTeX ($...$) for ALL math and numbers in 'Working' column.
                     3. No newlines inside table cells.
                 `}]
             }
