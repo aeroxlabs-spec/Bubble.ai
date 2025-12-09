@@ -1,21 +1,39 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from "../types";
 
-// Helper to safely get API key without crashing if process is undefined
+// Helper to safely get API key without crashing
 const getApiKey = () => {
+    // 1. Priority: Vite/Netlify/Vercel standard (Must be prefixed with VITE_)
     try {
-        // Fallback to process.env (Node/Webpack/Standard)
-        if (typeof process !== 'undefined' && process.env?.API_KEY) {
-            return process.env.API_KEY;
+        // @ts-ignore
+        if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) {
+            // @ts-ignore
+            return import.meta.env.VITE_API_KEY;
         }
     } catch(e) {}
-    
+
+    // 2. Fallback: Next.js / Vercel alternative convention
     try {
-        // Check import.meta.env without VITE_ prefix if configured via custom build
         // @ts-ignore
-        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.API_KEY) {
+        if (typeof import.meta !== 'undefined' && import.meta.env?.NEXT_PUBLIC_API_KEY) {
+            // @ts-ignore
+            return import.meta.env.NEXT_PUBLIC_API_KEY;
+        }
+    } catch(e) {}
+
+    // 3. Fallback: Check for non-prefixed (if manually configured in vite config)
+    try {
+        // @ts-ignore
+        if (typeof import.meta !== 'undefined' && import.meta.env?.API_KEY) {
             // @ts-ignore
             return import.meta.env.API_KEY;
+        }
+    } catch(e) {}
+
+    // 4. Fallback: Node process (local dev or polyfilled)
+    try {
+        if (typeof process !== 'undefined' && process.env?.API_KEY) {
+            return process.env.API_KEY;
         }
     } catch(e) {}
 
@@ -28,11 +46,25 @@ let aiInstance: GoogleGenAI | null = null;
 const getAiClient = () => {
     if (!aiInstance) {
         const apiKey = getApiKey();
-        // We allow initialization with empty key to prevent crash on load, 
-        // but actual calls will fail if key is missing.
-        aiInstance = new GoogleGenAI({ apiKey: apiKey || "MISSING_KEY" });
+        if (!apiKey || apiKey.includes("your_api_key")) {
+            console.warn("Gemini API Key is missing or invalid.");
+            // We allow returning a client with a dummy key to prevent crash on load,
+            // but we tag it so we can throw a clear error when used.
+            aiInstance = new GoogleGenAI({ apiKey: "MISSING_KEY" });
+        } else {
+            aiInstance = new GoogleGenAI({ apiKey: apiKey });
+        }
     }
     return aiInstance;
+};
+
+// Helper to validate client before use
+const ensureClientReady = () => {
+    const client = getAiClient();
+    if (getApiKey() === "" || (client as any).apiKey === "MISSING_KEY") {
+        throw new Error("API Key missing. Please set VITE_API_KEY in your Vercel/Netlify settings and Redeploy.");
+    }
+    return client;
 };
 
 const mathSolutionSchema: Schema = {
@@ -61,7 +93,7 @@ const mathSolutionSchema: Schema = {
           },
           explanation: {
             type: Type.STRING,
-            description: "A VERY CONCISE explanation. Short sentences. Highlight ONLY 1-2 keywords per sentence using **bold**. DO NOT highlight entire phrases.",
+            description: "A VERY CONCISE explanation. Short sentences. Highlight ONLY 1-2 keywords per step using **bold**. DO NOT highlight entire phrases.",
           },
           keyEquation: {
             type: Type.STRING,
@@ -138,7 +170,7 @@ const drillQuestionSchema: Schema = {
     difficultyLevel: { type: Type.NUMBER, description: "Difficulty level on a scale of 1-10." },
     questionText: { 
         type: Type.STRING, 
-        description: "The full question. STRICT FORMATTING: 1. Start with the preamble/setup text. 2. Use DOUBLE NEWLINES (\\n\\n) to separate the preamble from Part (a). 3. Use DOUBLE NEWLINES between all parts. 4. CRITICAL: Do NOT include marks (e.g. [4]) in the text. 5. CRITICAL: Use LaTeX ($...$) for ALL math expressions and numbers." 
+        description: "The full question. STRICT FORMATTING: 1. Start with the preamble/setup text. 2. Use DOUBLE NEWLINES (\\n\\n) to separate the preamble from Part (a). 3. Use DOUBLE NEWLINES between all parts. 4. CRITICAL: Do NOT include marks (e.g. [4]) in the question text. 5. CRITICAL: Use LaTeX ($...$) for ALL math expressions and numbers." 
     },
     shortAnswer: { 
         type: Type.STRING, 
@@ -196,6 +228,7 @@ const retryOperation = async <T>(operation: () => Promise<T>, retries = 3, delay
 export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> => {
   return retryOperation(async () => {
     try {
+        const client = ensureClientReady();
         const isImage = input.type === 'image';
         
         const parts = isImage 
@@ -216,7 +249,7 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
               }
           ];
     
-        const response = await getAiClient().models.generateContent({
+        const response = await client.models.generateContent({
           model: "gemini-2.5-flash", 
           contents: { parts },
           config: {
@@ -238,6 +271,7 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
 
 export const generateExam = async (inputs: UserInput[], settings: ExamSettings): Promise<ExamPaper> => {
   return retryOperation(async () => {
+    const client = ensureClientReady();
     const parts: any[] = [];
     
     // Add all uploaded content to context
@@ -286,173 +320,137 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
            IMPORTANT: Do NOT include the plain text version of the math. Only output the LaTeX.
            WRONG: "x > 0 (x is greater than 0)"
            CORRECT: "$x > 0$"
-           NEVER output "null" string.
-         - 'markscheme': Start the string with | Step | ... Ensure it is a valid markdown table. NEVER output "null" string. Do NOT use newlines inside cells.
-         - 'steps': Provide generalized steps that cover all parts of the question. USE LATEX for numbers (e.g. $1$, $5$, $\\pi$).
     `;
 
     parts.push({ text: prompt });
 
-    const response = await getAiClient().models.generateContent({
+    const response = await client.models.generateContent({
         model: "gemini-2.5-flash",
         contents: { parts },
         config: {
             responseMimeType: "application/json",
             responseSchema: examPaperSchema,
             temperature: 0.7 
-        }
+        },
     });
 
     const text = response.text;
-    if (!text) throw new Error("Failed to generate exam");
+    if (!text) throw new Error("No response from Gemini");
     return JSON.parse(text) as ExamPaper;
   });
 };
 
-export const generateDrillQuestion = async (
-    settings: DrillSettings, 
-    inputs: UserInput[], 
-    questionNumber: number,
-    previousDifficulty: number
-): Promise<DrillQuestion> => {
+export const generateDrillQuestion = async (settings: DrillSettings, inputs: UserInput[], questionNumber: number, prevDifficulty: number): Promise<DrillQuestion> => {
     return retryOperation(async () => {
+        const client = ensureClientReady();
         const parts: any[] = [];
         
         inputs.forEach(input => {
-            if (input.type === 'image' || input.type === 'pdf') {
+             if (input.type === 'image' || input.type === 'pdf') {
                 parts.push({ inlineData: { data: input.content, mimeType: input.mimeType } });
             } else {
-                parts.push({ text: `Drill Material: ${input.content}` });
+                parts.push({ text: `Context Material: ${input.content}` });
             }
         });
 
-        // Adapt difficulty: Start based on setting, then increment
-        let targetDifficulty = previousDifficulty;
-        if (questionNumber === 1) {
-            // Initial setting mapping
-            if (settings.difficulty === 'STANDARD') targetDifficulty = 3;
-            if (settings.difficulty === 'HARD') targetDifficulty = 6;
-            if (settings.difficulty === 'HELL') targetDifficulty = 8;
-        } else {
-            // Adaptive increment
-            targetDifficulty = Math.min(10, previousDifficulty + 0.5);
+        // Dynamic difficulty adjustment
+        let targetDifficulty = prevDifficulty === 0 ? 5 : prevDifficulty;
+        if (questionNumber > 1) {
+            targetDifficulty = Math.min(10, targetDifficulty + 0.5); // Slight ramp up
         }
 
-        const prompt = `
-            Generate a SINGLE IB Math AA HL Practice Question for Drill Mode.
-            
-            CONTEXT & STYLE GUIDELINES:
-            1. **Variety & Randomness**: The user requires HIGH variety. 
-               - Mix VERY EASY concepts (definitions, basic computation) with VERY HARD multi-step problems. 
-               - Do not just output standard "Solve for x" questions. 
-               - Use diverse topics: Complex Numbers, Vectors, Calculus, Probability, Proofs.
-               - Even if the target difficulty is high, occasionally throw in a conceptual "easy" question to test basics.
-            2. **Style**: Emulate the rigor and style of high-quality resources like **Christos Nikolaidis (MAA Exercises)** or **IB HL Past Papers**.
-            3. **Anti-Repetition**: Ensure this question is significantly different from a generic textbook example. Use unique parameters.
-            
-            Parameters:
-            - Question Number: ${questionNumber}
-            - Topic: ${settings.topics.length > 0 ? `Focus on: ${settings.topics.join(', ')}` : "Any Core Topic"}
-            - Target Difficulty: ${targetDifficulty}/10. (But allow variance +/- 2).
-            - Calculator: ${settings.calculator}
-            
-            FORMATTING RULES (CRITICAL):
-            1. **Structured Text**: separate the setup (preamble) from the parts using DOUBLE NEWLINES (\\n\\n).
-            2. **Separators**: Use DOUBLE NEWLINES (\\n\\n) between every part (a), (b), etc. Each part MUST start on a new line.
-            3. **Part Labels**: Start parts with (a), (b), (c).
-            4. **NO MARKS**: Do NOT include marks like [4] or [5] in the question text. This is purely for practice.
-            5. **Math formatting**: Use strict LaTeX ($...$) for ALL math expressions and numbers.
-            6. **Smart Solver Solution**: The 'steps' field must be a structured array of logical steps (title, explanation, keyEquation), mimicking the high-quality breakdown of a Smart Solver. Do NOT just dump text.
-            7. **Short Answer**: Ensure ALL parts are separated by DOUBLE NEWLINES (\\n\\n) in the shortAnswer field so they render on separate lines.
-            8. **JSON**: Output strict JSON.
+        // Christos Nikolaidis Style Injection
+        const styleGuide = `
+        STYLE GUIDE (Christos Nikolaidis / IB High Level):
+        - Questions should be RIGOROUS and conceptually deep.
+        - Avoid standard boilerplate questions.
+        - Combine multiple topics (e.g. Complex Numbers + Polynomials, or Calculus + Trig).
+        - Use precise IB terminology ("Hence or otherwise", "Show that").
+        - Questions should feel like "Hard Exam Questions" not just textbook drills.
         `;
+
+        const prompt = `
+        Generate Drill Question #${questionNumber}.
         
+        SETTINGS:
+        - Target Difficulty: ${targetDifficulty}/10
+        - Base Topics: ${settings.topics.join(', ') || "Mixed IB AA HL Topics"}
+        - Calculator: ${settings.calculator}
+        
+        ${styleGuide}
+
+        INSTRUCTIONS:
+        1. Create a SINGLE, unique, high-quality IB Math AA HL question.
+        2. Ensure it is distinct from previous generic questions. 
+        3. Break it down into parts (a), (b) if necessary for structure.
+        4. "steps" field MUST be a detailed "Smart Solver" style walkthrough, NOT a markscheme.
+           - Break the solution into logical teaching steps.
+           - Explain the 'Why', not just the 'How'.
+        5. Output strictly JSON.
+        `;
+
         parts.push({ text: prompt });
 
-        const response = await getAiClient().models.generateContent({
-            model: "gemini-2.5-flash",
+        const response = await client.models.generateContent({
+            model: "gemini-2.5-flash", 
             contents: { parts },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: drillQuestionSchema,
-                temperature: 0.95 // High temperature for maximum variety
-            }
+                temperature: 0.8 // Higher temperature for variety
+            },
         });
 
         const text = response.text;
-        if (!text) throw new Error("Failed to generate drill");
-        
+        if (!text) throw new Error("No response");
         const q = JSON.parse(text) as DrillQuestion;
-        q.id = crypto.randomUUID();
+        
+        // Ensure metadata is set correctly
         q.number = questionNumber;
+        q.difficultyLevel = targetDifficulty;
         return q;
     });
-};
+}
 
-export const createChatSession = (
-  initialContext: string,
-  history: { role: string; parts: { text: string }[] }[] = []
-) => {
-  const chat = getAiClient().chats.create({
-    model: "gemini-2.5-flash",
-    config: {
-      systemInstruction: `You are an expert IB Math AA HL Examiner and Tutor named Bubble. 
-      You are helping a student understand a specific problem.
-      
-      Persona Guidelines:
-      1. **Expertise**: You have deep knowledge of the IB Math Analysis & Approaches HL curriculum.
-      2. **Tone**: Encouraging, precise, and professional.
-      3. **Formatting**: 
-         - Be EXTREMELY CONCISE. Do not be wordy. Short sentences.
-         - Highlight ONLY 1-2 keywords per response using **bold**.
-         - Use LaTeX for math ($...$).
-      4. **Goal**: Guide the student to the answer rather than just giving it if they are stuck. If they ask for clarification, explain the "why" behind the "how".
-      
-      Current Problem Context:
-      ${initialContext}`,
-    },
-    history: history,
-  });
-
-  return chat;
-};
-
-export const getStepHint = async (step: MathStep, problemContext: string): Promise<string> => {
-  return retryOperation(async () => {
-      try {
-        const response = await getAiClient().models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: `
-            Context: "${problemContext}"
-            Step: "${step.title}" - "${step.keyEquation}"
-            
-            Give a 1-sentence hint for this step. 
-            CRITICAL: Use standard LaTeX with $ delimiters for math (e.g. $x^2$).
-            Bold the main keyword.
-          `,
-        });
-        return response.text || "Try reviewing the previous step and checking your algebra.";
-      } catch (error) {
-        console.error("Error generating hint:", error);
-        return "Could not generate a hint at this time.";
-      }
-  });
-};
-
-export const getStepBreakdown = async (step: MathStep, problemContext: string): Promise<string[]> => {
-    return retryOperation(async () => {
-        try {
-          const response = await getAiClient().models.generateContent({
+export const getStepHint = async (step: MathStep, context: string): Promise<string> => {
+    try {
+        const client = ensureClientReady();
+        const response = await client.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: `
-              Context: "${problemContext}"
-              Break down step "${step.title}" (${step.keyEquation}) into 3 atomic logical sub-steps.
-              
-              OUTPUT RULES:
-              1. Return valid JSON array of strings.
-              2. Use standard LaTeX ($x$) for math. Do NOT use \\( \\) or \\text{}.
-              3. Keep sentences under 10 words.
-            `,
+            contents: {
+                parts: [{ text: `
+                    Context: ${context}
+                    Current Step: ${step.title} - ${step.explanation}
+                    Equation: ${step.keyEquation}
+
+                    Task: Provide a helpful, Socratic hint for a student stuck on this step. 
+                    Do NOT give the answer. Point them to the relevant formula or concept.
+                    Max 1-2 sentences.
+                `}]
+            }
+        });
+        return response.text || "Review the formula booklet for this topic.";
+    } catch (e) {
+        return "Try breaking this step down further.";
+    }
+}
+
+export const getStepBreakdown = async (step: MathStep, context: string): Promise<string[]> => {
+    try {
+        const client = ensureClientReady();
+        const response = await client.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: {
+                parts: [{ text: `
+                    Context: ${context}
+                    Current Step: ${step.title}
+                    Equation: ${step.keyEquation}
+
+                    Task: Break this single step down into 3-4 smaller, atomic sub-steps.
+                    Explain exactly how we get from the previous state to this result.
+                    Output as a JSON array of strings.
+                `}]
+            },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
@@ -460,58 +458,44 @@ export const getStepBreakdown = async (step: MathStep, problemContext: string): 
                     items: { type: Type.STRING }
                 }
             }
-          });
-          
-          const text = response.text;
-          if (!text) return ["Analyze the equation.", "Simplify terms.", "Calculate result."];
-          
-          const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-          
-          return JSON.parse(cleanText) as string[];
-        } catch (error) {
-          console.error("Error generating breakdown:", error);
-          return ["Could not break down this step further."];
+        });
+        return JSON.parse(response.text || "[]");
+    } catch (e) {
+        return ["Analyze the equation terms.", "Apply standard algebraic rules."];
+    }
+}
+
+export const getMarkscheme = async (question: string, solution: string): Promise<string> => {
+    try {
+        const client = ensureClientReady();
+        const response = await client.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: {
+                parts: [{ text: `
+                    Question: ${question}
+                    Solution Steps: ${solution}
+
+                    Task: Convert this into a strict IB Markdown Markscheme Table.
+                    Columns: | Step | Working | Explanation | Marks |
+                    Rules:
+                    1. Use M1, A1, R1, AG codes in the Marks column.
+                    2. Keep descriptions concise.
+                    3. No newlines inside table cells.
+                `}]
+            }
+        });
+        return response.text || "";
+    } catch (e) {
+        return "";
+    }
+}
+
+export const createChatSession = (systemInstruction: string) => {
+    const client = ensureClientReady();
+    return client.chats.create({
+        model: "gemini-2.5-flash",
+        config: {
+            systemInstruction
         }
     });
 };
-
-export const getMarkscheme = async (exerciseStatement: string, stepsJson: string): Promise<string> => {
-    return retryOperation(async () => {
-        try {
-            const response = await getAiClient().models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: `
-                    You are an official IB Math AA HL Examiner. 
-                    Create a formal MARKSCHEME for the following problem.
-                    
-                    Problem: "${exerciseStatement}"
-                    Solution Context: ${stepsJson}
-
-                    Formatting Rules:
-                    1. **Strict Markdown Table**:
-                       - Columns: | Part | Working | Explanation | Marks |
-                       - **Column 1 (Part)**: Keep minimal (e.g. (a)).
-                       - **Column 2 (Working)**: The main math steps. LaTeX required ($...$).
-                       - **Column 3 (Explanation)**: Very brief reasoning (e.g. "Chain rule").
-                       - **Column 4 (Marks)**: Official codes ONLY (M1, A1, R1).
-                    
-                    2. **Content Density**:
-                       - NO EMPTY ROWS.
-                       - Combine related steps into one row to save space.
-                       - Do NOT use <br> tags. 
-                       - If a part has multiple marks, list them in the same cell separated by spaces (e.g. "M1 A1").
-                       
-                    3. **Cleanliness**:
-                       - Remove all unnecessary whitespace.
-                       - Do NOT bold math expressions.
-                       - Do NOT use newlines characters (\n) inside table cells.
-                       - Return ONLY the table.
-                `
-            });
-            return response.text || "Markscheme generation failed.";
-        } catch (error) {
-            console.error("Error generating markscheme:", error);
-            throw error;
-        }
-    });
-}

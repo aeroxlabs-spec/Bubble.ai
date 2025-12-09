@@ -602,9 +602,10 @@ const App: React.FC = () => {
                  })();
             }
         }, 500);
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        setErrorMsg("Analysis failed. Please try again.");
+        // Show actual error message to help debug API key issues
+        setErrorMsg(err.message || "Analysis failed. Please try again.");
         setAppState(AppState.ERROR);
       } finally {
         setAnalyzingIndex(-1);
@@ -625,9 +626,9 @@ const App: React.FC = () => {
               setGeneratedExam(exam);
               setAppState(AppState.SOLVED);
           }, 500);
-      } catch (error) {
+      } catch (error: any) {
           console.error(error);
-          setErrorMsg("Failed to generate exam paper.");
+          setErrorMsg(error.message || "Failed to generate exam paper.");
           setAppState(AppState.ERROR);
       }
   }
@@ -668,9 +669,9 @@ const App: React.FC = () => {
               setAppState(AppState.SOLVED);
               setLoadingDrill(false);
           }, 500);
-      } catch (e) {
+      } catch (e: any) {
           console.error(e);
-          setErrorMsg("Failed to start drill session.");
+          setErrorMsg(e.message || "Failed to start drill session.");
           setAppState(AppState.ERROR);
       } 
   }
