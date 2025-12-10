@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowRight, ArrowLeft, GraduationCap, Zap, Hash, Check, ExternalLink, Loader2, Coins } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -276,9 +277,13 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
                                     onClick={() => setUseCustomKey(false)}
                                     className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left group ${!useCustomKey ? 'bg-white/10 border-white/20' : 'bg-[#151515] border-white/5 hover:border-white/10'}`}
                                 >
-                                    {/* Monochrome buttons as requested */}
-                                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${!useCustomKey ? 'border-white bg-white' : 'border-gray-600'}`}>
-                                        {!useCustomKey && <Check size={12} className="text-black" />}
+                                    {/* Selection Circle - Clean Outline Style without glow */}
+                                    <div className={`w-5 h-5 rounded-full border transition-all flex items-center justify-center ${
+                                        !useCustomKey 
+                                            ? 'border-white bg-transparent' 
+                                            : 'border-gray-600 bg-transparent'
+                                    }`}>
+                                        {!useCustomKey && <Check size={12} className="text-white" />}
                                     </div>
                                     <div>
                                         <div className="text-sm font-bold text-white">Use Free Credits</div>
@@ -290,8 +295,13 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
                                     onClick={() => setUseCustomKey(true)}
                                     className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left group ${useCustomKey ? 'bg-white/10 border-white/20' : 'bg-[#151515] border-white/5 hover:border-white/10'}`}
                                 >
-                                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${useCustomKey ? 'border-white bg-white' : 'border-gray-600'}`}>
-                                        {useCustomKey && <Check size={12} className="text-black" />}
+                                     {/* Selection Circle - Clean Outline Style without glow */}
+                                    <div className={`w-5 h-5 rounded-full border transition-all flex items-center justify-center ${
+                                        useCustomKey 
+                                            ? 'border-white bg-transparent' 
+                                            : 'border-gray-600 bg-transparent'
+                                    }`}>
+                                        {useCustomKey && <Check size={12} className="text-white" />}
                                     </div>
                                     <div className="flex-1">
                                         <div className="text-sm font-bold text-white">I have my own Key</div>
@@ -338,14 +348,14 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
                         <button
                             onClick={handleSaveKey}
                             disabled={isSaving || (useCustomKey && inputKey.length < 10)}
-                            className={`px-8 py-3 rounded-full font-bold text-xs uppercase tracking-widest text-black transition-all flex items-center gap-2 ${
+                            className={`group px-8 py-3 rounded-full font-bold text-xs uppercase tracking-widest text-white transition-all flex items-center gap-2 ${
                                 (useCustomKey && inputKey.length < 10) 
-                                    ? 'bg-gray-700 cursor-not-allowed text-gray-400' 
-                                    : 'bg-white hover:bg-gray-200 shadow-[0_0_20px_rgba(255,255,255,0.3)]'
+                                    ? 'bg-transparent border border-gray-700 text-gray-500 cursor-not-allowed' 
+                                    : 'bg-transparent border border-white/30 hover:bg-white/5 hover:border-white/60 hover:shadow-[0_0_20px_rgba(255,255,255,0.2)]'
                             }`}
                         >
                             {isSaving ? <Loader2 size={16} className="animate-spin" /> : "Start Learning"}
-                            {!isSaving && <ArrowRight size={16} />}
+                            {!isSaving && <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />}
                         </button>
                     ) : (
                         <button 

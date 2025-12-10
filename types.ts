@@ -109,3 +109,25 @@ export interface DrillQuestion {
   hint: string;
   calculatorAllowed: boolean;
 }
+
+// --- ADMIN & FEEDBACK TYPES ---
+
+export interface Feedback {
+    id: string;
+    userId: string;
+    userName: string;
+    userEmail: string;
+    type: 'BUG' | 'FEATURE' | 'GENERAL' | 'HELP';
+    message: string;
+    timestamp: number;
+    status: 'NEW' | 'READ' | 'ARCHIVED';
+}
+
+export interface AdminStats {
+    totalUsers: number;
+    totalRequests: number;
+    creditsConsumed: number;
+    activeNow: number;
+    requestsOverTime: { date: string; count: number }[];
+    modeDistribution: { mode: AppMode; count: number }[];
+}

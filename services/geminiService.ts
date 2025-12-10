@@ -6,6 +6,7 @@ import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettin
 let sessionKey: string | null = null;
 let dailyRequestLimit = 50; // Default soft limit
 let dailyRequestCount = 0;
+let lifetimeRequestCount = 0; // New lifetime tracker
 
 // Initialize daily count from local storage if available
 if (typeof window !== 'undefined') {
@@ -22,6 +23,10 @@ if (typeof window !== 'undefined') {
         localStorage.setItem('bubble_usage_date', today);
         localStorage.setItem('bubble_usage_count', '0');
     }
+
+    // Initialize lifetime count
+    const savedLifetime = localStorage.getItem('bubble_lifetime_count');
+    if (savedLifetime) lifetimeRequestCount = parseInt(savedLifetime, 10);
 }
 
 export const updateDailyLimit = (limit: number) => {
@@ -31,15 +36,21 @@ export const updateDailyLimit = (limit: number) => {
 
 export const getDailyUsage = () => ({ count: dailyRequestCount, limit: dailyRequestLimit });
 
+export const getLifetimeStats = () => ({
+    totalRequests: lifetimeRequestCount,
+    // Estimate token usage (rough avg 500 tokens in/out per request for calculation)
+    estimatedCredits: lifetimeRequestCount * 5 
+});
+
 const incrementUsage = () => {
     dailyRequestCount++;
+    lifetimeRequestCount++;
     localStorage.setItem('bubble_usage_count', dailyRequestCount.toString());
+    localStorage.setItem('bubble_lifetime_count', lifetimeRequestCount.toString());
 };
 
 const checkUsageLimit = () => {
     // Only enforce soft limit for custom keys (optional behavior) or globally
-    // Currently purely informational warning in logs, or soft block if desired.
-    // For this implementation, we just track it.
     if (dailyRequestCount >= dailyRequestLimit) {
         console.warn(`Daily limit of ${dailyRequestLimit} requests reached.`);
     }
@@ -109,9 +120,6 @@ const getApiKey = () => {
             return localKey.trim();
         }
     }
-
-    // REMOVED: All process.env and import.meta.env fallbacks.
-    // This ensures the app CANNOT use a developer/system key.
     
     return "";
 };

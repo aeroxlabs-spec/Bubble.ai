@@ -1,7 +1,8 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from './types';
-import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution } from './services/geminiService';
+import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution, getDailyUsage } from './services/geminiService';
 import { useAuth } from './contexts/AuthContext';
 import { AuthScreens } from './components/AuthScreens';
 import UploadZone from './components/UploadZone';
@@ -14,7 +15,10 @@ import DrillConfigPanel from './components/DrillConfigPanel';
 import DrillSessionViewer from './components/DrillSessionViewer';
 import OnboardingModal from './components/OnboardingModal'; 
 import ApiKeyModal from './components/ApiKeyModal'; 
-import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator, Zap, LogOut, User as UserIcon, Check, AlertCircle, Key, Coins } from 'lucide-react';
+import FeedbackModal from './components/FeedbackModal';
+import HelpModal from './components/HelpModal';
+import AdminDashboard from './components/AdminDashboard';
+import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator, Zap, LogOut, User as UserIcon, Check, AlertCircle, Key, Coins, MessageSquare, ShieldAlert, HelpCircle } from 'lucide-react';
 
 // Cost Configuration
 const COSTS = {
@@ -22,6 +26,8 @@ const COSTS = {
     EXAM_GENERATION: 25,
     DRILL_SESSION: 10
 };
+
+const ADMIN_EMAIL = 'gbrlmartinlopez@gmail.com';
 
 const MagneticPencil = ({ onClick, isOpen, mode }: { onClick: () => void, isOpen: boolean, mode: AppMode }) => {
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -357,11 +363,17 @@ const App: React.FC = () => {
   const [showActionButtons, setShowActionButtons] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [forceApiKeyModal, setForceApiKeyModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [startBackgroundEffects, setStartBackgroundEffects] = useState(false);
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
   const [isMarkschemeOpen, setIsMarkschemeOpen] = useState(true);
+
+  // Soft Limit Warning State
+  const [limitWarning, setLimitWarning] = useState<string | null>(null);
 
   const handleReset = () => {
     setAppState(AppState.IDLE);
@@ -381,6 +393,7 @@ const App: React.FC = () => {
     setCurrentDrillIndex(0);
     setLoadingDrill(false);
     setLoadingDrillSolution(false);
+    setLimitWarning(null); // Clear warnings on reset
   };
 
   useEffect(() => {
@@ -469,14 +482,8 @@ const App: React.FC = () => {
             if(fixedLine.includes('||')) fixedLine = fixedLine.replace(/\|\|/g, '| |');
             mergedLines.push(fixedLine);
         } else {
-            // If it's not a table line, we can either append it to previous or push as new
-            // For markschemes, usually best to keep it if it looks important, 
-            // but the prompt now enforces table only.
-            // We'll keep it just in case.
             if (mergedLines.length > 0) {
-                 // Check if the previous line was a table row, if so, this might be overflow text
                  if(mergedLines[mergedLines.length-1].startsWith('|')) {
-                     // ignore or append? Let's ignore outside text to enforce table look
                  } else {
                     mergedLines.push(trimmed);
                  }
@@ -529,7 +536,6 @@ const App: React.FC = () => {
       if (hasValidKey) {
           if (useCredits()) {
               if (credits < cost) {
-                   // Force open modal if insufficient credits
                    setForceApiKeyModal(true);
                    setShowApiKeyModal(true);
                    return;
@@ -537,6 +543,12 @@ const App: React.FC = () => {
               decrementCredits(cost);
           }
           await action();
+          
+          // Check limits after action
+          const { count, limit } = getDailyUsage();
+          if (count > limit) {
+              setLimitWarning(`Daily soft limit of ${limit} requests has been exceeded.`);
+          }
       } else {
           setForceApiKeyModal(true);
           setShowApiKeyModal(true);
@@ -804,6 +816,10 @@ const App: React.FC = () => {
       return <AuthScreens />;
   }
 
+  if (showAdminDashboard) {
+      return <AdminDashboard onClose={() => setShowAdminDashboard(false)} />;
+  }
+
   const totalMarks = activeSolution?.markscheme ? calculateTotalMarks(activeSolution.markscheme) : 0;
   const isNextButtonLoading = waitingForNext || (loadingDrill && currentDrillIndex === drillQuestions.length - 1 && waitingForNext);
   const diagnostics = getSystemDiagnostics();
@@ -818,6 +834,36 @@ const App: React.FC = () => {
         onClose={() => { if(!forceApiKeyModal) setShowApiKeyModal(false); }} 
         forced={forceApiKeyModal} 
       />
+
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        user={user}
+      />
+
+      <HelpModal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        user={user}
+      />
+
+      {/* Limit Warning Toast */}
+      {limitWarning && (
+          <div className="fixed top-20 right-6 z-[60] animate-in fade-in slide-in-from-right-10 duration-500">
+              <div className="bg-[#1a1a1a] border border-red-500/30 rounded-xl p-4 shadow-2xl flex items-start gap-3 max-w-sm backdrop-blur-xl">
+                  <div className="bg-red-500/10 p-2 rounded-lg text-red-400">
+                      <AlertCircle size={20} />
+                  </div>
+                  <div className="flex-1">
+                      <h4 className="text-white font-bold text-sm mb-1">Usage Limit Reached</h4>
+                      <p className="text-xs text-gray-400 leading-relaxed">{limitWarning}</p>
+                  </div>
+                  <button onClick={() => setLimitWarning(null)} className="text-gray-500 hover:text-white transition-colors">
+                      <X size={16} />
+                  </button>
+              </div>
+          </div>
+      )}
 
       <nav className={`sticky top-0 z-40 border-b border-white/5 transition-all duration-300 ${
           appMode === 'EXAM' 
@@ -927,11 +973,35 @@ const App: React.FC = () => {
                                     <div className="text-[10px] text-gray-500 truncate">{user.email}</div>
                                 </div>
                                 <div className="p-1">
+                                    {/* Admin Button for Specific User */}
+                                    {user.email === ADMIN_EMAIL && (
+                                        <button 
+                                            onClick={() => { setShowAdminDashboard(true); setShowUserMenu(false); }}
+                                            className="w-full text-left px-3 py-2 text-xs font-bold text-blue-400 hover:bg-blue-900/10 hover:text-blue-300 rounded-lg transition-colors flex items-center gap-2 mb-1"
+                                        >
+                                            <ShieldAlert size={14} /> Admin Dashboard
+                                        </button>
+                                    )}
+
                                     <button 
                                         onClick={() => { setShowApiKeyModal(true); setShowUserMenu(false); setForceApiKeyModal(false); }}
                                         className="w-full text-left px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5 hover:text-white rounded-lg transition-colors flex items-center gap-2"
                                     >
                                         <Key size={14} /> API Settings
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={() => { setShowHelpModal(true); setShowUserMenu(false); }}
+                                        className="w-full text-left px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5 hover:text-white rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                        <HelpCircle size={14} /> Help Center
+                                    </button>
+
+                                    <button 
+                                        onClick={() => { setShowFeedbackModal(true); setShowUserMenu(false); }}
+                                        className="w-full text-left px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5 hover:text-white rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                        <MessageSquare size={14} /> Send Feedback
                                     </button>
                                     <button 
                                         onClick={logout}
