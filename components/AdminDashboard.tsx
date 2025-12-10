@@ -2,7 +2,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { AdminStats, Feedback } from '../types';
 import { adminService } from '../services/adminService';
-import { ArrowLeft, RefreshCw, Server, MessageSquare, ChevronDown, Award, X } from 'lucide-react';
+import { supabase } from '../services/supabaseClient';
+import { ArrowLeft, RefreshCw, Server, MessageSquare, ChevronDown, Award, X, Zap } from 'lucide-react';
 
 interface AdminDashboardProps {
     onClose: () => void;
@@ -35,9 +36,8 @@ const FunctioningGraph = ({ data }: { data: { date: string, count: number }[] })
     const graphWidth = width - paddingLeft - paddingRight;
     const graphHeight = height - paddingTop - paddingBottom;
 
-    const maxVal = Math.max(...data.map(d => d.count), 10); // Min scale of 10
-    // Round max up to nice number
-    const yMax = Math.ceil(maxVal / 10) * 10;
+    const maxVal = Math.max(...data.map(d => d.count), 10);
+    const yMax = Math.ceil(maxVal / 5) * 5; // Round to nearest 5
 
     const getX = (i: number) => paddingLeft + (i / (data.length - 1)) * graphWidth;
     const getY = (val: number) => paddingTop + graphHeight - (val / yMax) * graphHeight;
@@ -77,8 +77,9 @@ const FunctioningGraph = ({ data }: { data: { date: string, count: number }[] })
                     );
                 })}
 
-                {/* X-Axis Labels (Show fewer to avoid clutter) */}
+                {/* X-Axis Labels */}
                 {data.map((d, i) => {
+                    // Show roughly 6 labels evenly spaced
                     if (i % Math.ceil(data.length / 6) === 0 || i === data.length - 1) {
                         return (
                             <text 
@@ -143,7 +144,7 @@ const FunctioningGraph = ({ data }: { data: { date: string, count: number }[] })
                 <div 
                     className="absolute bg-[#1a1a1a] border border-white/20 px-3 py-2 rounded-lg shadow-xl pointer-events-none z-50 flex flex-col items-center"
                     style={{ 
-                        left: getX(hoveredIndex) - 40, // Center offset
+                        left: getX(hoveredIndex) - 40,
                         top: getY(data[hoveredIndex].count) - 50 
                     }}
                 >
@@ -171,8 +172,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
     const [stats, setStats] = useState<AdminStats | null>(null);
     const [feedback, setFeedback] = useState<Feedback[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [timeRange, setTimeRange] = useState(14); // Default 14 days
+    const [timeRange, setTimeRange] = useState(14);
     const [milestoneToast, setMilestoneToast] = useState<string | null>(null);
+    const [liveEventToast, setLiveEventToast] = useState<string | null>(null);
 
     const refreshData = async () => {
         setIsLoading(true);
@@ -194,6 +196,62 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
         refreshData();
     }, [timeRange]);
 
+    // --- REALTIME SUBSCRIPTION ENGINE ---
+    useEffect(() => {
+        const channel = supabase
+            .channel('admin-dashboard-live')
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'usage_logs' },
+                (payload) => {
+                    // Update stats locally for immediate feedback
+                    setStats(prev => {
+                        if (!prev) return null;
+                        
+                        // Deep clone to avoid mutation issues
+                        const next = JSON.parse(JSON.stringify(prev));
+                        next.totalRequests += 1;
+                        next.activeNow += 1;
+                        next.creditsConsumed += 5;
+
+                        // Update graph (Add to today's count)
+                        const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        const todayEntry = next.requestsOverTime.find((r: any) => r.date === todayStr);
+                        if (todayEntry) {
+                            todayEntry.count += 1;
+                        }
+
+                        // Update mode distribution
+                        const mode = payload.new.mode || 'UNKNOWN';
+                        const modeEntry = next.modeDistribution.find((m: any) => m.mode === mode);
+                        if (modeEntry) {
+                            modeEntry.count += 1;
+                        } else {
+                            next.modeDistribution.push({ mode, count: 1 });
+                        }
+
+                        return next;
+                    });
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'feedback' },
+                (payload) => {
+                    // Refresh feedback list
+                    adminService.getFeedback().then(setFeedback);
+                    setLiveEventToast(`New Feedback received from ${payload.new.user_email || 'User'}`);
+                    setTimeout(() => setLiveEventToast(null), 4000);
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
+
     // Check for Milestones
     useEffect(() => {
         if (stats) {
@@ -201,11 +259,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
             const lastCelebrated = parseInt(localStorage.getItem('bubble_milestone_celebrated') || '0');
             const current = stats.totalRequests;
             
-            // Find highest crossed milestone that hasn't been celebrated
             const crossed = milestones.filter(m => current >= m && m > lastCelebrated).pop();
             
             if (crossed) {
-                // Trigger Toast
                 setMilestoneToast(`🚀 Amazing! We just hit ${crossed.toLocaleString()} total requests!`);
                 localStorage.setItem('bubble_milestone_celebrated', crossed.toString());
             }
@@ -233,6 +289,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                 </div>
             )}
 
+            {/* Live Event Toast */}
+             {liveEventToast && (
+                <div className="fixed bottom-6 right-6 z-[60] animate-in fade-in slide-in-from-bottom-5 duration-500">
+                    <div className="bg-[#1a1a1a] border border-blue-500/30 rounded-xl p-3 shadow-2xl flex items-center gap-3 backdrop-blur-xl">
+                         <div className="bg-blue-500/10 p-1.5 rounded-lg text-blue-400">
+                            <MessageSquare size={16} />
+                        </div>
+                        <span className="text-xs font-bold text-white">{liveEventToast}</span>
+                    </div>
+                </div>
+            )}
+
             {/* Minimal Header */}
             <div className="h-14 border-b border-white/10 bg-[#0a0a0a] flex items-center justify-between px-6 flex-shrink-0">
                 <div className="flex items-center gap-4">
@@ -243,26 +311,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                     <div className="flex items-center gap-2">
                         <Server size={16} className="text-blue-500" />
                         <span className="font-bold text-sm tracking-tight">Admin Console</span>
+                        <div className="flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full ml-2">
+                             <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                             <span className="text-[9px] font-bold text-green-500 uppercase">Live</span>
+                        </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] text-gray-500 font-mono hidden sm:inline">REAL-TIME DATA</span>
+                    <span className="text-[10px] text-gray-500 font-mono hidden sm:inline">SYNCED TO DB</span>
                     <button onClick={refreshData} disabled={isLoading} className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors">
                         <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
                     </button>
                 </div>
             </div>
 
-            {/* Main Content - No Scroll on body if possible, contain scroll in grid */}
+            {/* Main Content */}
             <div className="flex-1 overflow-y-auto p-6">
                 <div className="max-w-6xl mx-auto space-y-6">
                     
                     {/* Top Row: Compact Stats */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <CompactStatCard 
-                            title="Total Users" 
+                            title="Active Users" 
                             value={stats?.totalUsers || 0}
-                            sub="Active Session"
+                            sub="In selected period"
                             accentColor="text-blue-400"
                         />
                         <CompactStatCard 
@@ -286,10 +358,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                     </div>
 
                     {/* Middle Row: Graph + Distribution */}
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[320px]">
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-auto lg:h-[320px]">
                         
-                        {/* Traffic Graph - Taking 3/4 space */}
-                        <div className="lg:col-span-3 bg-[#111] border border-white/10 rounded-xl p-5 flex flex-col relative group hover:border-white/20 transition-colors">
+                        <div className="lg:col-span-3 bg-[#111] border border-white/10 rounded-xl p-5 flex flex-col relative group hover:border-white/20 transition-colors min-h-[300px]">
                             <div className="flex items-center justify-between mb-4">
                                 <div>
                                     <h3 className="text-xs font-bold text-white uppercase tracking-wider">Request Traffic</h3>
@@ -316,15 +387,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                             </div>
                         </div>
 
-                        {/* Distribution - Taking 1/4 space, cleaner layout */}
-                        <div className="bg-[#111] border border-white/10 rounded-xl p-5 flex flex-col">
+                        <div className="bg-[#111] border border-white/10 rounded-xl p-5 flex flex-col min-h-[300px]">
                             <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-6">Mode Distribution</h3>
                             <div className="flex-1 flex flex-col justify-center space-y-6">
                                 {stats?.modeDistribution.map((item) => {
                                     const total = stats.modeDistribution.reduce((acc, curr) => acc + curr.count, 0) || 1;
                                     const percent = Math.round((item.count / total) * 100);
                                     
-                                    // Mode Colors
                                     const color = item.mode === 'SOLVER' ? 'bg-blue-500' 
                                         : item.mode === 'EXAM' ? 'bg-purple-500' 
                                         : 'bg-yellow-500';
