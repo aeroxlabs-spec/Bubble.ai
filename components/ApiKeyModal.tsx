@@ -1,0 +1,285 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { runConnectivityTest, getRecentLogs, ApiLog } from '../services/geminiService';
+import { Key, ExternalLink, ShieldCheck, X, Trash2, Loader2, AlertTriangle, CheckCircle, Activity, Zap, CreditCard } from 'lucide-react';
+
+interface ApiKeyModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    forced?: boolean; 
+}
+
+const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = false }) => {
+    const { userApiKey, updateApiKey, credits, useCredits } = useAuth();
+    const [activeTab, setActiveTab] = useState<'SETTINGS' | 'DIAGNOSTICS'>('SETTINGS');
+    const [inputKey, setInputKey] = useState(userApiKey);
+    const [status, setStatus] = useState<'IDLE' | 'VERIFYING' | 'VALID' | 'INVALID'>('IDLE');
+    const [errorMsg, setErrorMsg] = useState('');
+    
+    // Diagnostics State
+    const [logs, setLogs] = useState<ApiLog[]>([]);
+    const [isRunningTest, setIsRunningTest] = useState(false);
+
+    useEffect(() => {
+        setInputKey(userApiKey || "");
+        setStatus('IDLE');
+        setErrorMsg('');
+        if (isOpen) {
+            setLogs(getRecentLogs());
+        }
+    }, [userApiKey, isOpen]);
+
+    useEffect(() => {
+        let interval: ReturnType<typeof setInterval>;
+        if (isOpen && activeTab === 'DIAGNOSTICS') {
+            setLogs(getRecentLogs());
+            interval = setInterval(() => {
+                setLogs(getRecentLogs());
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [isOpen, activeTab]);
+
+    if (!isOpen) return null;
+
+    const verifyAndSave = async () => {
+        const cleanedKey = inputKey.trim();
+        if (cleanedKey.length < 10) {
+            setErrorMsg("Key looks too short.");
+            return;
+        }
+
+        setStatus('VERIFYING');
+        setErrorMsg('');
+
+        try {
+            await updateApiKey(cleanedKey); 
+            const success = await runConnectivityTest();
+
+            if (success) {
+                setStatus('VALID');
+                setTimeout(() => {
+                    if (!forced) onClose();
+                }, 1000);
+            }
+        } catch (e: any) {
+            console.error("Key verification failed", e);
+            setStatus('INVALID');
+            setErrorMsg("Connection failed. Check key validity.");
+        }
+    };
+
+    const handleRunTest = async () => {
+        if (!userApiKey && credits <= 0) return;
+        setIsRunningTest(true);
+        try {
+            await runConnectivityTest();
+            setLogs(getRecentLogs());
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsRunningTest(false);
+        }
+    };
+
+    const handleRemove = async () => {
+        if (confirm("Remove key? You will revert to using credits (if available).")) {
+            await updateApiKey("");
+            setInputKey("");
+            setStatus('IDLE');
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-in fade-in duration-300">
+            <div className="w-full max-w-lg bg-[#0e0e0e] border border-white/10 rounded-3xl shadow-2xl overflow-hidden relative flex flex-col max-h-[90vh]">
+                
+                {/* Gradient Top Line */}
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 via-purple-500 to-yellow-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
+
+                {!forced && (
+                    <button onClick={onClose} className="absolute top-5 right-5 text-gray-500 hover:text-white transition-colors z-20">
+                        <X size={20} />
+                    </button>
+                )}
+
+                {/* Header & Tabs */}
+                <div className="bg-[#0e0e0e] px-8 pt-10 pb-0 border-b border-white/5">
+                    <h2 className="text-xl font-bold text-white tracking-tight mb-2">System Configuration</h2>
+                    {forced && <p className="text-red-400 text-xs mb-4">You have run out of free credits. Please add a key.</p>}
+                    <div className="flex items-center gap-6 mt-4">
+                        <button 
+                            onClick={() => setActiveTab('SETTINGS')}
+                            className={`pb-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${
+                                activeTab === 'SETTINGS' 
+                                ? 'border-white text-white' 
+                                : 'border-transparent text-gray-500 hover:text-gray-300'
+                            }`}
+                        >
+                            API Credentials
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('DIAGNOSTICS')}
+                            className={`pb-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${
+                                activeTab === 'DIAGNOSTICS' 
+                                ? 'border-white text-white' 
+                                : 'border-transparent text-gray-500 hover:text-gray-300'
+                            }`}
+                        >
+                            Diagnostics
+                        </button>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                    {activeTab === 'SETTINGS' ? (
+                        <div className="p-8 space-y-8">
+                            
+                            {/* Credits Status */}
+                            <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-4 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${useCredits() ? 'bg-yellow-500/10 text-yellow-500' : 'bg-green-500/10 text-green-500'}`}>
+                                        {useCredits() ? <CreditCard size={18} /> : <Zap size={18} />}
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-bold text-white">
+                                            {useCredits() ? "Free Credits Mode" : "Personal Key Active"}
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                            {useCredits() 
+                                                ? `${credits} credits remaining.` 
+                                                : "Unlimited usage enabled."
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                {useCredits() && credits <= 10 && (
+                                    <span className="text-[10px] font-bold text-red-400 bg-red-900/20 px-2 py-1 rounded">Low Balance</span>
+                                )}
+                            </div>
+
+                            {/* Key Input Section */}
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                                        <Key size={14} /> Gemini API Key
+                                    </label>
+                                    <div className="flex items-center gap-3">
+                                         <a 
+                                            href="https://aistudio.google.com/app/apikey" 
+                                            target="_blank" 
+                                            rel="noreferrer" 
+                                            className="text-[10px] font-bold uppercase tracking-wide text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+                                        >
+                                            Get Key <ExternalLink size={10} />
+                                        </a>
+                                        {userApiKey && !forced && (
+                                            <button onClick={handleRemove} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 transition-colors">
+                                                <Trash2 size={10} /> Revoke
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                <div className="relative group">
+                                    <input 
+                                        type="password" 
+                                        value={inputKey}
+                                        onChange={(e) => { setInputKey(e.target.value); setStatus('IDLE'); }}
+                                        placeholder="AIzaSy..."
+                                        className="relative w-full bg-[#050505] border border-white/10 rounded-lg px-4 py-3.5 text-sm text-white font-mono focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-700"
+                                    />
+                                    
+                                    <div className="absolute right-3 top-3.5 z-10">
+                                        {status === 'VERIFYING' && <Loader2 size={16} className="text-white animate-spin" />}
+                                        {status === 'VALID' && <CheckCircle size={16} className="text-green-500" />}
+                                        {status === 'INVALID' && <AlertTriangle size={16} className="text-red-500" />}
+                                    </div>
+                                </div>
+
+                                {errorMsg && (
+                                    <p className="text-red-400 text-xs font-mono">{errorMsg}</p>
+                                )}
+                            </div>
+
+                            {/* Secure Notice */}
+                            <div className="flex items-center gap-3 px-1 opacity-50 hover:opacity-100 transition-opacity">
+                                <ShieldCheck className="text-gray-500 flex-shrink-0" size={14} />
+                                <p className="text-[10px] text-gray-500 leading-tight">
+                                    BYOK Architecture: Your key is stored locally in your browser/account and never logged on our servers.
+                                </p>
+                            </div>
+
+                            {/* Verify Button */}
+                            <button 
+                                onClick={verifyAndSave}
+                                disabled={status === 'VERIFYING' || inputKey.length < 5}
+                                className={`w-full py-3.5 rounded-lg font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all duration-300 border ${
+                                    status === 'VALID'
+                                    ? 'border-green-500/50 text-green-400 bg-green-500/10' 
+                                    : 'border-white/20 text-white bg-transparent hover:border-white/50 hover:bg-white/5'
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                                {status === 'VERIFYING' ? "Validating..." : status === 'VALID' ? "Verified" : "Verify & Save Key"}
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="p-8 space-y-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-sm font-bold text-white">Network Activity</h3>
+                                    <p className="text-xs text-gray-500">Live request log from this session.</p>
+                                </div>
+                                <button 
+                                    onClick={handleRunTest}
+                                    disabled={isRunningTest || (!userApiKey && credits <= 0)}
+                                    className="text-[10px] font-bold uppercase tracking-wider border border-white/10 hover:border-white/30 text-white px-3 py-2 rounded-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isRunningTest ? <Loader2 size={12} className="animate-spin" /> : <Activity size={12} />}
+                                    Ping Test
+                                </button>
+                            </div>
+
+                            <div className="bg-[#050505] border border-white/10 rounded-xl overflow-hidden min-h-[300px] flex flex-col font-mono text-[10px]">
+                                <div className="grid grid-cols-4 gap-2 px-4 py-2 bg-white/5 text-gray-400 border-b border-white/5 uppercase tracking-wider font-bold">
+                                    <div>Time</div>
+                                    <div>Model</div>
+                                    <div>Status</div>
+                                    <div className="text-right">Key ID</div>
+                                </div>
+                                
+                                <div className="flex-1 overflow-y-auto max-h-[300px]">
+                                    {logs.length === 0 ? (
+                                        <div className="h-full flex flex-col items-center justify-center text-gray-700 space-y-3 p-8">
+                                            <Zap size={24} className="opacity-20" />
+                                            <p>No requests recorded yet.</p>
+                                        </div>
+                                    ) : (
+                                        logs.map((log) => (
+                                            <div key={log.id} className="grid grid-cols-4 gap-2 px-4 py-3 border-b border-white/5 text-gray-300 hover:bg-white/5 transition-colors items-center">
+                                                <div className="text-gray-500">{log.timestamp}</div>
+                                                <div className="text-blue-400">{log.model}</div>
+                                                <div>
+                                                    <span className={`px-1.5 py-0.5 rounded font-bold uppercase ${
+                                                        log.status === 'SUCCESS' ? 'text-green-400 bg-green-500/10' :
+                                                        log.status === 'ERROR' ? 'text-red-400 bg-red-500/10' :
+                                                        'text-yellow-400 bg-yellow-500/10'
+                                                    }`}>
+                                                        {log.status}
+                                                    </span>
+                                                </div>
+                                                <div className="text-right text-gray-600">{log.keyFingerprint}</div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default ApiKeyModal;

@@ -1,4 +1,5 @@
 
+
 import { User } from '../types';
 import { supabase } from './supabaseClient';
 
@@ -17,7 +18,8 @@ export const authService = {
             id: data.user.id,
             name: data.user.user_metadata?.full_name || email.split('@')[0],
             email: data.user.email || "",
-            avatarUrl: data.user.user_metadata?.avatar_url
+            avatarUrl: data.user.user_metadata?.avatar_url,
+            hasOnboarded: data.user.user_metadata?.hasOnboarded || false
         };
     },
 
@@ -28,27 +30,24 @@ export const authService = {
             options: {
                 data: {
                     full_name: name,
+                    hasOnboarded: false
                 },
             },
         });
 
         if (error) throw new Error(error.message);
         
-        // Note: If email confirmation is enabled in Supabase, 
-        // data.user might be null or session null until confirmed.
         if (!data.user) throw new Error("Signup failed");
 
         return {
             id: data.user.id,
             name: name,
             email: data.user.email || "",
+            hasOnboarded: false
         };
     },
 
     async loginWithGoogle(): Promise<void> {
-        // Supabase OAuth handles the redirect. 
-        // The user will leave the page and come back.
-        // We do not return a User here; the AuthContext listener will pick it up on return.
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
@@ -65,15 +64,125 @@ export const authService = {
     },
 
     async getCurrentUser(): Promise<User | null> {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session?.user) return null;
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (!session?.user) return null;
 
-        return {
-            id: session.user.id,
-            name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || "User",
-            email: session.user.email || "",
-            avatarUrl: session.user.user_metadata?.avatar_url
-        };
+            return {
+                id: session.user.id,
+                name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || "User",
+                email: session.user.email || "",
+                avatarUrl: session.user.user_metadata?.avatar_url,
+                hasOnboarded: session.user.user_metadata?.hasOnboarded || false
+            };
+        } catch (e) {
+            console.error("Error getting current user:", e);
+            return null;
+        }
+    },
+
+    async completeOnboarding(): Promise<void> {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+
+            const { error } = await supabase.auth.updateUser({
+                data: { hasOnboarded: true }
+            });
+            if (error) {
+                if (!error.message.includes('Auth session missing')) {
+                    console.warn("Failed to sync onboarding:", error.message);
+                }
+            }
+        } catch (e) {
+            // Suppress
+        }
+    },
+
+    // --- API Key Management (USER_API_KEYS Table) ---
+
+    async getGeminiKey(userId: string): Promise<string | null> {
+        try {
+            // Check session first to avoid RLS issues
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return null;
+
+            const { data, error } = await supabase
+                .from('USER_API_KEYS')
+                .select('api_key')
+                .eq('user_id', userId)
+                .eq('provider', 'gemini')
+                .maybeSingle();
+            
+            if (error) {
+                return null;
+            }
+            return data?.api_key || null;
+        } catch (e) {
+            return null;
+        }
+    },
+
+    async saveGeminiKey(userId: string, key: string): Promise<void> {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+
+            // Check if exists first
+            const { data, error: selectError } = await supabase
+                .from('USER_API_KEYS')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('provider', 'gemini')
+                .maybeSingle();
+
+            if (selectError && selectError.code !== 'PGRST116') {
+                 throw selectError;
+            }
+
+            if (data) {
+                // Update
+                const { error } = await supabase
+                    .from('USER_API_KEYS')
+                    .update({ 
+                        api_key: key, 
+                        is_valid: true,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', data.id);
+                if (error) throw error;
+            } else {
+                // Insert
+                const { error } = await supabase
+                    .from('USER_API_KEYS')
+                    .insert({ 
+                        user_id: userId, 
+                        provider: 'gemini', 
+                        api_key: key, 
+                        is_valid: true 
+                    });
+                if (error) throw error;
+            }
+        } catch (e: any) {
+            console.warn("Saving to DB failed, fallback to local storage active.", e.message);
+        }
+    },
+
+    async removeGeminiKey(userId: string): Promise<void> {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+
+            const { error } = await supabase
+                .from('USER_API_KEYS')
+                .delete()
+                .eq('user_id', userId)
+                .eq('provider', 'gemini');
+            
+            if (error) throw error;
+        } catch (e: any) {
+             // Ignore
+        }
     }
 };

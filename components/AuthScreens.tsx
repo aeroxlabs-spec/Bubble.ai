@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Pen, Zap, GraduationCap, ArrowRight, AlertCircle, Sigma, Divide, Minus, Lightbulb, Percent, Hash } from 'lucide-react';
+import { Pen, Zap, GraduationCap, ArrowRight, AlertCircle, Sigma, Divide, Minus, Lightbulb, Percent, Hash, Ghost } from 'lucide-react';
 
 export const AuthScreens: React.FC = () => {
     const [view, setView] = useState<'LANDING' | 'LOGIN' | 'SIGNUP'>('LANDING');
@@ -55,6 +56,8 @@ export const AuthScreens: React.FC = () => {
 };
 
 const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') => void }) => {
+    const { loginAsGuest } = useAuth();
+    
     return (
         <div className="max-w-5xl mx-auto flex flex-col items-center text-center space-y-12 py-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative">
             
@@ -74,7 +77,7 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
                     </p>
                 </div>
 
-                <div className="pt-4">
+                <div className="pt-4 flex flex-col items-center gap-4">
                     <button 
                         onClick={() => onViewChange('SIGNUP')}
                         className="group relative px-10 py-4 rounded-full font-bold text-base border border-white/10 text-white hover:border-white/20 transition-all bg-black/10 backdrop-blur-sm overflow-hidden"
@@ -83,6 +86,13 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
                         <span className="relative z-10 flex items-center gap-2">
                             Start learning <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform"/>
                         </span>
+                    </button>
+                    
+                    <button
+                        onClick={loginAsGuest}
+                        className="text-xs text-gray-500 hover:text-white transition-colors flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-white/5"
+                    >
+                        <Ghost size={14} /> Continue as Guest (Test Mode)
                     </button>
                 </div>
             </div>
@@ -322,7 +332,8 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
         <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-300 relative">
             
             <div className={`bg-[#121212] border border-white/10 rounded-2xl p-8 shadow-2xl relative overflow-hidden transition-all duration-500 ${isAnimating ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}`}>
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-yellow-500" />
+                {/* Simplified gradient to single color blue to match user preference */}
+                <div className="absolute top-0 left-0 w-full h-1 bg-blue-500/50" />
                 
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold text-white mb-2">

@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from './types';
 import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution } from './services/geminiService';
@@ -13,7 +11,16 @@ import ExamConfigPanel from './components/ExamConfigPanel';
 import ExamViewer from './components/ExamViewer';
 import DrillConfigPanel from './components/DrillConfigPanel';
 import DrillSessionViewer from './components/DrillSessionViewer';
-import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator, Zap, LogOut, User as UserIcon, Check, AlertCircle } from 'lucide-react';
+import OnboardingModal from './components/OnboardingModal'; 
+import ApiKeyModal from './components/ApiKeyModal'; 
+import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator, Zap, LogOut, User as UserIcon, Check, AlertCircle, Key, Coins } from 'lucide-react';
+
+// Cost Configuration
+const COSTS = {
+    SOLVER_PER_IMAGE: 5,
+    EXAM_GENERATION: 25,
+    DRILL_SESSION: 10
+};
 
 const MagneticPencil = ({ onClick, isOpen, mode }: { onClick: () => void, isOpen: boolean, mode: AppMode }) => {
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -317,7 +324,7 @@ const getBaseDifficulty = (diff: ExamDifficulty) => {
 };
 
 const App: React.FC = () => {
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user, loading: authLoading, logout, finishOnboarding, hasValidKey, credits, useCredits, decrementCredits } = useAuth();
   
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
   const [appMode, setAppMode] = useState<AppMode>('SOLVER');
@@ -330,7 +337,7 @@ const App: React.FC = () => {
   const [drillQuestions, setDrillQuestions] = useState<DrillQuestion[]>([]);
   const [currentDrillIndex, setCurrentDrillIndex] = useState(0);
   const [loadingDrill, setLoadingDrill] = useState(false);
-  const [loadingDrillSolution, setLoadingDrillSolution] = useState(false); // State for solution gen
+  const [loadingDrillSolution, setLoadingDrillSolution] = useState(false); 
 
   const [activeTab, setActiveTab] = useState<number>(0);
   const [activeView, setActiveView] = useState<'steps' | 'markscheme'>('steps');
@@ -343,6 +350,8 @@ const App: React.FC = () => {
   const [showConfig, setShowConfig] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showActionButtons, setShowActionButtons] = useState(false);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [forceApiKeyModal, setForceApiKeyModal] = useState(false);
   
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [startBackgroundEffects, setStartBackgroundEffects] = useState(false);
@@ -498,65 +507,89 @@ const App: React.FC = () => {
     setUploads(prev => prev.filter(u => u.id !== id));
   };
 
-  const startSolverFlow = async () => {
-      setAppState(AppState.ANALYZING);
-      setAnalyzingIndex(0);
-      setLoadingProgress(0);
-      setStartBackgroundEffects(false); 
-      setShowActionButtons(false);
-      setSolutions(new Array(uploads.length).fill(null));
-
-      try {
-        const firstResult = await analyzeMathInput(uploads[0]);
-        setLoadingProgress(100); 
-        setTimeout(() => {
-            setSolutions(prev => {
-                const next = [...prev];
-                next[0] = firstResult;
-                return next;
-            });
-            setAppState(AppState.SOLVED);
-            setActiveTab(0);
-            setCurrentStepIndex(0);
-            if (uploads.length > 1) {
-                 (async () => {
-                     for (let i = 1; i < uploads.length; i++) {
-                         try {
-                             const res = await analyzeMathInput(uploads[i]);
-                             setSolutions(p => { const n = [...p]; n[i] = res; return n; });
-                         } catch (e) { console.error(e); }
-                     }
-                 })();
-            }
-        }, 500);
-      } catch (err: any) {
-        console.error(err);
-        setErrorMsg(err.message || "Analysis failed. Please try again.");
-        setAppState(AppState.ERROR);
-      } finally {
-        setAnalyzingIndex(-1);
+  const checkKeyAndProceed = async (action: () => Promise<void>, cost: number = 0) => {
+      if (!user) return;
+      if (hasValidKey) {
+          if (useCredits()) {
+              if (credits < cost) {
+                   // Force open modal if insufficient credits
+                   setForceApiKeyModal(true);
+                   setShowApiKeyModal(true);
+                   return;
+              }
+              decrementCredits(cost);
+          }
+          await action();
+      } else {
+          setForceApiKeyModal(true);
+          setShowApiKeyModal(true);
       }
   }
 
-  const handleExamConfigSubmit = async (settings: ExamSettings) => {
-      setShowConfig(false);
-      setAppState(AppState.ANALYZING);
-      setLoadingProgress(0);
-      setStartBackgroundEffects(false);
-      setShowActionButtons(false);
+  const startSolverFlow = async () => {
+      const cost = uploads.length * COSTS.SOLVER_PER_IMAGE;
+      await checkKeyAndProceed(async () => {
+          setAppState(AppState.ANALYZING);
+          setAnalyzingIndex(0);
+          setLoadingProgress(0);
+          setStartBackgroundEffects(false); 
+          setShowActionButtons(false);
+          setSolutions(new Array(uploads.length).fill(null));
 
-      try {
-          const exam = await generateExam(uploads, settings);
-          setLoadingProgress(100);
-          setTimeout(() => {
-              setGeneratedExam(exam);
-              setAppState(AppState.SOLVED);
-          }, 500);
-      } catch (error: any) {
-          console.error(error);
-          setErrorMsg(error.message || "Failed to generate exam paper.");
-          setAppState(AppState.ERROR);
-      }
+          try {
+            const firstResult = await analyzeMathInput(uploads[0]);
+            setLoadingProgress(100); 
+            setTimeout(() => {
+                setSolutions(prev => {
+                    const next = [...prev];
+                    next[0] = firstResult;
+                    return next;
+                });
+                setAppState(AppState.SOLVED);
+                setActiveTab(0);
+                setCurrentStepIndex(0);
+                if (uploads.length > 1) {
+                    (async () => {
+                        for (let i = 1; i < uploads.length; i++) {
+                            try {
+                                const res = await analyzeMathInput(uploads[i]);
+                                setSolutions(p => { const n = [...p]; n[i] = res; return n; });
+                            } catch (e) { console.error(e); }
+                        }
+                    })();
+                }
+            }, 500);
+          } catch (err: any) {
+            console.error(err);
+            setErrorMsg(err.message || "Analysis failed. Please try again.");
+            setAppState(AppState.ERROR);
+          } finally {
+            setAnalyzingIndex(-1);
+          }
+      }, cost);
+  }
+
+  const handleExamConfigSubmit = async (settings: ExamSettings) => {
+      await checkKeyAndProceed(async () => {
+          setShowConfig(false);
+          setAppState(AppState.ANALYZING);
+          setLoadingProgress(0);
+          setStartBackgroundEffects(false);
+          setShowActionButtons(false);
+
+          try {
+              const exam = await generateExam(uploads, settings);
+              setLoadingProgress(100);
+              setTimeout(() => {
+                  setGeneratedExam(exam);
+                  setAppState(AppState.SOLVED);
+              }, 500);
+          } catch (error: any) {
+              console.error(error);
+              setErrorMsg(error.message || "Failed to generate exam paper.");
+              setAppState(AppState.ERROR);
+          }
+      }, COSTS.EXAM_GENERATION);
   }
 
   const generateDrillBatch = async (startNum: number, prevDiff: number, count: number, settings: DrillSettings): Promise<DrillQuestion[]> => {
@@ -570,33 +603,35 @@ const App: React.FC = () => {
   }
 
   const handleDrillConfigSubmit = async (settings: DrillSettings) => {
-      setShowConfig(false);
-      setDrillSettings(settings);
-      setAppState(AppState.ANALYZING);
-      setLoadingProgress(0);
-      setStartBackgroundEffects(false);
-      setShowActionButtons(false);
+      await checkKeyAndProceed(async () => {
+          setShowConfig(false);
+          setDrillSettings(settings);
+          setAppState(AppState.ANALYZING);
+          setLoadingProgress(0);
+          setStartBackgroundEffects(false);
+          setShowActionButtons(false);
 
-      setDrillQuestions([]);
-      setCurrentDrillIndex(0);
-      setLoadingDrill(true);
+          setDrillQuestions([]);
+          setCurrentDrillIndex(0);
+          setLoadingDrill(true);
 
-      const startDiff = getBaseDifficulty(settings.difficulty);
+          const startDiff = getBaseDifficulty(settings.difficulty);
 
-      try {
-          const initialBatch = await generateDrillBatch(1, startDiff, 3, settings);
-          setLoadingProgress(100);
-          
-          setTimeout(() => {
-              setDrillQuestions(initialBatch);
-              setAppState(AppState.SOLVED);
-              setLoadingDrill(false);
-          }, 500);
-      } catch (e: any) {
-          console.error(e);
-          setErrorMsg(e.message || "Failed to start drill session.");
-          setAppState(AppState.ERROR);
-      } 
+          try {
+              const initialBatch = await generateDrillBatch(1, startDiff, 3, settings);
+              setLoadingProgress(100);
+              
+              setTimeout(() => {
+                  setDrillQuestions(initialBatch);
+                  setAppState(AppState.SOLVED);
+                  setLoadingDrill(false);
+              }, 500);
+          } catch (e: any) {
+              console.error(e);
+              setErrorMsg(e.message || "Failed to start drill session.");
+              setAppState(AppState.ERROR);
+          } 
+      }, COSTS.DRILL_SESSION);
   }
 
   const handleNextDrillQuestion = async () => {
@@ -635,11 +670,10 @@ const App: React.FC = () => {
       }
   }
 
-  // Handler to generate Drill Solution On Demand
   const handleGenerateDrillSolution = async () => {
       const currentQ = drillQuestions[currentDrillIndex];
       if (!currentQ) return;
-      if (currentQ.steps && currentQ.steps.length > 0) return; // Already exists
+      if (currentQ.steps && currentQ.steps.length > 0) return; 
 
       setLoadingDrillSolution(true);
       try {
@@ -731,6 +765,16 @@ const App: React.FC = () => {
     });
   };
 
+  // Determine Current Cost
+  let currentActionCost = 0;
+  if (appMode === 'SOLVER') {
+      currentActionCost = uploads.length * COSTS.SOLVER_PER_IMAGE;
+  } else if (appMode === 'EXAM') {
+      currentActionCost = COSTS.EXAM_GENERATION;
+  } else if (appMode === 'DRILL') {
+      currentActionCost = COSTS.DRILL_SESSION;
+  }
+
   if (authLoading) {
       return (
           <div className="min-h-screen bg-black flex items-center justify-center text-white">
@@ -746,11 +790,18 @@ const App: React.FC = () => {
   const totalMarks = activeSolution?.markscheme ? calculateTotalMarks(activeSolution.markscheme) : 0;
   const isNextButtonLoading = waitingForNext || (loadingDrill && currentDrillIndex === drillQuestions.length - 1 && waitingForNext);
   const diagnostics = getSystemDiagnostics();
-
-  // Reduced GLOBAL text size to text-sm
+  
   return (
     <div className="min-h-screen text-gray-100 bg-black selection:bg-blue-900/50 font-sans overflow-x-hidden text-sm">
       
+      {!user.hasOnboarded && <OnboardingModal onComplete={finishOnboarding} />}
+      
+      <ApiKeyModal 
+        isOpen={showApiKeyModal} 
+        onClose={() => { if(!forceApiKeyModal) setShowApiKeyModal(false); }} 
+        forced={forceApiKeyModal} 
+      />
+
       <nav className={`sticky top-0 z-40 border-b border-white/5 transition-all duration-300 ${
           appMode === 'EXAM' 
             ? 'bg-black/70 backdrop-blur-md' 
@@ -766,6 +817,34 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-4">
+              
+              <div 
+                  className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors cursor-default ${
+                    hasValidKey 
+                        ? (useCredits() ? 'bg-yellow-900/10 border-yellow-500/20' : 'bg-green-900/10 border-green-500/20')
+                        : 'bg-red-900/10 border-red-500/20'
+                  }`}
+              >
+                  {hasValidKey ? (
+                      useCredits() ? (
+                          <>
+                            <Coins size={14} className="text-yellow-400" />
+                            <span className="text-xs font-bold font-mono text-yellow-400">{credits} Credits</span>
+                          </>
+                      ) : (
+                          <>
+                            <Key size={14} className="text-green-400" />
+                            <span className="text-xs font-bold font-mono text-green-400">Custom Key Active</span>
+                          </>
+                      )
+                  ) : (
+                      <>
+                        <AlertCircle size={14} className="text-red-400" />
+                        <span className="text-xs font-bold font-mono text-red-400">Key Required</span>
+                      </>
+                  )}
+              </div>
+
               {appState === AppState.IDLE && (
                     <div className="hidden sm:flex bg-[#121212] p-1 rounded-lg border border-white/10">
                         <button
@@ -825,12 +904,18 @@ const App: React.FC = () => {
                     {showUserMenu && (
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                            <div className="absolute right-0 top-full mt-2 w-48 bg-[#181818] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                            <div className="absolute right-0 top-full mt-2 w-56 bg-[#181818] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                                 <div className="px-4 py-3 border-b border-white/5">
                                     <div className="text-sm font-bold text-white">{user.name}</div>
                                     <div className="text-[10px] text-gray-500 truncate">{user.email}</div>
                                 </div>
                                 <div className="p-1">
+                                    <button 
+                                        onClick={() => { setShowApiKeyModal(true); setShowUserMenu(false); setForceApiKeyModal(false); }}
+                                        className="w-full text-left px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5 hover:text-white rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                        <Key size={14} /> API Settings
+                                    </button>
                                     <button 
                                         onClick={logout}
                                         className="w-full text-left px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-900/10 hover:text-red-300 rounded-lg transition-colors flex items-center gap-2"
@@ -906,28 +991,17 @@ const App: React.FC = () => {
                          <div className="grid grid-cols-2 gap-y-3 gap-x-8 border-t border-white/5 pt-4">
                              <div className="text-gray-500">API Key Status</div>
                              <div className={`font-bold ${diagnostics.hasApiKey ? "text-green-400" : "text-red-500"}`}>
-                                 {diagnostics.hasApiKey ? "DETECTED" : "MISSING / INVALID"}
+                                 {diagnostics.hasApiKey ? "DETECTED" : "MISSING"}
+                             </div>
+                             
+                             <div className="text-gray-500">Local Override</div>
+                             <div className={diagnostics.envCheck.localStorage ? "text-blue-400" : "text-gray-600"}>
+                                 {diagnostics.envCheck.localStorage ? "Active" : "None"}
                              </div>
 
                              <div className="text-gray-500">Key Length</div>
                              <div>{diagnostics.keyLength > 0 ? `${diagnostics.keyLength} chars` : "0"}</div>
-
-                             <div className="text-gray-500">Vite Environment</div>
-                             <div className={diagnostics.envCheck.vite ? "text-green-400" : "text-gray-600"}>
-                                 {diagnostics.envCheck.vite ? "VITE_API_KEY Found" : "Not Found"}
-                             </div>
-
-                             <div className="text-gray-500">Process Environment</div>
-                             <div className={diagnostics.envCheck.process ? "text-green-400" : "text-gray-600"}>
-                                 {diagnostics.envCheck.process ? "process.env Found" : "Not Found"}
-                             </div>
                          </div>
-                         
-                         {!diagnostics.hasApiKey && (
-                            <div className="mt-5 p-3 bg-yellow-900/10 border border-yellow-500/20 rounded text-yellow-500/80 leading-relaxed">
-                                <strong>Action Required:</strong> Please go to your Vercel/Netlify dashboard and ensure you have added an Environment Variable named <code className="bg-black px-1 py-0.5 rounded text-yellow-300">VITE_API_KEY</code> with your Gemini API key value.
-                            </div>
-                         )}
                     </div>
                 </div>
             )}
@@ -1003,12 +1077,22 @@ const App: React.FC = () => {
                                         ? `Analyze ${uploads.length} Problem${uploads.length > 1 ? 's' : ''}` 
                                         : appMode === 'EXAM' ? 'Configure Exam Paper' : 'Configure Drill'
                                     }
+                                    {/* Cost Display */}
+                                    {useCredits() && currentActionCost > 0 && (
+                                        <span className="ml-1.5 text-xs font-normal text-gray-500 group-hover:text-gray-400 transition-colors">
+                                            ({currentActionCost} Credits)
+                                        </span>
+                                    )}
+
                                     <ArrowRight size={16} className={`group-hover:translate-x-0.5 transition-transform ${
                                         appMode === 'SOLVER' ? 'text-blue-400' 
                                         : appMode === 'EXAM' ? 'text-purple-400' 
                                         : 'text-yellow-400'
                                     }`} />
                                 </button>
+                                <div className="mt-2 text-center text-[10px] text-gray-600 font-mono">
+                                    {hasValidKey ? <span className="text-green-400 font-bold">Ready</span> : "Key Required"}
+                                </div>
                             </div>
                         </div>
                     </div>
