@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText, Zap } from 'lucide-react';
 import { ChatMessage, MathSolution, DrillQuestion, AppMode } from '../types';
@@ -209,7 +210,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
 
   return (
     <div 
-      className={`fixed bottom-24 right-6 w-[420px] h-[600px] max-h-[75vh] z-40 flex flex-col transition-all duration-300 ease-in-out font-sans
+      className={`fixed bottom-24 right-6 w-[405px] h-[580px] max-h-[75vh] z-40 flex flex-col transition-all duration-300 ease-in-out font-sans
         ${isOpen 
             ? 'opacity-100 translate-y-0 pointer-events-auto' 
             : 'opacity-0 translate-y-8 pointer-events-none'

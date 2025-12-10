@@ -175,7 +175,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
                 }
             `}} />
 
-            <div className={`w-full max-w-lg bg-[#0e0e0e] border ${theme.border} rounded-3xl shadow-2xl overflow-hidden relative flex flex-col min-h-[520px] transition-all duration-500`}>
+            <div className={`w-full max-w-lg bg-[#0e0e0e] border ${theme.border} rounded-3xl shadow-2xl overflow-hidden relative flex flex-col min-h-[500px] transition-all duration-500`}>
                 
                 {/* Progress Bar - Reduced Glow */}
                 <div className="absolute top-0 left-0 w-full h-1 bg-white/5 z-20">
