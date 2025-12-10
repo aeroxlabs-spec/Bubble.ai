@@ -175,7 +175,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
                 }
             `}} />
 
-            <div className={`w-full max-w-lg bg-[#0e0e0e] border ${theme.border} rounded-3xl shadow-2xl overflow-hidden relative flex flex-col min-h-[500px] transition-all duration-500`}>
+            <div className={`w-full max-w-lg bg-[#0e0e0e] border ${theme.border} rounded-3xl shadow-2xl overflow-hidden relative flex flex-col min-h-[460px] transition-all duration-500`}>
                 
                 {/* Progress Bar - Reduced Glow */}
                 <div className="absolute top-0 left-0 w-full h-1 bg-white/5 z-20">
@@ -187,7 +187,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
 
                 <div className="flex-1 flex flex-col p-10 pt-16 relative z-10">
                     {/* Background Glow */}
-                    <div className={`absolute top-0 right-0 w-[300px] h-[300px] ${theme.bg} opacity-[0.08] blur-[80px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/2 transition-colors duration-500`} />
+                    <div className={`absolute top-0 right-0 w-[280px] h-[280px] ${theme.bg} opacity-[0.08] blur-[80px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/2 transition-colors duration-500`} />
                     
                     {/* Icon - No Background, Twitch Animation */}
                     <div className="mb-8 h-16 flex items-center justify-start">

@@ -313,7 +313,7 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                 ))}
             </div>
 
-            <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '800px' }}>
+            <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '760px' }}>
                 <div id="offscreen-exam-paper" className="bg-white text-black p-12 font-serif">
                     <div className="border-b-2 border-black pb-4 mb-8 flex justify-between items-start">
                         <div>

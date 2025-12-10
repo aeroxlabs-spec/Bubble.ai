@@ -274,7 +274,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({ uploads, onUpload, onRemove, on
                             placeholder={appMode === 'SOLVER' 
                                 ? "Type a math problem here, or paste an image (Ctrl+V)..." 
                                 : "Type instructions, or paste notes/images..."}
-                            className="w-full bg-transparent border-none outline-none text-gray-200 placeholder:text-gray-600 text-sm font-medium resize-none min-h-[80px]"
+                            className="w-full bg-transparent border-none outline-none text-gray-200 placeholder:text-gray-600 text-sm font-medium resize-none min-h-[72px]"
                         />
                     </div>
 

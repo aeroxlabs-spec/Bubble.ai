@@ -105,7 +105,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
             // Tables - Strict Grid with Sharp Text & Fixed Proportions
             table: ({node, ...props}) => (
                 <div className={`overflow-x-auto my-4 rounded-lg border ${isDark ? 'border-white/10' : 'border-black'}`}>
-                    <table className="w-full text-left text-sm border-collapse min-w-[500px]" {...props} />
+                    <table className="w-full text-left text-sm border-collapse min-w-[480px]" {...props} />
                 </div>
             ),
             thead: ({node, ...props}) => (
@@ -118,7 +118,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
                 <tr className={`${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'} transition-colors border-b last:border-0 ${isDark ? 'border-white/5' : 'border-gray-200'}`} {...props} />
             ),
             th: ({node, ...props}) => (
-                <th className={`px-4 py-3 font-semibold whitespace-nowrap ${isDark ? colors.th : 'text-black'} first:w-[50px] last:w-[80px]`} {...props} />
+                <th className={`px-4 py-3 font-semibold whitespace-nowrap ${isDark ? colors.th : 'text-black'} first:w-[45px] last:w-[75px]`} {...props} />
             ),
             td: ({node, ...props}) => (
                 <td className={`px-4 py-2.5 align-top leading-relaxed whitespace-pre-wrap ${
