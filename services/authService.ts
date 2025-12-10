@@ -12,7 +12,6 @@ export const authService = {
         if (error) throw new Error(error.message);
         if (!data.user) throw new Error("No user data returned");
 
-        // Map Supabase user to our App User type
         return {
             id: data.user.id,
             name: data.user.user_metadata?.full_name || email.split('@')[0],
@@ -35,7 +34,6 @@ export const authService = {
         });
 
         if (error) throw new Error(error.message);
-        
         if (!data.user) throw new Error("Signup failed");
 
         return {
@@ -65,7 +63,6 @@ export const authService = {
     async getCurrentUser(): Promise<User | null> {
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            
             if (!session?.user) return null;
 
             return {
@@ -83,110 +80,115 @@ export const authService = {
 
     async completeOnboarding(): Promise<void> {
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) return;
-
             const { error } = await supabase.auth.updateUser({
                 data: { hasOnboarded: true }
             });
-            if (error) {
-                if (!error.message.includes('Auth session missing')) {
-                    console.warn("Failed to sync onboarding:", error.message);
-                }
-            }
-        } catch (e) {
-            // Suppress
-        }
+            if (error) console.warn("Failed to sync onboarding:", error.message);
+        } catch (e) { }
     },
 
     // --- API Key Management (USER_API_KEYS Table) ---
 
     async getGeminiKey(userId: string): Promise<string | null> {
         try {
-            // Check session first to avoid RLS issues
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) return null;
-
+            // Note: Schema uses 'encrypted_key'
             const { data, error } = await supabase
                 .from('USER_API_KEYS')
-                .select('api_key')
+                .select('encrypted_key')
                 .eq('user_id', userId)
                 .eq('provider', 'gemini')
                 .maybeSingle();
             
             if (error) {
-                console.warn("Error fetching API Key from DB:", error.message);
+                console.error("Bubble DB Error [getGeminiKey]:", error.message);
                 return null;
             }
             if (data) {
-                console.debug("API Key synced from Cloud.");
+                console.debug("Bubble: Cloud Key Loaded.");
+                return data.encrypted_key; // Return mapped column
             }
-            return data?.api_key || null;
+            return null;
         } catch (e) {
             return null;
         }
     },
 
     async saveGeminiKey(userId: string, key: string): Promise<void> {
+        console.log("Bubble: Attempting to save API Key to Cloud...");
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) return;
+            if (!session) {
+                console.error("Bubble DB Error: No active session found when saving key.");
+                return;
+            }
 
-            // Check if exists first
-            const { data, error: selectError } = await supabase
+            // Robust Check-then-Upsert
+            const { data: existing, error: selectError } = await supabase
                 .from('USER_API_KEYS')
                 .select('id')
                 .eq('user_id', userId)
                 .eq('provider', 'gemini')
                 .maybeSingle();
 
-            if (selectError && selectError.code !== 'PGRST116') {
-                 throw selectError;
+            if (selectError) {
+                console.error("Bubble DB Error [Check Existing]:", selectError.message);
+                return;
             }
 
-            if (data) {
-                // Update
-                const { error } = await supabase
+            if (existing) {
+                console.log("Bubble: Updating existing cloud key...");
+                // Note: Schema requires 'encrypted_key' and 'is_valid'
+                const { error: updateError } = await supabase
                     .from('USER_API_KEYS')
                     .update({ 
-                        api_key: key, 
+                        encrypted_key: key, 
                         is_valid: true,
+                        last_error: "", // Required by schema
                         updated_at: new Date().toISOString()
                     })
-                    .eq('id', data.id);
-                if (error) throw error;
+                    .eq('id', existing.id);
+                
+                if (updateError) {
+                    console.error("Bubble DB Error [Update]:", updateError.message);
+                } else {
+                    console.log("Bubble: API Key updated successfully.");
+                }
             } else {
-                // Insert
-                const { error } = await supabase
+                console.log("Bubble: Inserting new cloud key...");
+                // Note: Schema requires 'encrypted_key', 'is_valid', 'last_error'
+                const { error: insertError } = await supabase
                     .from('USER_API_KEYS')
                     .insert({ 
                         user_id: userId, 
                         provider: 'gemini', 
-                        api_key: key, 
-                        is_valid: true 
+                        encrypted_key: key, 
+                        is_valid: true,
+                        last_error: "" // Required by schema (NOT NULL)
                     });
-                if (error) throw error;
+                
+                if (insertError) {
+                    console.error("Bubble DB Error [Insert]:", insertError.message);
+                } else {
+                    console.log("Bubble: API Key inserted successfully.");
+                }
             }
-            console.debug("API Key saved to Cloud successfully.");
         } catch (e: any) {
-            console.warn("Saving key to DB failed (Offline or Table missing). Fallback to local storage active.", e.message);
+            console.error("Bubble DB Critical Error:", e.message);
         }
     },
 
     async removeGeminiKey(userId: string): Promise<void> {
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) return;
-
             const { error } = await supabase
                 .from('USER_API_KEYS')
                 .delete()
                 .eq('user_id', userId)
                 .eq('provider', 'gemini');
             
-            if (error) throw error;
+            if (error) console.error("Bubble DB Error [Remove]:", error.message);
+            else console.log("Bubble: Cloud Key Removed.");
         } catch (e: any) {
-             console.error("Failed to remove key from DB:", e.message);
+             console.error("Bubble DB Error:", e.message);
         }
     }
 };
