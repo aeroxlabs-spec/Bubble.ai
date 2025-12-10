@@ -1,5 +1,4 @@
 
-
 import { User } from '../types';
 import { supabase } from './supabaseClient';
 
@@ -116,7 +115,11 @@ export const authService = {
                 .maybeSingle();
             
             if (error) {
+                console.warn("Error fetching API Key from DB:", error.message);
                 return null;
+            }
+            if (data) {
+                console.debug("API Key synced from Cloud.");
             }
             return data?.api_key || null;
         } catch (e) {
@@ -164,8 +167,9 @@ export const authService = {
                     });
                 if (error) throw error;
             }
+            console.debug("API Key saved to Cloud successfully.");
         } catch (e: any) {
-            console.warn("Saving to DB failed, fallback to local storage active.", e.message);
+            console.warn("Saving key to DB failed (Offline or Table missing). Fallback to local storage active.", e.message);
         }
     },
 
@@ -182,7 +186,7 @@ export const authService = {
             
             if (error) throw error;
         } catch (e: any) {
-             // Ignore
+             console.error("Failed to remove key from DB:", e.message);
         }
     }
 };

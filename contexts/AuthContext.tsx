@@ -20,6 +20,7 @@ interface AuthContextType {
     credits: number;
     useCredits: () => boolean; // Returns true if using credit system (not custom key)
     decrementCredits: (amount?: number) => void;
+    isCloudSynced: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,6 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [userApiKey, setUserApiKey] = useState<string>("");
+    const [isCloudSynced, setIsCloudSynced] = useState(false);
     
     // Credit System State
     const [credits, setCredits] = useState<number>(() => {
@@ -72,21 +74,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (currentUser) {
                     const dbKey = await authService.getGeminiKey(currentUser.id);
                     if (dbKey) {
+                        // Key found in DB - Use it
                         setUserApiKey(dbKey);
                         localStorage.setItem('bubble_user_api_key', dbKey);
+                        setIsCloudSynced(true);
                     } else {
+                        // No key in DB, check local storage
                         const localKey = localStorage.getItem('bubble_user_api_key');
                         if (localKey) {
+                             // Sync local key to DB (Migration)
                              await authService.saveGeminiKey(currentUser.id, localKey);
                              setUserApiKey(localKey);
+                             setIsCloudSynced(true);
                         } else {
                             setUserApiKey("");
                             localStorage.removeItem('bubble_user_api_key');
+                            setIsCloudSynced(false);
                         }
                     }
                 } else {
                     localStorage.removeItem('bubble_user_api_key');
                     setUserApiKey("");
+                    setIsCloudSynced(false);
                 }
             } catch (error) {
                 console.error("Auth init failed", error);
@@ -111,11 +120,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (dbKey) {
                     setUserApiKey(dbKey);
                     localStorage.setItem('bubble_user_api_key', dbKey);
+                    setIsCloudSynced(true);
                 } else {
                     const localKey = localStorage.getItem('bubble_user_api_key');
                     if (localKey) {
                         await authService.saveGeminiKey(session.user.id, localKey);
                         setUserApiKey(localKey);
+                        setIsCloudSynced(true);
                     }
                 }
 
@@ -124,6 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setUser(null);
                 setUserApiKey("");
                 localStorage.removeItem('bubble_user_api_key');
+                setIsCloudSynced(false);
                 setLoading(false);
             }
         });
@@ -157,6 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(guestUser);
         setUserApiKey(""); 
         localStorage.removeItem('bubble_user_api_key');
+        setIsCloudSynced(false);
     };
 
     const logout = async () => {
@@ -164,6 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setUserApiKey("");
         localStorage.removeItem('bubble_user_api_key');
+        setIsCloudSynced(false);
     };
 
     const updateApiKey = async (key: string) => {
@@ -175,9 +189,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             localStorage.removeItem('bubble_user_api_key');
             setUserApiKey("");
+            setIsCloudSynced(false);
         } else {
             if (!user.id.startsWith('guest-')) {
                 await authService.saveGeminiKey(user.id, key);
+                setIsCloudSynced(true);
+            } else {
+                setIsCloudSynced(false);
             }
             localStorage.setItem('bubble_user_api_key', key);
             setUserApiKey(key);
@@ -222,7 +240,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             hasValidKey,
             credits,
             useCredits,
-            decrementCredits
+            decrementCredits,
+            isCloudSynced
         }}>
             {children}
         </AuthContext.Provider>

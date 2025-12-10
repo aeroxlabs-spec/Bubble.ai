@@ -1,94 +1,133 @@
 
 import { Feedback, AdminStats, AppMode } from '../types';
-import { getLifetimeStats } from './geminiService';
-
-// Storage keys
-const FEEDBACK_STORAGE_KEY = 'bubble_admin_feedback';
-const GRAPH_DATA_KEY = 'bubble_admin_graph_history';
-
-// Helper to generate a realistic looking historical curve that ends at the current real count
-const generateStableHistory = (currentRealTotal: number, days: number): { date: string; count: number }[] => {
-    // Check if we have history
-    const stored = localStorage.getItem(GRAPH_DATA_KEY);
-    if (stored) {
-        const parsed = JSON.parse(stored);
-        // Only return if it matches today's date structure approx, otherwise regenerate to sync with real total
-        if (parsed.length === days) {
-            // Update the last entry to match real total
-            parsed[parsed.length - 1].count = currentRealTotal;
-            return parsed;
-        }
-    }
-
-    // Generate new stable history
-    const data = [];
-    let runningTotal = Math.max(0, currentRealTotal - (days * 15)); // Start somewhat lower
-    
-    for (let i = 0; i < days; i++) {
-        const date = new Date();
-        date.setDate(date.getDate() - (days - 1 - i));
-        
-        if (i === days - 1) {
-            runningTotal = currentRealTotal;
-        } else {
-            // Random daily increment between 5 and 30
-            const increment = Math.floor(Math.random() * 25) + 5;
-            runningTotal += increment;
-            if (runningTotal > currentRealTotal) runningTotal = currentRealTotal; // Clamp
-        }
-
-        data.push({
-            date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            count: runningTotal
-        });
-    }
-
-    localStorage.setItem(GRAPH_DATA_KEY, JSON.stringify(data));
-    return data;
-};
+import { supabase } from './supabaseClient';
 
 export const adminService = {
     async submitFeedback(feedback: Omit<Feedback, 'id' | 'timestamp' | 'status'>): Promise<void> {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        const newFeedback: Feedback = {
-            ...feedback,
-            id: crypto.randomUUID(),
-            timestamp: Date.now(),
-            status: 'NEW'
-        };
+        try {
+            const { error } = await supabase.from('feedback').insert({
+                user_id: feedback.userId,
+                user_email: feedback.userEmail,
+                type: feedback.type,
+                message: feedback.message,
+                status: 'NEW'
+            });
 
-        // Persist to local storage
-        const existing = JSON.parse(localStorage.getItem(FEEDBACK_STORAGE_KEY) || '[]');
-        localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify([newFeedback, ...existing]));
+            if (error) throw error;
+        } catch (e) {
+            console.error("Failed to submit feedback", e);
+            throw e;
+        }
     },
 
     async getFeedback(): Promise<Feedback[]> {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return JSON.parse(localStorage.getItem(FEEDBACK_STORAGE_KEY) || '[]');
+        try {
+            const { data, error } = await supabase
+                .from('feedback')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            return data.map((item: any) => ({
+                id: item.id,
+                userId: item.user_id,
+                userName: item.user_email?.split('@')[0] || 'User', // Fallback as we don't store name in feedback table currently
+                userEmail: item.user_email,
+                type: item.type,
+                message: item.message,
+                timestamp: new Date(item.created_at).getTime(),
+                status: item.status
+            }));
+        } catch (e) {
+            console.error("Failed to fetch feedback", e);
+            return [];
+        }
     },
 
     async getStats(days = 14): Promise<AdminStats> {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        try {
+            // 1. Total Requests
+            const { count: totalRequests } = await supabase
+                .from('usage_logs')
+                .select('*', { count: 'exact', head: true });
 
-        // Get Real Lifetime Stats from the Service
-        const realStats = getLifetimeStats();
+            // 2. Mode Distribution
+            const { data: modeData } = await supabase
+                .from('usage_logs')
+                .select('mode');
+            
+            const distributionMap = new Map<string, number>();
+            modeData?.forEach(r => {
+                const m = r.mode || 'UNKNOWN';
+                distributionMap.set(m, (distributionMap.get(m) || 0) + 1);
+            });
 
-        // Get Stable Graph Data
-        const requestsOverTime = generateStableHistory(realStats.totalRequests, days);
+            const modeDistribution = Array.from(distributionMap.entries()).map(([mode, count]) => ({
+                mode: mode as AppMode,
+                count
+            }));
 
-        return {
-            totalUsers: 1, // Currently single user context + guest
-            totalRequests: realStats.totalRequests,
-            creditsConsumed: realStats.estimatedCredits, 
-            activeNow: 1, // Just you
-            requestsOverTime,
-            modeDistribution: [
-                { mode: 'SOLVER', count: Math.floor(realStats.totalRequests * 0.6) },
-                { mode: 'EXAM', count: Math.floor(realStats.totalRequests * 0.25) },
-                { mode: 'DRILL', count: Math.max(0, realStats.totalRequests - Math.floor(realStats.totalRequests * 0.85)) }
-            ]
-        };
+            // 3. Requests Over Time (History)
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - days);
+            
+            const { data: historyData } = await supabase
+                .from('usage_logs')
+                .select('created_at')
+                .gte('created_at', startDate.toISOString())
+                .order('created_at', { ascending: true });
+
+            const dayMap = new Map<string, number>();
+            // Initialize days
+            for (let i = 0; i < days; i++) {
+                 const d = new Date();
+                 d.setDate(d.getDate() - (days - 1 - i));
+                 dayMap.set(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), 0);
+            }
+
+            historyData?.forEach(r => {
+                const dateStr = new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                if (dayMap.has(dateStr)) {
+                    dayMap.set(dateStr, (dayMap.get(dateStr) || 0) + 1);
+                }
+            });
+
+            const requestsOverTime = Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }));
+
+            // 4. Unique Users (Approximate from Logs or if using separate user tracking)
+            // Using distinct user_id from logs as a proxy for "Active Users"
+            // Note: Supabase JS doesn't support .distinct() easily without RPC or workaround.
+            // For now, we fetch user_ids and set them in JS. Efficient enough for small scale.
+            const { data: userData } = await supabase.from('usage_logs').select('user_id');
+            const uniqueUsers = new Set(userData?.map(u => u.user_id)).size;
+
+            // 5. Active Now (Last 5 mins)
+            const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+            const { count: activeNow } = await supabase
+                .from('usage_logs')
+                .select('*', { count: 'exact', head: true })
+                .gte('created_at', fiveMinsAgo);
+
+            return {
+                totalUsers: uniqueUsers || 0,
+                totalRequests: totalRequests || 0,
+                creditsConsumed: (totalRequests || 0) * 5, // Estimate
+                activeNow: activeNow || 0,
+                requestsOverTime,
+                modeDistribution
+            };
+
+        } catch (e) {
+            console.error("Failed to fetch admin stats", e);
+            return {
+                totalUsers: 0,
+                totalRequests: 0,
+                creditsConsumed: 0,
+                activeNow: 0,
+                requestsOverTime: [],
+                modeDistribution: []
+            };
+        }
     }
 };

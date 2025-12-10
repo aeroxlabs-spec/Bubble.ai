@@ -1,9 +1,8 @@
 
-
 import React, { useEffect, useState, useRef } from 'react';
 import { AdminStats, Feedback } from '../types';
 import { adminService } from '../services/adminService';
-import { ArrowLeft, RefreshCw, Server, MessageSquare, ChevronDown } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Server, MessageSquare, ChevronDown, Award, X } from 'lucide-react';
 
 interface AdminDashboardProps {
     onClose: () => void;
@@ -173,6 +172,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
     const [feedback, setFeedback] = useState<Feedback[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [timeRange, setTimeRange] = useState(14); // Default 14 days
+    const [milestoneToast, setMilestoneToast] = useState<string | null>(null);
 
     const refreshData = async () => {
         setIsLoading(true);
@@ -194,8 +194,45 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
         refreshData();
     }, [timeRange]);
 
+    // Check for Milestones
+    useEffect(() => {
+        if (stats) {
+            const milestones = [100, 500, 1000, 5000, 10000, 50000];
+            const lastCelebrated = parseInt(localStorage.getItem('bubble_milestone_celebrated') || '0');
+            const current = stats.totalRequests;
+            
+            // Find highest crossed milestone that hasn't been celebrated
+            const crossed = milestones.filter(m => current >= m && m > lastCelebrated).pop();
+            
+            if (crossed) {
+                // Trigger Toast
+                setMilestoneToast(`🚀 Amazing! We just hit ${crossed.toLocaleString()} total requests!`);
+                localStorage.setItem('bubble_milestone_celebrated', crossed.toString());
+            }
+        }
+    }, [stats]);
+
     return (
         <div className="fixed inset-0 z-50 bg-[#050505] text-white flex flex-col font-sans">
+            
+            {/* Milestone Toast */}
+            {milestoneToast && (
+                <div className="fixed top-20 right-6 z-[60] animate-in fade-in slide-in-from-right-10 duration-500">
+                    <div className="bg-[#1a1a1a] border border-yellow-500/30 rounded-xl p-4 shadow-2xl flex items-start gap-3 max-w-sm backdrop-blur-xl">
+                        <div className="bg-yellow-500/10 p-2 rounded-lg text-yellow-400">
+                            <Award size={24} />
+                        </div>
+                        <div className="flex-1">
+                            <h4 className="text-white font-bold text-sm mb-1">Target Hit!</h4>
+                            <p className="text-xs text-gray-400 leading-relaxed">{milestoneToast}</p>
+                        </div>
+                        <button onClick={() => setMilestoneToast(null)} className="text-gray-500 hover:text-white transition-colors">
+                            <X size={16} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Minimal Header */}
             <div className="h-14 border-b border-white/10 bg-[#0a0a0a] flex items-center justify-between px-6 flex-shrink-0">
                 <div className="flex items-center gap-4">

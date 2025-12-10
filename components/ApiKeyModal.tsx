@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { runConnectivityTest, getRecentLogs, ApiLog, updateDailyLimit, getDailyUsage } from '../services/geminiService';
-import { Key, ExternalLink, ShieldCheck, X, Trash2, Loader2, AlertTriangle, CheckCircle, Activity, Zap, CreditCard, PieChart, Info } from 'lucide-react';
+import { Key, ExternalLink, ShieldCheck, X, Trash2, Loader2, AlertTriangle, CheckCircle, Activity, Zap, CreditCard, PieChart, Info, Cloud } from 'lucide-react';
 
 interface ApiKeyModalProps {
     isOpen: boolean;
@@ -11,7 +11,7 @@ interface ApiKeyModalProps {
 }
 
 const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = false }) => {
-    const { userApiKey, updateApiKey, credits, useCredits } = useAuth();
+    const { userApiKey, updateApiKey, credits, useCredits, isCloudSynced } = useAuth();
     const [activeTab, setActiveTab] = useState<'SETTINGS' | 'DIAGNOSTICS' | 'LIMITS'>('SETTINGS');
     const [inputKey, setInputKey] = useState(userApiKey);
     const [status, setStatus] = useState<'IDLE' | 'VERIFYING' | 'VALID' | 'INVALID'>('IDLE');
@@ -226,13 +226,19 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
                                 {errorMsg && (
                                     <p className="text-red-400 text-xs font-mono">{errorMsg}</p>
                                 )}
+                                
+                                {isCloudSynced && status === 'IDLE' && inputKey && (
+                                     <div className="flex items-center gap-2 text-green-400 text-[10px] font-bold uppercase tracking-wide px-1">
+                                         <Cloud size={12} /> Synced to Account
+                                     </div>
+                                )}
                             </div>
 
                             {/* Secure Notice */}
                             <div className="flex items-center gap-3 px-1 opacity-50 hover:opacity-100 transition-opacity">
                                 <ShieldCheck className="text-gray-500 flex-shrink-0" size={14} />
                                 <p className="text-[10px] text-gray-500 leading-tight">
-                                    BYOK Architecture: Your key is stored locally in your browser/account and never logged on our servers.
+                                    BYOK Architecture: Your key is stored securely in your private database table and locally in your browser.
                                 </p>
                             </div>
 

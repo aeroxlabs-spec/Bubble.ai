@@ -1,6 +1,8 @@
 
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from "../types";
+import { supabase } from "./supabaseClient";
+import { authService } from "./authService";
 
 // Module-level variable to store the active user key directly from AuthContext
 let sessionKey: string | null = null;
@@ -71,15 +73,17 @@ const apiLogs: ApiLog[] = [];
 
 export const getRecentLogs = () => [...apiLogs].reverse().slice(0, 20);
 
-const logRequest = (model: string, type: 'GENERATE' | 'CHAT' | 'TEST'): ApiLog => {
+// Updated logRequest to write to Supabase
+const logRequest = (model: string, type: 'GENERATE' | 'CHAT' | 'TEST', appMode: string = 'UNKNOWN'): ApiLog => {
     incrementUsage();
     checkUsageLimit();
     
     const key = getApiKey();
     const fingerprint = key && key.length > 8 ? "..." + key.substring(key.length - 4) : "MISSING/INVALID";
+    const logId = crypto.randomUUID();
     
     const log: ApiLog = {
-        id: crypto.randomUUID(),
+        id: logId,
         timestamp: new Date().toLocaleTimeString(),
         model,
         keyFingerprint: fingerprint,
@@ -87,6 +91,24 @@ const logRequest = (model: string, type: 'GENERATE' | 'CHAT' | 'TEST'): ApiLog =
         status: 'PENDING'
     };
     apiLogs.push(log);
+
+    // Fire-and-forget logging to Supabase
+    (async () => {
+        try {
+            const user = await authService.getCurrentUser();
+            if (user && !user.id.startsWith('guest-')) {
+                await supabase.from('usage_logs').insert({
+                    user_id: user.id,
+                    model: model,
+                    mode: appMode,
+                    created_at: new Date().toISOString()
+                });
+            }
+        } catch (e) {
+            console.warn("Failed to log usage to Supabase:", e);
+        }
+    })();
+
     return log;
 };
 
@@ -365,7 +387,7 @@ const retryOperation = async <T>(operation: () => Promise<T>, retries = 3, delay
 
 export const runConnectivityTest = async (): Promise<boolean> => {
     const startTime = Date.now();
-    const log = logRequest('gemini-2.5-flash', 'TEST');
+    const log = logRequest('gemini-2.5-flash', 'TEST', 'TEST');
     try {
         const client = ensureClientReady();
         await client.models.generateContent({
@@ -383,7 +405,7 @@ export const runConnectivityTest = async (): Promise<boolean> => {
 export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> => {
   return retryOperation(async () => {
     const startTime = Date.now();
-    const log = logRequest('gemini-2.5-flash', 'GENERATE');
+    const log = logRequest('gemini-2.5-flash', 'GENERATE', 'SOLVER');
     try {
         const client = ensureClientReady();
         const isImage = input.type === 'image';
@@ -443,7 +465,7 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
 const reviewAndRefineQuestion = async (originalQ: any): Promise<any> => {
     return retryOperation(async () => {
         const startTime = Date.now();
-        const log = logRequest('gemini-2.5-flash', 'GENERATE'); // Helper requests logged too
+        const log = logRequest('gemini-2.5-flash', 'GENERATE', 'EXAM'); // Helper requests logged too
         try {
             const client = ensureClientReady();
             const prompt = `Review question logic and LaTeX syntax. INPUT: ${JSON.stringify(originalQ)}`;
@@ -472,7 +494,7 @@ const reviewAndRefineQuestion = async (originalQ: any): Promise<any> => {
 export const generateExam = async (inputs: UserInput[], settings: ExamSettings): Promise<ExamPaper> => {
   return retryOperation(async () => {
     const startTime = Date.now();
-    const log = logRequest('gemini-2.5-flash', 'GENERATE');
+    const log = logRequest('gemini-2.5-flash', 'GENERATE', 'EXAM');
     try {
         const client = ensureClientReady();
         const parts: any[] = [];
@@ -523,7 +545,7 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
 export const generateDrillQuestion = async (settings: DrillSettings, inputs: UserInput[], questionNumber: number, prevDifficulty: number): Promise<DrillQuestion> => {
     return retryOperation(async () => {
         const startTime = Date.now();
-        const log = logRequest('gemini-2.5-flash', 'GENERATE');
+        const log = logRequest('gemini-2.5-flash', 'GENERATE', 'DRILL');
         try {
             const client = ensureClientReady();
             const parts: any[] = [];
@@ -568,7 +590,7 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
 export const generateDrillSolution = async (question: DrillQuestion): Promise<MathStep[]> => {
     return retryOperation(async () => {
         const startTime = Date.now();
-        const log = logRequest('gemini-2.5-flash', 'GENERATE');
+        const log = logRequest('gemini-2.5-flash', 'GENERATE', 'DRILL');
         try {
             const client = ensureClientReady();
             const prompt = `Solve Drill Question: ${question.questionText}`;
@@ -599,7 +621,7 @@ export const createChatSession = (systemInstruction: string) => {
     const client = ensureClientReady();
     // Chat messages are harder to log individually in this wrapper structure without proxying the chat object.
     // For now, we log the *creation* of the session as a proxy for the user intent.
-    logRequest('gemini-2.5-flash', 'CHAT'); 
+    logRequest('gemini-2.5-flash', 'CHAT', 'CHAT'); 
     return client.chats.create({
         model: "gemini-2.5-flash",
         config: {
@@ -614,7 +636,7 @@ export const createChatSession = (systemInstruction: string) => {
 
 export const getStepHint = async (step: MathStep, context: string): Promise<string> => {
     const startTime = Date.now();
-    const log = logRequest('gemini-2.5-flash', 'CHAT');
+    const log = logRequest('gemini-2.5-flash', 'CHAT', 'SOLVER');
     try {
         const client = ensureClientReady();
         const response = await client.models.generateContent({
@@ -631,7 +653,7 @@ export const getStepHint = async (step: MathStep, context: string): Promise<stri
 
 export const getStepBreakdown = async (step: MathStep, context: string): Promise<string[]> => {
     const startTime = Date.now();
-    const log = logRequest('gemini-2.5-flash', 'GENERATE');
+    const log = logRequest('gemini-2.5-flash', 'GENERATE', 'SOLVER');
     try {
         const client = ensureClientReady();
         const response = await client.models.generateContent({
@@ -652,7 +674,7 @@ export const getStepBreakdown = async (step: MathStep, context: string): Promise
 
 export const getMarkscheme = async (question: string, solution: string): Promise<string> => {
      const startTime = Date.now();
-    const log = logRequest('gemini-2.5-flash', 'GENERATE');
+    const log = logRequest('gemini-2.5-flash', 'GENERATE', 'SOLVER');
     try {
         const client = ensureClientReady();
         
