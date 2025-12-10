@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Pen, Zap, GraduationCap, ArrowRight, AlertCircle, Sigma, Divide, Minus, Lightbulb, Percent, Hash, Ghost } from 'lucide-react';
@@ -79,12 +80,9 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
                 <div className="pt-4 flex flex-col items-center gap-4">
                     <button 
                         onClick={() => onViewChange('SIGNUP')}
-                        className="group relative px-10 py-4 rounded-full font-bold text-base border border-white/10 text-white hover:border-white/20 transition-all bg-black/10 backdrop-blur-sm overflow-hidden"
+                        className="group relative px-10 py-4 rounded-full font-bold text-base bg-transparent border border-white/30 text-white hover:bg-white/5 hover:border-white/60 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] flex items-center gap-2"
                     >
-                        <div className="absolute inset-0 bg-white/5 group-hover:bg-white/10 transition-colors" />
-                        <span className="relative z-10 flex items-center gap-2">
-                            Start learning <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform"/>
-                        </span>
+                        Start learning <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform"/>
                     </button>
                     
                     <button
@@ -176,7 +174,7 @@ const FeatureCard = ({ icon, title, desc, color, gradient, extraInfo }: any) => 
 
     return (
         <div 
-            className="group relative w-full h-[200px] cursor-pointer"
+            className="group relative w-full min-h-[180px]"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             onClick={handleClick}
@@ -200,17 +198,17 @@ const FeatureCard = ({ icon, title, desc, color, gradient, extraInfo }: any) => 
                  ))}
              </div>
 
-             {/* Card Content - Has background to hide icons when they retract */}
-             <div className={`relative z-10 h-full p-6 pt-10 rounded-xl bg-[#0a0a0a] border ${color} transition-all duration-300 group-hover:scale-[1.02] shadow-lg flex flex-col items-start justify-start`}>
+             {/* Card Content - Flexible height */}
+             <div className={`relative z-10 h-full p-6 pt-10 rounded-xl bg-[#0a0a0a] border ${color} transition-all duration-300 group-hover:scale-[1.02] shadow-lg flex flex-col items-start justify-start cursor-pointer`}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${gradient} to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl`} />
-                <div className="relative z-10 space-y-3 w-full text-left">
-                    <div className="p-2.5 bg-[#151515] rounded-lg inline-block shadow-inner border border-white/5">{icon}</div>
+                <div className="relative z-10 space-y-3 w-full text-left flex flex-col flex-1">
+                    <div className="p-2.5 bg-[#151515] rounded-lg inline-block shadow-inner border border-white/5 w-fit">{icon}</div>
                     <div>
                         <h3 className="font-bold text-lg text-white mb-1 tracking-tight">{title}</h3>
                         <p className="text-xs text-gray-400 leading-relaxed font-medium">{desc}</p>
                     </div>
-                    {/* Extra Info - Fixed height reserved to prevent layout shift */}
-                    <div className={`text-[11px] font-mono text-blue-300 mt-2 h-12 transition-opacity duration-200 ${typedText ? 'opacity-100' : 'opacity-0'}`}>
+                    {/* Extra Info - Flexible height */}
+                    <div className={`text-[11px] font-mono text-blue-300 mt-2 min-h-[3rem] transition-opacity duration-200 ${typedText ? 'opacity-100' : 'opacity-0'}`}>
                         {typedText}
                         {typedText && <span className="inline-block w-1.5 h-3 bg-blue-400 ml-1 animate-pulse align-middle" />}
                     </div>
@@ -331,8 +329,8 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
         <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-300 relative">
             
             <div className={`bg-[#121212] border border-white/10 rounded-2xl p-8 shadow-2xl relative overflow-hidden transition-all duration-500 ${isAnimating ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}`}>
-                {/* Simplified gradient to single color blue to match user preference */}
-                <div className="absolute top-0 left-0 w-full h-1 bg-blue-500/50" />
+                {/* Updated notch to gradient as requested */}
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-yellow-500" />
                 
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold text-white mb-2">

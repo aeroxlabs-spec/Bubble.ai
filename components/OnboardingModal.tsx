@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowRight, ArrowLeft, GraduationCap, ShieldCheck, Sparkles, Check, ExternalLink, Loader2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, GraduationCap, Zap, Hash, Check, ExternalLink, Loader2, Coins } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface OnboardingModalProps {
@@ -10,9 +11,10 @@ interface RichTypewriterProps {
     text: string;
     onComplete: () => void;
     highlightColor: string;
+    onClick: () => void;
 }
 
-const RichTypewriter: React.FC<RichTypewriterProps> = ({ text, onComplete, highlightColor }) => {
+const RichTypewriter: React.FC<RichTypewriterProps> = ({ text, onComplete, highlightColor, onClick }) => {
     const [charIndex, setCharIndex] = useState(0);
 
     // Parse text into segments of { content, isHighlight }
@@ -39,11 +41,23 @@ const RichTypewriter: React.FC<RichTypewriterProps> = ({ text, onComplete, highl
         }
     }, [charIndex, fullText, onComplete]);
 
+    // Expose a way to force completion via parent click, or we can handle click here
+    useEffect(() => {
+        // If text changes, reset (unlikely in this modal flow, but good practice)
+    }, [text]);
+
+    // Force completion logic handled in parent/click
+    const forceComplete = () => {
+        setCharIndex(fullText.length);
+        onComplete();
+        onClick();
+    };
+
     // Render logic
     let charsRendered = 0;
     
     return (
-        <p className="leading-relaxed text-gray-300 text-sm md:text-base h-[80px]">
+        <p onClick={forceComplete} className="leading-relaxed text-gray-300 text-sm md:text-base h-[60px] cursor-pointer hover:text-gray-200 transition-colors select-none">
             {segments.map((segment, i) => {
                 const start = charsRendered;
                 const end = start + segment.content.length;
@@ -95,7 +109,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
         {
             icon: GraduationCap,
             title: "Welcome to Bubble",
-            subtitle: "Intelligent Tutoring",
+            subtitle: "Intelligent Tutor",
             text: "We are a **student-built platform** designed to help IB Math HL students understand complex exercises through **intelligent analysis**.",
             theme: {
                 color: 'text-blue-400',
@@ -104,10 +118,10 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
             }
         },
         {
-            icon: ShieldCheck,
+            icon: Hash,
             title: "Private & Sustainable",
             subtitle: "Your Data, Your Keys",
-            text: "Bubble uses a **Bring Your Own Key** model for sustainability. We've included **50 free credits** to get you started immediately.",
+            text: "Bubble uses a **Bring Your Own Key** model. Your API key is stored locally and never sent to our servers.",
             theme: {
                 color: 'text-purple-400',
                 bg: 'bg-purple-500',
@@ -115,15 +129,29 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
             }
         },
         {
-            icon: Sparkles,
-            title: "Start Solving",
-            subtitle: "Setup Complete",
-            text: "You are ready to go with **Free Credits**. If you have your own Gemini API Key, you can add it now for unlimited access.",
-            isInputStep: true,
+            icon: Coins,
+            title: "Completely Free",
+            subtitle: "Non-Profit Initiative",
+            text: "As a **non-profit seeking program**, our services are completely free. We provide **100 credits** so you can start learning immediately.",
             theme: {
                 color: 'text-yellow-400',
                 bg: 'bg-yellow-500',
                 border: 'border-yellow-500/20',
+            }
+        },
+        {
+            icon: Zap,
+            title: "Start Solving",
+            subtitle: "Setup Complete",
+            text: "You are ready to go. Enter your own **Gemini API Key** for unlimited access, or use the provided free credits.",
+            isInputStep: true,
+            theme: {
+                // Gradient theme for the final step - Text gradient for highlight
+                color: 'text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-yellow-400', 
+                // Progress bar gradient
+                bg: 'bg-gradient-to-r from-blue-500 via-purple-500 to-yellow-500',
+                border: 'border-white/20', 
+                isGradient: true
             }
         }
     ];
@@ -143,6 +171,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
     };
 
     const nextStep = () => {
+        if (!canProceed) return; 
         setCanProceed(false);
         if (step < slides.length - 1) {
             setStep(step + 1);
@@ -157,6 +186,21 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
             setCanProceed(true);
         }
     };
+
+    // Keyboard Navigation
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowRight') {
+                if (canProceed && !slides[step].isInputStep) {
+                    nextStep();
+                }
+            } else if (e.key === 'ArrowLeft') {
+                prevStep();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [step, canProceed, slides]);
 
     const currentSlide = slides[step];
     const Icon = currentSlide.icon;
@@ -174,30 +218,45 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
                     100% { transform: scale(1) rotate(0deg); opacity: 1; }
                 }
             `}} />
+            
+            {/* SVG Definition for Gradient Icon */}
+            <svg width="0" height="0" className="absolute">
+                <linearGradient id="icon-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#60a5fa" />
+                    <stop offset="50%" stopColor="#c084fc" />
+                    <stop offset="100%" stopColor="#facc15" />
+                </linearGradient>
+            </svg>
 
             <div className={`w-full max-w-lg bg-[#0e0e0e] border ${theme.border} rounded-3xl shadow-2xl overflow-hidden relative flex flex-col min-h-[460px] transition-all duration-500`}>
                 
-                {/* Progress Bar - Reduced Glow */}
+                {/* Progress Bar */}
                 <div className="absolute top-0 left-0 w-full h-1 bg-white/5 z-20">
                     <div 
-                        className={`h-full transition-all duration-500 ease-out ${theme.bg} shadow-[0_0_2px_currentColor]`} 
+                        className={`h-full transition-all duration-500 ease-out shadow-[0_0_2px_currentColor] ${theme.isGradient ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-yellow-500' : theme.bg}`} 
                         style={{ width: `${((step + 1) / slides.length) * 100}%` }} 
                     />
                 </div>
 
-                <div className="flex-1 flex flex-col p-10 pt-16 relative z-10">
+                {/* Content */}
+                <div className="flex-1 flex flex-col p-6 pt-8 relative z-10">
                     {/* Background Glow */}
-                    <div className={`absolute top-0 right-0 w-[280px] h-[280px] ${theme.bg} opacity-[0.08] blur-[80px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/2 transition-colors duration-500`} />
+                    <div className={`absolute top-0 right-0 w-[280px] h-[280px] opacity-[0.08] blur-[80px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/2 transition-all duration-500 ${theme.isGradient ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-yellow-500' : theme.bg}`} />
                     
-                    {/* Icon - No Background, Twitch Animation */}
-                    <div className="mb-8 h-16 flex items-center justify-start">
+                    {/* Icon - With Gradient Support */}
+                    <div className="mb-4 h-16 flex items-center justify-start">
                         <div key={step} style={{ animation: 'twitch 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}>
-                            <Icon size={48} className={`${theme.color} drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]`} />
+                            {theme.isGradient ? (
+                                <Icon size={48} style={{ stroke: "url(#icon-gradient)" }} className="drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]" />
+                            ) : (
+                                <Icon size={48} className={`${theme.color} drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]`} />
+                            )}
                         </div>
                     </div>
 
-                    <div className="mb-8">
-                        <h3 className={`text-xs font-bold uppercase tracking-widest mb-2 opacity-70 ${theme.color} transition-colors duration-300`}>{currentSlide.subtitle}</h3>
+                    <div className="mb-4">
+                        {/* Subtitle - Grey if isInputStep, else colored */}
+                        <h3 className={`text-xs font-bold uppercase tracking-widest mb-2 opacity-70 ${theme.isGradient ? 'text-gray-500' : theme.color} transition-colors duration-300`}>{currentSlide.subtitle}</h3>
                         <h2 className="text-4xl font-bold text-white tracking-tight">{currentSlide.title}</h2>
                     </div>
                     
@@ -205,6 +264,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
                         key={step} 
                         text={currentSlide.text} 
                         onComplete={() => setCanProceed(true)} 
+                        onClick={() => setCanProceed(true)}
                         highlightColor={theme.color} 
                     />
 
@@ -216,12 +276,13 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
                                     onClick={() => setUseCustomKey(false)}
                                     className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left group ${!useCustomKey ? 'bg-white/10 border-white/20' : 'bg-[#151515] border-white/5 hover:border-white/10'}`}
                                 >
-                                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${!useCustomKey ? 'border-yellow-400 bg-yellow-400' : 'border-gray-600'}`}>
+                                    {/* Monochrome buttons as requested */}
+                                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${!useCustomKey ? 'border-white bg-white' : 'border-gray-600'}`}>
                                         {!useCustomKey && <Check size={12} className="text-black" />}
                                     </div>
                                     <div>
                                         <div className="text-sm font-bold text-white">Use Free Credits</div>
-                                        <div className="text-xs text-gray-400">50 credits included to start.</div>
+                                        <div className="text-xs text-gray-400">100 credits included to start.</div>
                                     </div>
                                 </button>
 
@@ -229,7 +290,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
                                     onClick={() => setUseCustomKey(true)}
                                     className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left group ${useCustomKey ? 'bg-white/10 border-white/20' : 'bg-[#151515] border-white/5 hover:border-white/10'}`}
                                 >
-                                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${useCustomKey ? 'border-yellow-400 bg-yellow-400' : 'border-gray-600'}`}>
+                                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${useCustomKey ? 'border-white bg-white' : 'border-gray-600'}`}>
                                         {useCustomKey && <Check size={12} className="text-black" />}
                                     </div>
                                     <div className="flex-1">
@@ -246,7 +307,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
                                         value={inputKey}
                                         onChange={(e) => setInputKey(e.target.value)}
                                         placeholder="Paste Gemini API Key here..."
-                                        className="w-full bg-[#0a0a0a] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-500/50 transition-all font-mono"
+                                        className="w-full bg-[#0a0a0a] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-all font-mono"
                                         autoFocus
                                     />
                                     <a 
@@ -264,7 +325,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
                 </div>
 
                 {/* Footer Buttons */}
-                <div className="p-8 pt-0 flex items-center justify-between border-t border-white/5 mt-auto bg-[#121212]/50">
+                <div className="px-6 pb-6 pt-0 flex items-center justify-between mt-auto">
                     <button 
                         onClick={prevStep}
                         disabled={step === 0}
@@ -280,7 +341,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
                             className={`px-8 py-3 rounded-full font-bold text-xs uppercase tracking-widest text-black transition-all flex items-center gap-2 ${
                                 (useCustomKey && inputKey.length < 10) 
                                     ? 'bg-gray-700 cursor-not-allowed text-gray-400' 
-                                    : 'bg-yellow-400 hover:bg-yellow-300 shadow-[0_0_20px_rgba(250,204,21,0.3)]'
+                                    : 'bg-white hover:bg-gray-200 shadow-[0_0_20px_rgba(255,255,255,0.3)]'
                             }`}
                         >
                             {isSaving ? <Loader2 size={16} className="animate-spin" /> : "Start Learning"}
@@ -292,7 +353,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
                             disabled={!canProceed}
                             className={`px-6 py-3 rounded-full border text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${
                                 canProceed 
-                                    ? `bg-white text-black hover:scale-105` 
+                                    ? `bg-transparent border-white/20 text-white hover:bg-white/5 hover:border-white/40 shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:shadow-[0_0_20px_rgba(255,255,255,0.1)]` 
                                     : 'border-white/10 text-gray-600 cursor-not-allowed bg-transparent'
                             }`}
                         >

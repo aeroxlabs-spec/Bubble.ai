@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 import { authService } from '../services/authService';
@@ -24,7 +25,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const DEFAULT_API_KEY = "AIzaSyAk4hc_GDCixtu5v7y2yrX4TpUL5Q1EAHc";
-const INITIAL_CREDITS = 50;
+const INITIAL_CREDITS = 100;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);

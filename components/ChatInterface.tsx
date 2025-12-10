@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText, Zap } from 'lucide-react';
+import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText, Zap, GraduationCap } from 'lucide-react';
 import { ChatMessage, MathSolution, DrillQuestion, AppMode } from '../types';
 import { createChatSession } from '../services/geminiService';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -42,6 +43,41 @@ const TypewriterMessage = ({ text, onComplete, mode }: { text: string, onComplet
     }, [text]);
 
     return <MarkdownRenderer content={displayedText} className="prose-sm leading-snug" mode={mode} />;
+};
+
+const ThinkingIndicator = () => {
+    const phrases = ["Thinking...", "Analyzing...", "Calculating...", "Processing...", "Formulating..."];
+    const [text, setText] = useState('');
+    const [phraseIndex, setPhraseIndex] = useState(0);
+    const [isDeleting, setIsDeleting] = useState(false);
+    
+    useEffect(() => {
+        const currentPhrase = phrases[phraseIndex];
+        const timeout = setTimeout(() => {
+            if (!isDeleting) {
+                if (text.length < currentPhrase.length) {
+                    setText(currentPhrase.slice(0, text.length + 1));
+                } else {
+                    setTimeout(() => setIsDeleting(true), 800);
+                }
+            } else {
+                if (text.length > 0) {
+                    setText(text.slice(0, text.length - 1));
+                } else {
+                    setIsDeleting(false);
+                    setPhraseIndex((prev) => (prev + 1) % phrases.length);
+                }
+            }
+        }, isDeleting ? 30 : 50);
+
+        return () => clearTimeout(timeout);
+    }, [text, isDeleting, phraseIndex]);
+
+    return (
+        <span className="text-[10px] text-gray-400 font-medium tracking-wide min-w-[70px]">
+            {text}<span className="animate-pulse">|</span>
+        </span>
+    );
 };
 
 
@@ -207,18 +243,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
 
   return (
     <div 
-      className={`fixed bottom-24 right-6 w-[375px] h-[540px] max-h-[75vh] z-40 flex flex-col transition-all duration-300 ease-in-out font-sans
+      className={`fixed bottom-24 right-6 w-[375px] h-[540px] max-h-[75vh] z-40 flex flex-col font-sans origin-bottom-right transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]
         ${isOpen 
-            ? 'opacity-100 translate-y-0 pointer-events-auto' 
-            : 'opacity-0 translate-y-8 pointer-events-none'
+            ? 'opacity-100 scale-100 translate-y-0 translate-x-0 pointer-events-auto rounded-[1.25rem]' 
+            : 'opacity-0 scale-75 translate-y-6 translate-x-4 pointer-events-none rounded-[2rem]'
         }`}
     >
-      <div className="absolute inset-0 bg-[#121212] rounded-[1.25rem] border border-white/10 shadow-2xl flex flex-col" />
+      {/* Frosted Glass Background - Very translucent */}
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-3xl rounded-[1.25rem] border border-white/10 shadow-2xl flex flex-col supports-[backdrop-filter]:bg-black/10" />
       
       <div className="relative flex flex-col h-full z-10 overflow-hidden rounded-[1.25rem]">
         
         {/* Header */}
-        <div className="flex-shrink-0 px-5 py-4 flex items-center justify-between border-b border-white/5 bg-[#151515]">
+        <div className="flex-shrink-0 px-5 py-4 flex items-center justify-between border-b border-white/5 bg-white/5 backdrop-blur-sm">
           <div className="flex items-center gap-2">
              <div className={`transition-all duration-500 ease-in-out flex items-center overflow-hidden ${messages.length > 0 ? 'w-5 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-4'}`}>
                 {mode === 'DRILL' ? <Zap size={16} className="text-yellow-400" /> : <Pen size={16} className="text-blue-400 flex-shrink-0" />}
@@ -227,14 +264,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
           </div>
           
           {mode === 'DRILL' ? (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0a0a0a] border border-yellow-500/30 shadow-[0_0_10px_rgba(234,179,8,0.1)]">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 border border-yellow-500/30 shadow-[0_0_10px_rgba(234,179,8,0.1)]">
                   <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 shadow-[0_0_5px_rgba(234,179,8,0.8)]"></div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-200">
                       Drill Coach
                   </span>
               </div>
           ) : activeView === 'markscheme' ? (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0a0a0a] border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.1)]">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.1)]">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.8)]"></div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
                       Markscheme
@@ -243,7 +280,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
           ) : (
               <button 
                 onClick={toggleScope}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0a0a0a] border border-white/10 hover:border-blue-500/30 transition-colors group"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 border border-white/10 hover:border-blue-500/30 transition-colors group"
               >
                    <div className={`w-1.5 h-1.5 rounded-full ${activeScope === 'STEP' ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 group-hover:text-blue-200 w-16 text-center">
@@ -257,7 +294,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
         {/* Messages */}
         <div 
             ref={messagesContainerRef}
-            className="flex-1 min-h-0 overflow-y-auto p-4 pb-5 space-y-4 bg-[#0e0e0e] overflow-x-hidden overscroll-contain"
+            className="flex-1 min-h-0 overflow-y-auto p-4 pb-5 space-y-4 overflow-x-hidden overscroll-contain"
             style={{ scrollBehavior: 'auto' }} 
         >
           {messages.length === 0 ? (
@@ -280,7 +317,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                             <div className="w-full px-4">
                                  <button 
                                     onClick={() => initializeChat('FULL')}
-                                    className="w-full flex items-center justify-between p-4 bg-transparent hover:bg-yellow-500/5 border border-white/10 hover:border-yellow-500/30 rounded-xl transition-all group text-left shadow-[0_0_15px_rgba(234,179,8,0.05)]"
+                                    className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-yellow-500/10 border border-white/10 hover:border-yellow-500/30 rounded-xl transition-all group text-left shadow-[0_0_15px_rgba(234,179,8,0.05)]"
                                 >
                                     <div className="flex items-center gap-4">
                                         <div className="bg-yellow-500/10 p-2 rounded-lg text-yellow-400 border border-yellow-500/20">
@@ -304,7 +341,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                             <div className="w-full px-4">
                                  <button 
                                     onClick={() => initializeChat('FULL')}
-                                    className="w-full flex items-center justify-between p-4 bg-transparent hover:bg-blue-500/5 border border-white/10 hover:border-blue-500/30 rounded-xl transition-all group text-left shadow-[0_0_15px_rgba(59,130,246,0.05)]"
+                                    className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-blue-500/10 border border-white/10 hover:border-blue-500/30 rounded-xl transition-all group text-left shadow-[0_0_15px_rgba(59,130,246,0.05)]"
                                 >
                                     <div className="flex items-center gap-4">
                                         <div className="bg-blue-500/10 p-2 rounded-lg text-blue-400 border border-blue-500/20">
@@ -329,7 +366,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                             <div className="w-full space-y-3 px-4">
                                 <button 
                                     onClick={() => initializeChat('STEP')}
-                                    className="w-full flex items-center justify-between p-4 bg-transparent hover:bg-blue-500/5 border border-white/10 hover:border-blue-500/30 rounded-xl transition-all group text-left"
+                                    className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-blue-500/10 border border-white/10 hover:border-blue-500/30 rounded-xl transition-all group text-left"
                                 >
                                     <div>
                                         <div className="text-blue-400 font-semibold text-sm">Current Step Only</div>
@@ -340,7 +377,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
 
                                 <button 
                                     onClick={() => initializeChat('FULL')}
-                                    className="w-full flex items-center justify-between p-4 bg-transparent hover:bg-white/5 border border-white/10 hover:border-white/20 rounded-xl transition-all group text-left"
+                                    className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl transition-all group text-left"
                                 >
                                     <div>
                                         <div className="text-white font-semibold text-sm">Entire Problem</div>
@@ -372,10 +409,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                           <button
                             key={suggestion}
                             onClick={() => handleSendMessage(suggestion)}
-                            className={`text-[10px] px-3 py-1.5 rounded-full border bg-transparent transition-colors cursor-pointer ${
+                            className={`text-[10px] px-3 py-1.5 rounded-full border bg-white/5 backdrop-blur-sm transition-colors cursor-pointer ${
                                 mode === 'DRILL'
-                                ? 'text-gray-500 hover:text-yellow-400 border-white/10 hover:border-yellow-500/30'
-                                : 'text-gray-500 hover:text-blue-400 border-white/10 hover:border-blue-500/30'
+                                ? 'text-gray-400 hover:text-yellow-400 border-white/5 hover:border-yellow-500/30'
+                                : 'text-gray-400 hover:text-blue-400 border-white/5 hover:border-blue-500/30'
                             }`}
                           >
                               {suggestion}
@@ -386,13 +423,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
           ) : (
             messages.map((msg, idx) => (
                 <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed border ${
+                <div className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed border shadow-sm backdrop-blur-md ${
                     msg.role === 'user' 
                     ? (mode === 'DRILL' 
-                        ? 'bg-yellow-900/20 border-yellow-500/10 text-yellow-100 rounded-br-sm' 
-                        : 'bg-[#1e293b] border-blue-500/10 text-blue-100 rounded-br-sm'
+                        ? 'bg-yellow-900/40 border-yellow-500/20 text-yellow-100 rounded-br-sm' 
+                        : 'bg-blue-600/20 border-blue-500/20 text-blue-100 rounded-br-sm'
                     ) 
-                    : 'bg-[#1c1c1e] text-gray-200 border-white/5 rounded-bl-sm'
+                    : 'bg-white/10 text-gray-200 border-white/5 rounded-bl-sm'
                 }`}>
                     {msg.role === 'model' ? (
                         (idx === messages.length - 1 && !isLoading) 
@@ -407,26 +444,38 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
           )}
 
           {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-[#1c1c1e] px-4 py-3 rounded-2xl rounded-bl-sm border border-white/5 flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse" />
-                <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse delay-100" />
-                <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse delay-200" />
-              </div>
+            <div className="flex justify-start px-4 py-2">
+               <div className="flex items-center gap-3 bg-black/20 backdrop-blur-md px-3 py-2 rounded-xl border border-white/5">
+                   <div className="relative">
+                        <div className="animate-[bounce_1s_infinite]">
+                            {mode === 'DRILL' ? (
+                                <Zap size={14} className="text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]" />
+                            ) : activeView === 'markscheme' ? (
+                                <ScrollText size={14} className="text-blue-400 drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+                            ) : (
+                                <Pen size={14} className="text-blue-400 drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+                            )}
+                        </div>
+                        <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-0.5 rounded-[100%] blur-[1px] animate-pulse ${
+                             mode === 'DRILL' ? 'bg-yellow-500/50' : 'bg-blue-500/50'
+                        }`} />
+                   </div>
+                   <ThinkingIndicator />
+                </div>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 bg-[#151515] border-t border-white/5 flex flex-col p-3">
-          <div className={`flex items-center gap-2 bg-[#0a0a0a] rounded-full border border-white/10 transition-colors ${
+        <div className="flex-shrink-0 bg-white/5 backdrop-blur-md border-t border-white/5 flex flex-col p-3">
+          <div className={`flex items-center gap-2 bg-black/20 rounded-full border border-white/10 transition-colors ${
               mode === 'DRILL' 
-              ? 'focus-within:border-yellow-500/30 shadow-none'
-              : 'focus-within:border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
+              ? 'focus-within:border-yellow-500/30'
+              : 'focus-within:border-blue-500/30'
           }`}>
               <input
               type="text"
-              className="flex-1 bg-transparent border-none focus:outline-none text-sm text-gray-200 placeholder:text-gray-600 px-4 py-3"
+              className="flex-1 bg-transparent border-none focus:outline-none text-sm text-gray-200 placeholder:text-gray-500 px-4 py-3"
               placeholder={hasStarted ? "Ask a follow-up..." : "Select an option..."}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from './types';
 import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution } from './services/geminiService';
@@ -1077,21 +1078,28 @@ const App: React.FC = () => {
                                         ? `Analyze ${uploads.length} Problem${uploads.length > 1 ? 's' : ''}` 
                                         : appMode === 'EXAM' ? 'Configure Exam Paper' : 'Configure Drill'
                                     }
-                                    {/* Cost Display */}
-                                    {useCredits() && currentActionCost > 0 && (
-                                        <span className="ml-1.5 text-xs font-normal text-gray-500 group-hover:text-gray-400 transition-colors">
-                                            ({currentActionCost} Credits)
-                                        </span>
-                                    )}
-
+                                    
                                     <ArrowRight size={16} className={`group-hover:translate-x-0.5 transition-transform ${
                                         appMode === 'SOLVER' ? 'text-blue-400' 
                                         : appMode === 'EXAM' ? 'text-purple-400' 
                                         : 'text-yellow-400'
                                     }`} />
                                 </button>
-                                <div className="mt-2 text-center text-[10px] text-gray-600 font-mono">
-                                    {hasValidKey ? <span className="text-green-400 font-bold">Ready</span> : "Key Required"}
+                                
+                                <div className="mt-3 text-center text-[10px] text-gray-600 font-mono flex items-center justify-center gap-3">
+                                    {hasValidKey ? (
+                                        useCredits() ? (
+                                            <>
+                                                <span className="text-gray-500">Cost: <b className="text-white">{currentActionCost} Credits</b></span>
+                                                <span className="w-1 h-1 rounded-full bg-gray-700" />
+                                                <span className="text-gray-500">Balance: <b className={credits < currentActionCost ? 'text-red-400' : 'text-yellow-400'}>{credits}</b></span>
+                                            </>
+                                        ) : (
+                                            <span className="text-green-400 font-bold">Ready (Custom Key Active)</span>
+                                        )
+                                    ) : (
+                                        <span className="text-red-400">Key Required</span>
+                                    )}
                                 </div>
                             </div>
                         </div>
