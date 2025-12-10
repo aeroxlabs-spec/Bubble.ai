@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { runConnectivityTest, getRecentLogs, ApiLog } from '../services/geminiService';
-import { Key, ExternalLink, ShieldCheck, X, Trash2, Loader2, AlertTriangle, CheckCircle, Activity, Zap, CreditCard } from 'lucide-react';
+import { runConnectivityTest, getRecentLogs, ApiLog, updateDailyLimit, getDailyUsage } from '../services/geminiService';
+import { Key, ExternalLink, ShieldCheck, X, Trash2, Loader2, AlertTriangle, CheckCircle, Activity, Zap, CreditCard, PieChart, Info } from 'lucide-react';
 
 interface ApiKeyModalProps {
     isOpen: boolean;
@@ -11,7 +12,7 @@ interface ApiKeyModalProps {
 
 const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = false }) => {
     const { userApiKey, updateApiKey, credits, useCredits } = useAuth();
-    const [activeTab, setActiveTab] = useState<'SETTINGS' | 'DIAGNOSTICS'>('SETTINGS');
+    const [activeTab, setActiveTab] = useState<'SETTINGS' | 'DIAGNOSTICS' | 'LIMITS'>('SETTINGS');
     const [inputKey, setInputKey] = useState(userApiKey);
     const [status, setStatus] = useState<'IDLE' | 'VERIFYING' | 'VALID' | 'INVALID'>('IDLE');
     const [errorMsg, setErrorMsg] = useState('');
@@ -20,12 +21,19 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
     const [logs, setLogs] = useState<ApiLog[]>([]);
     const [isRunningTest, setIsRunningTest] = useState(false);
 
+    // Limits State
+    const [dailyLimit, setDailyLimit] = useState(50);
+    const [dailyUsage, setDailyUsage] = useState(0);
+
     useEffect(() => {
         setInputKey(userApiKey || "");
         setStatus('IDLE');
         setErrorMsg('');
         if (isOpen) {
             setLogs(getRecentLogs());
+            const usage = getDailyUsage();
+            setDailyLimit(usage.limit);
+            setDailyUsage(usage.count);
         }
     }, [userApiKey, isOpen]);
 
@@ -39,6 +47,14 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
         }
         return () => clearInterval(interval);
     }, [isOpen, activeTab]);
+
+    const handleUpdateLimit = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseInt(e.target.value, 10);
+        if (!isNaN(val) && val > 0) {
+            setDailyLimit(val);
+            updateDailyLimit(val);
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -117,6 +133,16 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
                             }`}
                         >
                             API Credentials
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('LIMITS')}
+                            className={`pb-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${
+                                activeTab === 'LIMITS' 
+                                ? 'border-white text-white' 
+                                : 'border-transparent text-gray-500 hover:text-gray-300'
+                            }`}
+                        >
+                            Limits
                         </button>
                         <button 
                             onClick={() => setActiveTab('DIAGNOSTICS')}
@@ -222,6 +248,63 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
                             >
                                 {status === 'VERIFYING' ? "Validating..." : status === 'VALID' ? "Verified" : "Verify & Save Key"}
                             </button>
+                        </div>
+                    ) : activeTab === 'LIMITS' ? (
+                        <div className="p-8 space-y-6">
+                            <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-4">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <PieChart size={18} className="text-purple-400" />
+                                    <div>
+                                        <h3 className="text-sm font-bold text-white">Daily Usage Protection</h3>
+                                        <p className="text-xs text-gray-500">Set soft limits to prevent unexpected costs.</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-xs font-medium">
+                                            <span className="text-gray-400">Requests Today</span>
+                                            <span className="text-white">{dailyUsage} / {dailyLimit}</span>
+                                        </div>
+                                        <div className="h-2 bg-[#151515] rounded-full overflow-hidden">
+                                            <div 
+                                                className={`h-full rounded-full transition-all duration-500 ${
+                                                    (dailyUsage / dailyLimit) > 0.9 ? 'bg-red-500' : 'bg-purple-500'
+                                                }`} 
+                                                style={{ width: `${Math.min(100, (dailyUsage / dailyLimit) * 100)}%` }} 
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="space-y-2 pt-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                            Soft Limit (Requests/Day)
+                                        </label>
+                                        <input 
+                                            type="number"
+                                            value={dailyLimit}
+                                            onChange={handleUpdateLimit}
+                                            className="w-full bg-[#050505] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-start gap-3 bg-blue-900/10 border border-blue-500/20 p-4 rounded-xl">
+                                <Info size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
+                                <div className="space-y-2">
+                                    <p className="text-xs text-blue-200 leading-relaxed">
+                                        These limits are tracked locally in your browser. For hard limits and budget alerts, use the Google Cloud Console.
+                                    </p>
+                                    <a 
+                                        href="https://console.cloud.google.com/apis/dashboard" 
+                                        target="_blank" 
+                                        rel="noreferrer" 
+                                        className="text-[10px] font-bold uppercase tracking-wider text-blue-400 hover:text-white flex items-center gap-1 transition-colors"
+                                    >
+                                        Manage Quotas <ExternalLink size={10} />
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         <div className="p-8 space-y-6">

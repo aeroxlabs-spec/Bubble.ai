@@ -4,6 +4,46 @@ import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettin
 
 // Module-level variable to store the active user key directly from AuthContext
 let sessionKey: string | null = null;
+let dailyRequestLimit = 50; // Default soft limit
+let dailyRequestCount = 0;
+
+// Initialize daily count from local storage if available
+if (typeof window !== 'undefined') {
+    const savedLimit = localStorage.getItem('bubble_daily_limit');
+    if (savedLimit) dailyRequestLimit = parseInt(savedLimit, 10);
+    
+    const savedDate = localStorage.getItem('bubble_usage_date');
+    const today = new Date().toDateString();
+    
+    if (savedDate === today) {
+        const savedCount = localStorage.getItem('bubble_usage_count');
+        if (savedCount) dailyRequestCount = parseInt(savedCount, 10);
+    } else {
+        localStorage.setItem('bubble_usage_date', today);
+        localStorage.setItem('bubble_usage_count', '0');
+    }
+}
+
+export const updateDailyLimit = (limit: number) => {
+    dailyRequestLimit = limit;
+    localStorage.setItem('bubble_daily_limit', limit.toString());
+};
+
+export const getDailyUsage = () => ({ count: dailyRequestCount, limit: dailyRequestLimit });
+
+const incrementUsage = () => {
+    dailyRequestCount++;
+    localStorage.setItem('bubble_usage_count', dailyRequestCount.toString());
+};
+
+const checkUsageLimit = () => {
+    // Only enforce soft limit for custom keys (optional behavior) or globally
+    // Currently purely informational warning in logs, or soft block if desired.
+    // For this implementation, we just track it.
+    if (dailyRequestCount >= dailyRequestLimit) {
+        console.warn(`Daily limit of ${dailyRequestLimit} requests reached.`);
+    }
+};
 
 // --- DIAGNOSTICS & LOGGING SYSTEM ---
 export interface ApiLog {
@@ -21,6 +61,9 @@ const apiLogs: ApiLog[] = [];
 export const getRecentLogs = () => [...apiLogs].reverse().slice(0, 20);
 
 const logRequest = (model: string, type: 'GENERATE' | 'CHAT' | 'TEST'): ApiLog => {
+    incrementUsage();
+    checkUsageLimit();
+    
     const key = getApiKey();
     const fingerprint = key && key.length > 8 ? "..." + key.substring(key.length - 4) : "MISSING/INVALID";
     
@@ -604,9 +647,30 @@ export const getMarkscheme = async (question: string, solution: string): Promise
     const log = logRequest('gemini-2.5-flash', 'GENERATE');
     try {
         const client = ensureClientReady();
+        
+        // Revised prompt for strict table output
+        const prompt = `
+            You are an expert IB Math Examiner. Create a detailed Markscheme for the following problem.
+            
+            RULES:
+            1. Output MUST be a single Markdown Table.
+            2. Columns: | Step | Working | Explanation | Marks |
+            3. Use standard IB codes: M1 (Method), A1 (Accuracy), R1 (Reasoning), AG (Answer Given).
+            4. Do not include any text outside the table (no intro/outro).
+            5. Use LaTeX ($...$) for all math expressions.
+
+            Problem: ${question}
+            Reference Solution Steps: ${solution}
+        `;
+
         const response = await client.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: { parts: [{ text: `Markscheme for: ${question}` }] }
+            contents: { parts: [{ text: prompt }] },
+            // Do not use JSON schema here to allow flexible table generation, but guide with text.
+            config: {
+                responseMimeType: "text/plain",
+                temperature: 0.2
+            }
         });
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return response.text || "";

@@ -201,12 +201,16 @@ const MarkschemeLoader = () => {
         <div className="h-64 flex flex-col items-center justify-center space-y-6 border border-white/10 rounded-xl bg-[#0a0a0a] overflow-hidden relative">
              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/5 via-transparent to-transparent animate-pulse" />
              
-             <div className="relative z-10 flex flex-col items-center gap-6">
+             <div className="relative z-10 flex flex-col items-center gap-6 px-4">
                  <div className="relative">
                     <ScrollText size={40} className="text-blue-500/80 animate-pulse" />
                  </div>
-                 <div className="mt-2">
+                 <div className="mt-2 text-center">
                     <TypewriterLoader phrases={phrases} />
+                    <p className="text-[10px] text-gray-500 mt-4 max-w-[280px] mx-auto leading-relaxed animate-in fade-in slide-in-from-bottom-2 delay-1000">
+                        Generating a detailed grading rubric. This may take a minute.<br/>
+                        <span className="text-blue-400 font-medium">Feel free to return to the solution analysis while you wait.</span>
+                    </p>
                  </div>
              </div>
         </div>
@@ -458,12 +462,24 @@ const App: React.FC = () => {
     lines.forEach((line) => {
         const trimmed = line.trim();
         if (!trimmed) return;
+        // Basic table fix logic
         if (trimmed.startsWith('|')) {
-            const fixedLine = trimmed.replace(/\|\|/g, '| |');
+            let fixedLine = trimmed;
+            // Fix empty cells that might come as ||
+            if(fixedLine.includes('||')) fixedLine = fixedLine.replace(/\|\|/g, '| |');
             mergedLines.push(fixedLine);
         } else {
+            // If it's not a table line, we can either append it to previous or push as new
+            // For markschemes, usually best to keep it if it looks important, 
+            // but the prompt now enforces table only.
+            // We'll keep it just in case.
             if (mergedLines.length > 0) {
-                mergedLines[mergedLines.length - 1] += ' ' + trimmed;
+                 // Check if the previous line was a table row, if so, this might be overflow text
+                 if(mergedLines[mergedLines.length-1].startsWith('|')) {
+                     // ignore or append? Let's ignore outside text to enforce table look
+                 } else {
+                    mergedLines.push(trimmed);
+                 }
             } else {
                  mergedLines.push(trimmed);
             }
