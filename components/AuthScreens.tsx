@@ -56,7 +56,6 @@ export const AuthScreens: React.FC = () => {
 };
 
 const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') => void }) => {
-    const { loginAsGuest } = useAuth();
     
     return (
         <div className="max-w-5xl mx-auto flex flex-col items-center text-center space-y-12 py-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative">
@@ -83,13 +82,6 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
                         className="group relative px-10 py-4 rounded-full font-bold text-base bg-transparent border border-white/30 text-white hover:bg-white/5 hover:border-white/60 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] flex items-center gap-2"
                     >
                         Start learning <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform"/>
-                    </button>
-                    
-                    <button
-                        onClick={loginAsGuest}
-                        className="text-xs text-gray-500 hover:text-white transition-colors flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-white/5"
-                    >
-                        <Ghost size={14} /> Continue as Guest (Test Mode)
                     </button>
                 </div>
             </div>
