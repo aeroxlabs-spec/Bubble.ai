@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useRef, useEffect, useState } from 'react';
 import { MathStep } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -207,10 +203,10 @@ const StepCard: React.FC<StepCardProps> = ({
           : 'bg-black border-white/10 hover:border-white/20 hover:bg-[#0a0a0a]'
         }`}
     >
-      <div className="p-5">
-        <div className="flex items-start gap-4">
-            {/* Step Number */}
-            <div className={`flex flex-shrink-0 items-center justify-center w-7 h-7 rounded-lg text-xs font-mono font-bold transition-colors duration-300
+      <div className="p-4 sm:p-5">
+        <div className="flex items-start gap-3 sm:gap-4">
+            {/* Step Number - Adjusted sizing for mobile */}
+            <div className={`flex flex-shrink-0 items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg text-xs font-mono font-bold transition-colors duration-300
                 ${isActive 
                     ? theme.numberActive
                     : 'bg-[#1c1c1e] text-gray-500 group-hover:bg-[#2c2c2e] group-hover:text-gray-300'
@@ -280,15 +276,15 @@ const StepCard: React.FC<StepCardProps> = ({
                 </div>
 
                 {/* Content Area */}
-                <div className={`transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] overflow-hidden ${isActive ? 'max-h-[2500px] opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
-                    <div className="space-y-5">
+                <div className={`transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] overflow-hidden ${isActive ? 'max-h-[2500px] opacity-100 mt-3 sm:mt-4' : 'max-h-0 opacity-0'}`}>
+                    <div className="space-y-4 sm:space-y-5">
                         
                         <div className="text-gray-300 text-sm leading-relaxed">
                             <MarkdownRenderer content={step.explanation} mode={mode} />
                         </div>
                         
                         {showBreakdown && breakdownContent && (
-                            <div className="animate-in fade-in slide-in-from-top-2 duration-200 bg-[#0e0e0e] rounded-lg p-4 border border-white/5">
+                            <div className="animate-in fade-in slide-in-from-top-2 duration-200 bg-[#0e0e0e] rounded-lg p-3 sm:p-4 border border-white/5">
                                  <div className="flex items-center gap-2 mb-3">
                                      <ListStart size={14} className={theme.breakdownTitle} />
                                      <span className={`text-[10px] font-bold uppercase tracking-widest ${theme.breakdownTitle}`}>Step Breakdown</span>
@@ -308,7 +304,7 @@ const StepCard: React.FC<StepCardProps> = ({
                             </div>
                         )}
 
-                        <div className="group/math bg-[#050505] rounded-xl py-6 px-5 border border-white/10 font-mono text-lg overflow-x-auto relative shadow-inner flex flex-col justify-center min-h-[5rem] hover:border-white/20 transition-colors">
+                        <div className="group/math bg-[#050505] rounded-xl py-5 sm:py-6 px-4 sm:px-5 border border-white/10 font-mono text-lg overflow-x-auto relative shadow-inner flex flex-col justify-center min-h-[4.5rem] hover:border-white/20 transition-colors">
                             <button
                                 onClick={handleCopy}
                                 className={`absolute top-2 right-2 p-1.5 rounded-md transition-all duration-200 backdrop-blur-sm border ${
@@ -339,11 +335,11 @@ const StepCard: React.FC<StepCardProps> = ({
                             </div>
                         )}
 
-                        <div className="flex items-center justify-between pt-5 border-t border-white/5 mt-5 pb-1">
+                        <div className="flex items-center justify-between pt-4 sm:pt-5 border-t border-white/5 mt-4 sm:mt-5 pb-1">
                             <button
                                 onClick={(e) => { e.stopPropagation(); onPrev?.(); }}
                                 disabled={isFirst && !prevLabel}
-                                className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg transition-all duration-200 border border-transparent ${
+                                className={`flex items-center gap-2 text-xs font-bold px-3 py-2 sm:px-4 rounded-lg transition-all duration-200 border border-transparent ${
                                     isFirst && !prevLabel
                                         ? 'text-gray-800 cursor-not-allowed' 
                                         : 'text-gray-400 hover:text-white hover:bg-white/5 hover:border-white/10'
@@ -356,7 +352,7 @@ const StepCard: React.FC<StepCardProps> = ({
                             <button
                                 onClick={(e) => { e.stopPropagation(); onNext?.(); }}
                                 disabled={isLast && !nextLabel}
-                                className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg transition-all duration-300 border ${
+                                className={`flex items-center gap-2 text-xs font-bold px-3 py-2 sm:px-4 rounded-lg transition-all duration-300 border ${
                                     isLast && !nextLabel
                                         ? 'text-gray-800 border-transparent cursor-not-allowed bg-[#0f0f0f]' 
                                         : `bg-transparent ${theme.nextBtn} active:scale-95`
