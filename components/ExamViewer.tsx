@@ -181,7 +181,7 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
 
                         {section.questions.map((q) => (
                             <div key={q.id} className="bg-[#0f0f0f] border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors shadow-lg group">
-                                <div className="bg-[#161616] px-6 py-4 flex items-center justify-between border-b border-white/5">
+                                <div className="bg-[#161616] px-4 sm:px-6 py-4 flex items-center justify-between border-b border-white/5">
                                     <div className="flex items-center gap-4">
                                         <span className="text-sm font-mono font-bold text-white">Q{q.number}</span>
                                         <span className="text-xs text-purple-200 font-bold px-3 py-1 rounded bg-purple-500/10 border border-purple-500/30 shadow-[0_0_5px_rgba(168,85,247,0.1)]">
@@ -207,7 +207,7 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                     </button>
                                 </div>
 
-                                <div className="p-8">
+                                <div className="p-5 sm:p-8">
                                     <QuestionBodyRenderer text={q.questionText} />
                                     
                                     {q.graphSvg && (

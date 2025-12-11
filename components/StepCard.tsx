@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useRef, useEffect, useState } from 'react';
 import { MathStep } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -207,10 +204,10 @@ const StepCard: React.FC<StepCardProps> = ({
           : 'bg-black border-white/10 hover:border-white/20 hover:bg-[#0a0a0a]'
         }`}
     >
-      <div className="p-5">
+      <div className="p-4 sm:p-5">
         <div className="flex items-start gap-4">
             {/* Step Number */}
-            <div className={`flex flex-shrink-0 items-center justify-center w-7 h-7 rounded-lg text-xs font-mono font-bold transition-colors duration-300
+            <div className={`flex flex-shrink-0 items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg text-xs font-mono font-bold transition-colors duration-300
                 ${isActive 
                     ? theme.numberActive
                     : 'bg-[#1c1c1e] text-gray-500 group-hover:bg-[#2c2c2e] group-hover:text-gray-300'

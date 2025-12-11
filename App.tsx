@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from './types';
 import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution, getDailyUsage } from './services/geminiService';
@@ -432,8 +431,6 @@ const App: React.FC = () => {
       }
   }, [currentStepIndex, stepGroups]);
 
-  // ... (Keyboard event handlers omitted for brevity, logic unchanged)
-
   useEffect(() => {
     if (appState === AppState.ANALYZING) {
         const progressInterval = setInterval(() => {
@@ -448,8 +445,6 @@ const App: React.FC = () => {
         setLoadingProgress(0);
     }
   }, [appState, appMode]);
-
-  // ... (normalizeMarkscheme, helper functions omitted for brevity, logic unchanged)
 
   const handleInputAdd = (input: UserInput) => {
     setUploads(prev => [...prev, input]);
@@ -484,8 +479,6 @@ const App: React.FC = () => {
       }
   }
 
-  // ... (startSolverFlow, handleExamConfigSubmit, generateDrillBatch, etc. logic unchanged)
-  // Re-implementing simplified versions to save space in the XML, logic remains the same.
   const startSolverFlow = async () => {
     const cost = uploads.length * COSTS.SOLVER_PER_IMAGE;
     await checkKeyAndProceed(async () => {
@@ -802,19 +795,19 @@ const toggleSection = (title: string) => {
             ? 'bg-black/70 backdrop-blur-md' 
             : 'bg-black/95 backdrop-blur-sm'
       }`}>
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
              <div className="group flex items-center gap-2 focus:outline-none pointer-events-none select-none">
-                <span className="font-sans font-bold text-2xl tracking-tighter text-white">
+                <span className="font-sans font-bold text-xl sm:text-2xl tracking-tighter text-white">
                     Bubble.
                 </span>
              </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
               
               <div 
-                  className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors cursor-default ${
+                  className={`flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg border transition-colors cursor-default ${
                     hasValidKey 
                         ? (useCredits() ? 'bg-yellow-900/10 border-yellow-500/20' : 'bg-green-900/10 border-green-500/20')
                         : 'bg-red-900/10 border-red-500/20'
@@ -824,53 +817,64 @@ const toggleSection = (title: string) => {
                       useCredits() ? (
                           <>
                             <Coins size={14} className="text-yellow-400" />
-                            <span className="text-xs font-bold font-mono text-yellow-400">{credits} Credits</span>
+                            <span className="text-xs font-bold font-mono text-yellow-400">
+                                {credits} <span className="hidden sm:inline">Credits</span>
+                            </span>
                           </>
                       ) : (
                           <>
                             <Key size={14} className="text-green-400" />
-                            <span className="text-xs font-bold font-mono text-green-400">Custom Key Active</span>
+                            <span className="text-xs font-bold font-mono text-green-400">
+                                <span className="sm:hidden">Key</span>
+                                <span className="hidden sm:inline">Custom Key Active</span>
+                            </span>
                           </>
                       )
                   ) : (
                       <>
                         <AlertCircle size={14} className="text-red-400" />
-                        <span className="text-xs font-bold font-mono text-red-400">Key Required</span>
+                        <span className="text-xs font-bold font-mono text-red-400">
+                            <span className="sm:hidden">Req</span>
+                            <span className="hidden sm:inline">Key Required</span>
+                        </span>
                       </>
                   )}
               </div>
 
               {appState === AppState.IDLE && (
-                    <div className="hidden sm:flex bg-[#121212] p-1 rounded-lg border border-white/10">
+                    <div className="flex sm:flex bg-[#121212] p-1 rounded-lg border border-white/10 gap-1 sm:gap-0">
                         <button
                         onClick={() => setAppMode('SOLVER')}
-                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${
+                        className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
                             appMode === 'SOLVER' 
                             ? 'bg-[#1e293b] text-blue-400 shadow-sm' 
                             : 'text-gray-500 hover:text-gray-300'
                         }`}
+                        title="Solver"
                         >
-                        <Pen size={14} /> Solver
+                        <Pen size={14} /> <span className="hidden sm:inline">Solver</span>
                         </button>
                         <button
                         onClick={() => setAppMode('EXAM')}
-                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${
+                        className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
                             appMode === 'EXAM' 
                             ? 'bg-[#1e293b] text-purple-400 shadow-sm' 
                             : 'text-gray-500 hover:text-gray-300'
                         }`}
+                        title="Exam Creator"
                         >
-                        <GraduationCap size={14} /> Exam Creator
+                        <GraduationCap size={14} /> <span className="hidden sm:inline">Exam Creator</span>
                         </button>
                         <button
                         onClick={() => setAppMode('DRILL')}
-                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${
+                        className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
                             appMode === 'DRILL' 
                             ? 'bg-[#1e293b] text-yellow-400 shadow-sm' 
                             : 'text-gray-500 hover:text-gray-300'
                         }`}
+                        title="Drill"
                         >
-                        <Zap size={14} /> Drill
+                        <Zap size={14} /> <span className="hidden sm:inline">Drill</span>
                         </button>
                     </div>
                 )}
@@ -878,9 +882,10 @@ const toggleSection = (title: string) => {
                 {appState !== AppState.IDLE && (
                     <button 
                         onClick={handleReset} 
-                        className="text-xs font-bold text-gray-500 hover:text-white px-3 py-1.5 border border-white/10 rounded-md hover:bg-white/5 transition-colors"
+                        className="text-xs font-bold text-gray-500 hover:text-white px-2 sm:px-3 py-1.5 border border-white/10 rounded-md hover:bg-white/5 transition-colors whitespace-nowrap"
                     >
-                        Back to Home
+                        <span className="hidden sm:inline">Back to Home</span>
+                        <span className="sm:hidden">Back</span>
                     </button>
                 )}
 
@@ -947,36 +952,11 @@ const toggleSection = (title: string) => {
                 </div>
           </div>
           
-          {/* ... (Rest of the render logic same as before, closing tags) */}
-          {appState === AppState.SOLVED && appMode === 'SOLVER' && uploads.length > 1 && (
-             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 bg-[#121212] p-1 rounded-full border border-white/10">
-                {uploads.map((_, idx) => {
-                    const isReady = !!solutions[idx];
-                    const isSelected = activeTab === idx;
-                    return (
-                        <button
-                            key={idx}
-                            onClick={() => { if (isReady) { setActiveTab(idx); setCurrentStepIndex(0); setActiveView('steps'); }}}
-                            disabled={!isReady}
-                            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-2 ${
-                                isSelected
-                                    ? 'bg-[#1e293b] text-blue-400 shadow-lg shadow-blue-900/10 border border-blue-500/20' 
-                                    : 'text-gray-500 hover:text-gray-300'
-                            } ${!isReady ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                            <span>Prob {idx + 1}</span>
-                            {!isReady && <Loader2 size={10} className="animate-spin" />}
-                        </button>
-                    )
-                })}
-             </div>
-          )}
         </div>
       </nav>
 
-      {/* Main Content Render Logic (Unchanged but ensuring component structure remains intact) */}
       <div className="relative z-10">
-        <main className="mx-auto px-6 py-8 max-w-6xl">
+        <main className="mx-auto px-4 sm:px-6 py-4 sm:py-8 max-w-6xl">
             {isLightboxOpen && activeInput?.type === 'image' && (
                 <Lightbox src={activeInput.preview!} onClose={() => setIsLightboxOpen(false)} />
             )}
@@ -1016,33 +996,33 @@ const toggleSection = (title: string) => {
                         : <DrillConfigPanel onStart={handleDrillConfigSubmit} onCancel={() => setShowConfig(false)} />
                 ) : (
                     <div className="space-y-10 w-full flex flex-col items-center z-10 relative">
-                        <div className="text-center space-y-4 max-w-2xl">
+                        <div className="text-center space-y-4 max-w-2xl px-4">
                             {appMode === 'SOLVER' && (
                                 <>
-                                    <h1 className="text-5xl font-bold tracking-tight text-white">
+                                    <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
                                         Math explained. <span className="text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">Simply.</span>
                                     </h1>
-                                    <p className="text-lg text-gray-500 font-normal max-w-md mx-auto">
+                                    <p className="text-base sm:text-lg text-gray-500 font-normal max-w-md mx-auto">
                                     Step-by-step IB HL analysis. Powered by Gemini.
                                     </p>
                                 </>
                             )}
                             {appMode === 'EXAM' && (
                                 <>
-                                    <h1 className="text-5xl font-bold tracking-tight text-white">
+                                    <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
                                         Create perfect <span className="text-purple-400 drop-shadow-[0_0_15px_rgba(168,85,247,0.5)]">Exams.</span>
                                     </h1>
-                                    <p className="text-lg text-gray-500 font-normal max-w-md mx-auto">
+                                    <p className="text-base sm:text-lg text-gray-500 font-normal max-w-md mx-auto">
                                     Upload notes or problems. Get a deployable IB paper.
                                     </p>
                                 </>
                             )}
                             {appMode === 'DRILL' && (
                                 <>
-                                    <h1 className="text-5xl font-bold tracking-tight text-white">
+                                    <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
                                         Adaptive <span className="text-yellow-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]">Practice.</span>
                                     </h1>
-                                    <p className="text-lg text-gray-500 font-normal max-w-md mx-auto">
+                                    <p className="text-base sm:text-lg text-gray-500 font-normal max-w-md mx-auto">
                                     Quick-fire drills that learn as you go.
                                     </p>
                                 </>
@@ -1107,6 +1087,7 @@ const toggleSection = (title: string) => {
             </div>
             )}
 
+            {/* ... Rest of appState rendering ... */}
             {/* Analyzing State */}
             {appState === AppState.ANALYZING && (
             <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in duration-700">
@@ -1160,7 +1141,7 @@ const toggleSection = (title: string) => {
             {/* Solved State */}
             {appState === AppState.SOLVED && (
                 appMode === 'SOLVER' && activeSolution ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-32 animate-in fade-in duration-500">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 pb-32 animate-in fade-in duration-500">
                          {/* Left Panel */}
                          <div className="lg:col-span-4 space-y-6">
                             <div className="sticky top-24 space-y-6">
@@ -1200,21 +1181,28 @@ const toggleSection = (title: string) => {
                          
                          {/* Right Panel */}
                          <div className="lg:col-span-8 space-y-6">
-                            <div className="flex items-center justify-between px-1">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-1 gap-4 sm:gap-0">
                                 <div className="flex items-center gap-6">
                                     <h2 className="text-2xl font-bold text-white">{solutions.length > 1 ? `Solution ${activeTab + 1}` : 'Solution'}</h2>
                                     <div className="flex bg-[#121212] p-1 rounded-lg border border-white/10">
                                         <button onClick={() => handleViewChange('steps')} className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all flex items-center gap-2 ${activeView === 'steps' ? 'bg-[#1e293b] text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
-                                            <Layers size={12} /> Detailed Steps
+                                            <Layers size={12} /> 
+                                            <span className="hidden sm:inline">Detailed Steps</span>
+                                            <span className="sm:hidden">Steps</span>
                                         </button>
                                         <button onClick={() => handleViewChange('markscheme')} className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all flex items-center gap-2 ${activeView === 'markscheme' ? 'bg-[#1e293b] text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
-                                            <ScrollText size={12} /> Markscheme
+                                            <ScrollText size={12} /> 
+                                            <span className="hidden sm:inline">Markscheme</span>
+                                            <span className="sm:hidden">Marks</span>
                                         </button>
                                     </div>
                                 </div>
-                                {activeView === 'steps' && <span className="text-xs font-bold text-gray-500">{activeSolution.steps.length} STEPS</span>}
+                                {activeView === 'steps' && <span className="text-xs font-bold text-gray-500 hidden sm:inline-block">{activeSolution.steps.length} STEPS</span>}
                                 {activeView === 'markscheme' && activeSolution.markscheme && (
-                                    <button onClick={handleDownloadMarkscheme} className="text-xs font-bold text-gray-400 hover:text-white flex items-center gap-1.5 transition-colors"><Download size={14} /> Download PDF</button>
+                                    <button onClick={handleDownloadMarkscheme} className="text-xs font-bold text-gray-400 hover:text-white flex items-center gap-1.5 transition-colors ml-auto sm:ml-0">
+                                        <Download size={14} /> 
+                                        <span className="hidden sm:inline">Download PDF</span>
+                                    </button>
                                 )}
                             </div>
 

@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText, Zap, GraduationCap } from 'lucide-react';
+import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText, Zap, GraduationCap, Minus } from 'lucide-react';
 import { ChatMessage, MathSolution, DrillQuestion, AppMode } from '../types';
 import { createChatSession } from '../services/geminiService';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -14,7 +13,7 @@ interface ChatInterfaceProps {
   onClose: () => void;
   activeView: 'steps' | 'markscheme';
   mode: AppMode;
-  userName: string; // Add userName prop
+  userName: string; 
 }
 
 type ChatScope = 'FULL' | 'STEP';
@@ -243,19 +242,26 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
 
   return (
     <div 
-      className={`fixed bottom-24 right-6 w-[375px] h-[540px] max-h-[75vh] z-40 flex flex-col font-sans origin-bottom-right transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]
+      className={`fixed bottom-0 sm:bottom-24 left-0 sm:left-auto right-0 sm:right-6 w-full sm:w-[375px] h-[85vh] sm:h-[540px] max-h-[90vh] sm:max-h-[75vh] z-40 flex flex-col font-sans transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]
         ${isOpen 
-            ? 'opacity-100 scale-100 translate-y-0 translate-x-0 pointer-events-auto rounded-[1.25rem]' 
-            : 'opacity-0 scale-75 translate-y-6 translate-x-4 pointer-events-none rounded-[2rem]'
+            ? 'opacity-100 translate-y-0 pointer-events-auto' 
+            : 'opacity-0 translate-y-full pointer-events-none'
+        } sm:rounded-[1.25rem] rounded-t-3xl shadow-2xl sm:origin-bottom-right sm:translate-y-0 sm:scale-100 sm:opacity-100 ${
+            !isOpen && 'sm:scale-75 sm:opacity-0 sm:translate-y-6 sm:translate-x-4'
         }`}
     >
-      {/* Frosted Glass Background - Very translucent */}
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-3xl rounded-[1.25rem] border border-white/10 shadow-2xl flex flex-col supports-[backdrop-filter]:bg-black/10" />
+      {/* Frosted Glass Background */}
+      <div className="absolute inset-0 bg-black/80 sm:bg-black/20 backdrop-blur-3xl rounded-t-3xl sm:rounded-[1.25rem] border-t sm:border border-white/10 shadow-2xl flex flex-col supports-[backdrop-filter]:bg-black/40" />
       
-      <div className="relative flex flex-col h-full z-10 overflow-hidden rounded-[1.25rem]">
+      <div className="relative flex flex-col h-full z-10 overflow-hidden rounded-t-3xl sm:rounded-[1.25rem]">
         
+        {/* Mobile Drag Handle */}
+        <div className="sm:hidden w-full flex justify-center pt-3 pb-1 cursor-pointer bg-transparent" onClick={onClose}>
+            <div className="w-12 h-1 bg-white/20 rounded-full" />
+        </div>
+
         {/* Header */}
-        <div className="flex-shrink-0 px-5 py-4 flex items-center justify-between border-b border-white/5 bg-white/5 backdrop-blur-sm">
+        <div className="flex-shrink-0 px-5 py-3 sm:py-4 flex items-center justify-between border-b border-white/5 bg-white/5 backdrop-blur-sm">
           <div className="flex items-center gap-2">
              <div className={`transition-all duration-500 ease-in-out flex items-center overflow-hidden ${messages.length > 0 ? 'w-5 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-4'}`}>
                 {mode === 'DRILL' ? <Zap size={16} className="text-yellow-400" /> : <Pen size={16} className="text-blue-400 flex-shrink-0" />}
@@ -467,7 +473,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 bg-white/5 backdrop-blur-md border-t border-white/5 flex flex-col p-3">
+        <div className="flex-shrink-0 bg-white/5 backdrop-blur-md border-t border-white/5 flex flex-col p-3 pb-6 sm:pb-3">
           <div className={`flex items-center gap-2 bg-black/20 rounded-full border border-white/10 transition-colors ${
               mode === 'DRILL' 
               ? 'focus-within:border-yellow-500/30'

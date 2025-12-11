@@ -2,7 +2,7 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Bubble.</title>
     <script>
       // Polyfill process for browser environments to prevent crashes in libraries that expect Node.js 'process'
@@ -47,8 +47,16 @@
     </script>
     <style>
       html {
-        font-size: 92.5%; /* Global scale down further */
+        font-size: 90%; /* Global scale adjusted to 90% as requested */
+        -webkit-tap-highlight-color: transparent;
       }
+      
+      @media (max-width: 640px) {
+        html {
+          font-size: 85%; /* Optimized for mobile compactness */
+        }
+      }
+
       body {
         /* Set base font to monospace stack */
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -56,6 +64,7 @@
         color: #ffffff;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        overflow-x: hidden; /* Prevent horizontal scroll on mobile */
       }
       
       /* Math Display Tweaks */
@@ -99,6 +108,17 @@
       * {
         scrollbar-width: thin;
         scrollbar-color: #334155 rgba(255, 255, 255, 0.05);
+      }
+      
+      /* Hide scrollbar for Chrome, Safari and Opera */
+      .no-scrollbar::-webkit-scrollbar {
+          display: none;
+      }
+
+      /* Hide scrollbar for IE, Edge and Firefox */
+      .no-scrollbar {
+          -ms-overflow-style: none;  /* IE and Edge */
+          scrollbar-width: none;  /* Firefox */
       }
     </style>
   <script type="importmap">

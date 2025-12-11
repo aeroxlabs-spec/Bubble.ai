@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Pen, Zap, GraduationCap, ArrowRight, AlertCircle, Sigma, Divide, Minus, Lightbulb, Percent, Hash, Ghost } from 'lucide-react';
@@ -16,7 +15,7 @@ export const AuthScreens: React.FC = () => {
             </div>
 
             {/* Header */}
-            <nav className="relative z-10 flex items-center justify-between px-8 py-6 max-w-7xl mx-auto w-full">
+            <nav className="relative z-10 flex items-center justify-between px-6 sm:px-8 py-6 max-w-7xl mx-auto w-full">
                 <div className="flex items-center gap-2">
                      <span className="text-2xl font-bold tracking-tighter">Bubble.</span>
                 </div>
@@ -58,19 +57,19 @@ export const AuthScreens: React.FC = () => {
 const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') => void }) => {
     
     return (
-        <div className="max-w-5xl mx-auto flex flex-col items-center text-center space-y-12 py-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative">
+        <div className="max-w-5xl mx-auto flex flex-col items-center text-center space-y-12 py-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative w-full">
             
             {/* Hero Section */}
-            <div className="space-y-8 max-w-4xl relative z-20 flex flex-col items-center">
+            <div className="space-y-8 max-w-4xl relative z-20 flex flex-col items-center px-4">
                 
-                <h1 className="text-5xl md:text-7xl font-bold tracking-tighter leading-none mb-2">
+                <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tighter leading-none mb-2">
                     Master IB Math <br />
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-yellow-400 pb-2 inline-block">
                         with Intelligence.
                     </span>
                 </h1>
                 
-                <div className="text-lg md:text-xl text-gray-400 w-full mx-auto leading-relaxed relative flex flex-col items-center">
+                <div className="text-base sm:text-lg md:text-xl text-gray-400 w-full mx-auto leading-relaxed relative flex flex-col items-center">
                     <p className="whitespace-nowrap">
                         Step-by-step solutions, custom exam papers, and adaptive drills.
                     </p>
@@ -86,32 +85,40 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
                 </div>
             </div>
 
-            {/* Feature Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10 w-full px-4 pt-20">
-                <FeatureCard 
-                    icon={<Pen size={20} className="text-blue-400" />}
-                    title="Smart Solver"
-                    desc="Detailed breakdowns and markscheme analysis."
-                    extraInfo="Upload any math image. Gemini analyzes structure & logic."
-                    color="border-blue-500/20 hover:border-blue-500/40"
-                    gradient="from-blue-500/5"
-                />
-                <FeatureCard 
-                    icon={<GraduationCap size={20} className="text-purple-400" />}
-                    title="Exam Creator"
-                    desc="Generate full IB papers from your notes."
-                    extraInfo="Select topics. AI generates a formatted IB PDF paper."
-                    color="border-purple-500/20 hover:border-purple-500/40"
-                    gradient="from-purple-500/5"
-                />
-                <FeatureCard 
-                    icon={<Zap size={20} className="text-yellow-400" />}
-                    title="Adaptive Drill"
-                    desc="Sessions that adapt to your skill level."
-                    extraInfo="Practice mode. Questions adapt to your skill level in real-time."
-                    color="border-yellow-500/20 hover:border-yellow-500/40"
-                    gradient="from-yellow-500/5"
-                />
+            {/* Feature Grid - Mobile: Grid 3 Cols, Desktop: Grid 3 Cols */}
+            <div className="w-full relative z-10 pt-10 sm:pt-20">
+                <div className="grid grid-cols-3 gap-2 px-2 md:gap-8 max-w-4xl mx-auto">
+                    <div>
+                        <FeatureCard 
+                            icon={<Pen size={20} className="text-blue-400" />}
+                            title="Smart Solver"
+                            desc="Detailed breakdowns and markscheme analysis."
+                            extraInfo="Upload any math image. Gemini analyzes structure & logic."
+                            color="border-blue-500/20 hover:border-blue-500/40"
+                            gradient="from-blue-500/5"
+                        />
+                    </div>
+                    <div>
+                        <FeatureCard 
+                            icon={<GraduationCap size={20} className="text-purple-400" />}
+                            title="Exam Creator"
+                            desc="Generate full IB papers from your notes."
+                            extraInfo="Select topics. AI generates a formatted IB PDF paper."
+                            color="border-purple-500/20 hover:border-purple-500/40"
+                            gradient="from-purple-500/5"
+                        />
+                    </div>
+                    <div>
+                        <FeatureCard 
+                            icon={<Zap size={20} className="text-yellow-400" />}
+                            title="Adaptive Drill"
+                            desc="Sessions that adapt to your skill level."
+                            extraInfo="Practice mode. Questions adapt to your skill level in real-time."
+                            color="border-yellow-500/20 hover:border-yellow-500/40"
+                            gradient="from-yellow-500/5"
+                        />
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -166,7 +173,7 @@ const FeatureCard = ({ icon, title, desc, color, gradient, extraInfo }: any) => 
 
     return (
         <div 
-            className="group relative w-full min-h-[180px]"
+            className="group relative w-full h-full min-h-[80px] sm:min-h-[180px]"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             onClick={handleClick}
@@ -185,22 +192,22 @@ const FeatureCard = ({ icon, title, desc, color, gradient, extraInfo }: any) => 
                             zIndex: -1
                         }}
                      >
-                        <item.Icon size={20} className="drop-shadow-lg" />
+                        <item.Icon size={16} className="drop-shadow-lg sm:w-5 sm:h-5" />
                      </div>
                  ))}
              </div>
 
              {/* Card Content - Flexible height */}
-             <div className={`relative z-10 h-full p-6 pt-10 rounded-xl bg-[#0a0a0a] border ${color} transition-all duration-300 group-hover:scale-[1.02] shadow-lg flex flex-col items-start justify-start cursor-pointer`}>
+             <div className={`relative z-10 h-full p-3 sm:p-6 sm:pt-10 rounded-xl bg-[#0a0a0a] border ${color} transition-all duration-300 group-hover:scale-[1.02] shadow-lg flex flex-col items-center sm:items-start justify-center sm:justify-start cursor-pointer`}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${gradient} to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl`} />
-                <div className="relative z-10 space-y-3 w-full text-left flex flex-col flex-1">
-                    <div className="p-2.5 bg-[#151515] rounded-lg inline-block shadow-inner border border-white/5 w-fit">{icon}</div>
+                <div className="relative z-10 space-y-2 sm:space-y-3 w-full text-center sm:text-left flex flex-col flex-1 items-center sm:items-start">
+                    <div className="p-2 sm:p-2.5 bg-[#151515] rounded-lg inline-block shadow-inner border border-white/5 w-fit">{icon}</div>
                     <div>
-                        <h3 className="font-bold text-lg text-white mb-1 tracking-tight">{title}</h3>
-                        <p className="text-xs text-gray-400 leading-relaxed font-medium">{desc}</p>
+                        <h3 className="font-bold text-xs sm:text-lg text-white mb-1 tracking-tight">{title}</h3>
+                        <p className="text-xs text-gray-400 leading-relaxed font-medium hidden sm:block">{desc}</p>
                     </div>
                     {/* Extra Info - Flexible height */}
-                    <div className={`text-[11px] font-mono text-blue-300 mt-2 min-h-[3rem] transition-opacity duration-200 ${typedText ? 'opacity-100' : 'opacity-0'}`}>
+                    <div className={`text-[11px] font-mono text-blue-300 mt-2 min-h-[3rem] transition-opacity duration-200 hidden sm:block ${typedText ? 'opacity-100' : 'opacity-0'}`}>
                         {typedText}
                         {typedText && <span className="inline-block w-1.5 h-3 bg-blue-400 ml-1 animate-pulse align-middle" />}
                     </div>
@@ -318,7 +325,7 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
     };
 
     return (
-        <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-300 relative">
+        <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-300 relative px-4">
             
             <div className={`bg-[#121212] border border-white/10 rounded-2xl p-8 shadow-2xl relative overflow-hidden transition-all duration-500 ${isAnimating ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}`}>
                 {/* Updated notch to gradient as requested */}
