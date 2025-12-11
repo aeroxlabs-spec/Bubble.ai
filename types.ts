@@ -113,17 +113,22 @@ export interface DrillQuestion {
 
 export type FeedbackType = 'general' | 'bug' | 'feature' | 'help';
 
+export interface FeedbackMetadata {
+    userEmail?: string;
+    userName?: string;
+    context?: string;
+    [key: string]: any;
+}
+
 export interface FeedbackV2 {
     id: string;
     created_at: string;
     user_id: string;
     type: FeedbackType;
-    title?: string;
+    title: string | null;
     body: string;
-    metadata?: any;
+    metadata: FeedbackMetadata;
     resolved: boolean;
-    resolved_at?: string;
-    resolved_by?: string;
-    // Client-side joins
-    user_email?: string; 
+    resolved_at: string | null;
+    resolved_by: string | null;
 }

@@ -45,7 +45,11 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, user }) => {
                 userId: user.id,
                 type: 'help',
                 body: question,
-                metadata: { userEmail: user.email, userName: user.name, context: 'Help Center' }
+                metadata: { 
+                    userEmail: user.email || "No Email", 
+                    userName: user.name || "Unknown User", 
+                    context: 'Help Center' 
+                }
             });
             setIsSuccess(true);
             setTimeout(() => {

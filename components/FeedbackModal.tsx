@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { X, Send, GraduationCap, Bug, Lightbulb, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, GraduationCap, Bug, Lightbulb, Loader2, CheckCircle2 } from 'lucide-react';
 import { adminService } from '../services/adminService';
 import { User, FeedbackType } from '../types';
 
@@ -34,7 +34,11 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, user }) 
                 userId: user.id,
                 type: type,
                 body: message,
-                metadata: { userEmail: user.email, userName: user.name } // Storing email in metadata for admin visibility
+                metadata: { 
+                    userEmail: user.email || "No Email", 
+                    userName: user.name || "Unknown User",
+                    timestamp: new Date().toISOString()
+                } 
             });
 
             setIsSuccess(true);
