@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from "../types";
 import { supabase } from "./supabaseClient";
@@ -70,6 +69,22 @@ export interface ApiLog {
     dbError?: string; // New field for DB errors
 }
 
+export interface SystemHealthReport {
+    timestamp: number;
+    checks: {
+        network: boolean;
+        database: boolean;
+        apiKey: boolean;
+        localStorage: boolean;
+        dbKeyFound: boolean; // Is key in Supabase?
+        keyMismatch: boolean; // Local vs DB mismatch?
+    };
+    userId: string | null;
+    keyMode: 'CUSTOM' | 'CREDITS' | 'NONE';
+    creditsBalance: number;
+    latencyMs: number;
+}
+
 const apiLogs: ApiLog[] = [];
 
 export const getRecentLogs = () => [...apiLogs].reverse().slice(0, 20);
@@ -106,13 +121,13 @@ const logRequest = (model: string, type: 'GENERATE' | 'CHAT' | 'TEST', appMode: 
                 });
 
                 if (error) {
-                    console.warn("Supabase Log Insert Error:", error.message);
+                    // console.warn("Supabase Log Insert Error:", error.message); // Silent fail
                     const targetLog = apiLogs.find(l => l.id === logId);
                     if (targetLog) targetLog.dbError = `DB_ERROR: ${error.message}`;
                 }
             }
         } catch (e: any) {
-            console.warn("Supabase Log Exception:", e);
+            // console.warn("Supabase Log Exception:", e); // Silent fail
             const targetLog = apiLogs.find(l => l.id === logId);
             if (targetLog) targetLog.dbError = `DB_EXCEPTION: ${e.message}`;
         }
@@ -174,6 +189,96 @@ export const getSystemDiagnostics = () => {
             process: false, // Disabled
         }
     }
+};
+
+export const runDeepSystemCheck = async (): Promise<SystemHealthReport> => {
+    const startTime = Date.now();
+    const report: SystemHealthReport = {
+        timestamp: startTime,
+        checks: {
+            network: navigator.onLine,
+            database: false,
+            apiKey: false,
+            localStorage: typeof window !== 'undefined' && !!window.localStorage,
+            dbKeyFound: false,
+            keyMismatch: false
+        },
+        userId: null,
+        keyMode: 'NONE',
+        creditsBalance: 0,
+        latencyMs: 0
+    };
+
+    const activeKey = getApiKey();
+    const localKey = typeof window !== 'undefined' ? localStorage.getItem('bubble_user_api_key') : null;
+
+    // 1. Check Database (Supabase) and Key Consistency
+    try {
+        const user = await authService.getCurrentUser();
+        if (user) {
+            report.userId = user.id;
+            // Check auth status
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                // Check KEY existence in Supabase
+                // Note: using 'encrypted_key' as per schema instructions
+                const { data, error } = await supabase
+                    .from('USER_API_KEYS')
+                    .select('encrypted_key')
+                    .eq('user_id', user.id)
+                    .eq('provider', 'gemini')
+                    .maybeSingle();
+                
+                if (!error) {
+                    report.checks.database = true;
+                    if (data && data.encrypted_key) {
+                        report.checks.dbKeyFound = true;
+                        // Check for mismatch between Local and Cloud
+                        if (localKey && data.encrypted_key !== localKey) {
+                            report.checks.keyMismatch = true;
+                        }
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Diagnostic: DB Check Failed", e);
+    }
+
+    // 2. Check Key & Credits Mode
+    const credits = parseInt(localStorage.getItem('bubble_credits') || '0', 10);
+    report.creditsBalance = credits;
+
+    const defaultKey = "AIzaSyAk4hc_GDCixtu5v7y2yrX4TpUL5Q1EAHc"; // Hardcoded known default
+    
+    if (activeKey) {
+        if (activeKey === defaultKey) {
+            report.keyMode = 'CREDITS';
+        } else {
+            report.keyMode = 'CUSTOM';
+        }
+    } else {
+        report.keyMode = 'NONE';
+    }
+
+    // 3. Latency Ping (Actual API Call)
+    if (activeKey) {
+        try {
+             const startPing = Date.now();
+             const client = new GoogleGenAI({ apiKey: activeKey });
+             await client.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: { parts: [{ text: 'Ping' }] }
+             });
+             report.latencyMs = Date.now() - startPing;
+             report.checks.apiKey = true;
+        } catch (e) {
+             console.error("Diagnostic: API Ping Failed", e);
+             report.checks.apiKey = false;
+        }
+    }
+
+    return report;
 };
 
 // Lazy initialization of the AI client

@@ -1,5 +1,4 @@
 
-
 export interface MathStep {
   section: string;
   title: string;
@@ -110,24 +109,21 @@ export interface DrillQuestion {
   calculatorAllowed: boolean;
 }
 
-// --- ADMIN & FEEDBACK TYPES ---
+// --- FEEDBACK TYPES (V2) ---
 
-export interface Feedback {
+export type FeedbackType = 'general' | 'bug' | 'feature' | 'help';
+
+export interface FeedbackV2 {
     id: string;
-    userId: string;
-    userName: string;
-    userEmail: string;
-    type: 'BUG' | 'FEATURE' | 'GENERAL' | 'HELP';
-    message: string;
-    timestamp: number;
-    status: 'NEW' | 'READ' | 'ARCHIVED';
-}
-
-export interface AdminStats {
-    totalUsers: number;
-    totalRequests: number;
-    creditsConsumed: number;
-    activeNow: number;
-    requestsOverTime: { date: string; count: number }[];
-    modeDistribution: { mode: AppMode; count: number }[];
+    created_at: string;
+    user_id: string;
+    type: FeedbackType;
+    title?: string;
+    body: string;
+    metadata?: any;
+    resolved: boolean;
+    resolved_at?: string;
+    resolved_by?: string;
+    // Client-side joins
+    user_email?: string; 
 }

@@ -1,9 +1,8 @@
 
-
 import React, { useState } from 'react';
-import { X, Send, GraduationCap, Bug, Lightbulb, Loader2 } from 'lucide-react';
+import { X, Send, GraduationCap, Bug, Lightbulb, Loader2, CheckCircle2 } from 'lucide-react';
 import { adminService } from '../services/adminService';
-import { User } from '../types';
+import { User, FeedbackType } from '../types';
 
 interface FeedbackModalProps {
     isOpen: boolean;
@@ -12,15 +11,15 @@ interface FeedbackModalProps {
 }
 
 const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, user }) => {
-    const [type, setType] = useState<'GENERAL' | 'BUG' | 'FEATURE'>('GENERAL');
+    const [type, setType] = useState<FeedbackType>('general');
     const [message, setMessage] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
 
-    const placeholders = {
-        GENERAL: "Tell us what you think...",
-        BUG: "Describe the bug, steps to reproduce, and what you expected...",
-        FEATURE: "Describe the feature you'd like to see and why it's useful..."
+    const placeholders: Record<string, string> = {
+        general: "Tell us what you think...",
+        bug: "Describe the bug, steps to reproduce, and what you expected...",
+        feature: "Describe the feature you'd like to see and why it's useful..."
     };
 
     if (!isOpen) return null;
@@ -33,20 +32,21 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, user }) 
         try {
             await adminService.submitFeedback({
                 userId: user.id,
-                userName: user.name,
-                userEmail: user.email,
-                type,
-                message
+                type: type,
+                body: message,
+                metadata: { userEmail: user.email, userName: user.name } // Storing email in metadata for admin visibility
             });
+
             setIsSuccess(true);
             setTimeout(() => {
                 onClose();
                 setIsSuccess(false);
                 setMessage('');
-                setType('GENERAL');
-            }, 1500);
+                setType('general');
+            }, 2000);
         } catch (error) {
             console.error(error);
+            alert("Failed to submit feedback. Please check your connection.");
         } finally {
             setIsSubmitting(false);
         }
@@ -55,27 +55,12 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, user }) 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
             
-            <style dangerouslySetInnerHTML={{__html: `
-                @keyframes gentle-bounce {
-                    0%, 100% { transform: translateY(0); }
-                    50% { transform: translateY(-25%); }
-                }
-                @keyframes pop-bounce {
-                    0% { transform: scale(1); }
-                    50% { transform: scale(1.2); }
-                    100% { transform: scale(1); }
-                }
-                .icon-react {
-                    animation: pop-bounce 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                }
-            `}} />
-
             <div className="w-full max-w-md bg-[#0a0a0a]/90 border border-white/10 rounded-2xl shadow-2xl overflow-hidden relative backdrop-blur-xl">
                 
                 {/* Upper Notch Gradient */}
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 via-purple-500 to-yellow-500 shadow-[0_0_15px_rgba(59,130,246,0.5)] z-20" />
 
-                {/* Frosted Header */}
+                {/* Header */}
                 <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-white/5 pt-6">
                     <h2 className="text-lg font-bold text-white tracking-tight">Send Feedback</h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
@@ -85,14 +70,12 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, user }) 
 
                 {isSuccess ? (
                     <div className="p-12 flex flex-col items-center justify-center text-center space-y-6 animate-in fade-in zoom-in-95">
-                        <Send 
-                            size={24} 
-                            className="text-white" 
-                            style={{ animation: 'gentle-bounce 2s infinite' }}
-                        />
+                        <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center text-green-400 border border-green-500/20 mb-2">
+                            <CheckCircle2 size={32} />
+                        </div>
                         <div>
-                            <h3 className="text-xl font-bold text-white">Message Sent!</h3>
-                            <p className="text-gray-400 text-sm mt-1">Thank you for helping us improve Bubble.</p>
+                            <h3 className="text-xl font-bold text-white">Received!</h3>
+                            <p className="text-gray-400 text-sm mt-1">Thanks for helping us improve Bubble.</p>
                         </div>
                     </div>
                 ) : (
@@ -102,47 +85,38 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, user }) 
                             <div className="grid grid-cols-3 gap-2">
                                 <button
                                     type="button"
-                                    onClick={() => setType('GENERAL')}
+                                    onClick={() => setType('general')}
                                     className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
-                                        type === 'GENERAL' 
+                                        type === 'general' 
                                             ? 'bg-blue-500/10 border-blue-500/40 text-blue-400' 
                                             : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10'
                                     }`}
                                 >
-                                    <GraduationCap 
-                                        size={18} 
-                                        className={type === 'GENERAL' ? 'icon-react' : ''}
-                                    />
+                                    <GraduationCap size={18} />
                                     <span className="text-[10px] font-bold">General</span>
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setType('BUG')}
+                                    onClick={() => setType('bug')}
                                     className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
-                                        type === 'BUG' 
+                                        type === 'bug' 
                                             ? 'bg-red-500/10 border-red-500/40 text-red-400' 
                                             : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10'
                                     }`}
                                 >
-                                    <Bug 
-                                        size={18} 
-                                        className={type === 'BUG' ? 'icon-react' : ''}
-                                    />
-                                    <span className="text-[10px] font-bold">Bug Report</span>
+                                    <Bug size={18} />
+                                    <span className="text-[10px] font-bold">Bug</span>
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setType('FEATURE')}
+                                    onClick={() => setType('feature')}
                                     className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
-                                        type === 'FEATURE' 
+                                        type === 'feature' 
                                             ? 'bg-yellow-500/10 border-yellow-500/40 text-yellow-400' 
                                             : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10'
                                     }`}
                                 >
-                                    <Lightbulb 
-                                        size={18} 
-                                        className={type === 'FEATURE' ? 'icon-react' : ''}
-                                    />
+                                    <Lightbulb size={18} />
                                     <span className="text-[10px] font-bold">Feature</span>
                                 </button>
                             </div>

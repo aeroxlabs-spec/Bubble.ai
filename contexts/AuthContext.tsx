@@ -192,7 +192,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsCloudSynced(false);
         } else {
             if (!user.id.startsWith('guest-')) {
-                await authService.saveGeminiKey(user.id, key);
+                const result = await authService.saveGeminiKey(user.id, key);
+                if (!result.success) {
+                    // Critical: Throw error so UI knows save failed
+                    throw new Error("Cloud Save Failed: " + result.error);
+                }
                 setIsCloudSynced(true);
             } else {
                 setIsCloudSynced(false);

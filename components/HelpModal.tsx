@@ -1,7 +1,6 @@
 
-
 import React, { useState } from 'react';
-import { X, ChevronDown, MessageCircle, HelpCircle, Send, CheckCircle2, Loader2 } from 'lucide-react';
+import { X, ChevronDown, MessageCircle, HelpCircle, Send, Loader2 } from 'lucide-react';
 import { User } from '../types';
 import { adminService } from '../services/adminService';
 
@@ -44,10 +43,9 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, user }) => {
         try {
             await adminService.submitFeedback({
                 userId: user.id,
-                userName: user.name,
-                userEmail: user.email,
-                type: 'HELP',
-                message: question
+                type: 'help',
+                body: question,
+                metadata: { userEmail: user.email, userName: user.name, context: 'Help Center' }
             });
             setIsSuccess(true);
             setTimeout(() => {
@@ -57,6 +55,7 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, user }) => {
             }, 2500);
         } catch (e) {
             console.error(e);
+            alert("Error sending help request. Please try again.");
         } finally {
             setIsSubmitting(false);
         }
@@ -65,13 +64,6 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, user }) => {
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
              
-             <style dangerouslySetInnerHTML={{__html: `
-                @keyframes gentle-bounce {
-                    0%, 100% { transform: translateY(0); }
-                    50% { transform: translateY(-25%); }
-                }
-             `}} />
-
              <div className="w-full max-w-lg bg-[#0a0a0a]/95 border border-white/10 rounded-2xl shadow-2xl overflow-hidden relative backdrop-blur-xl flex flex-col max-h-[85vh]">
                 
                  {/* Top Gradient */}
@@ -115,21 +107,20 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, user }) => {
                     {/* Ask Admin Section */}
                     <div className="space-y-4">
                          <div className="flex items-center justify-between">
-                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Ask the Admin</h3>
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Ask Support</h3>
                             <span className="text-[10px] text-blue-400 flex items-center gap-1">
                                 <MessageCircle size={10} /> replies via email
                             </span>
                          </div>
                          
                          {isSuccess ? (
-                             <div className="flex flex-col items-center justify-center text-center animate-in fade-in zoom-in-95 py-6">
+                             <div className="flex flex-col items-center justify-center text-center animate-in fade-in zoom-in-95 py-6 bg-white/5 rounded-xl border border-white/10">
                                  <Send 
                                     size={24} 
-                                    className="text-white mb-3" 
-                                    style={{ animation: 'gentle-bounce 2s infinite' }}
+                                    className="text-green-400 mb-3" 
                                  />
                                  <p className="text-white font-bold text-sm">Request Sent</p>
-                                 <p className="text-xs text-gray-400 mt-1">The admin will reply to <b>{user.email}</b> shortly.</p>
+                                 <p className="text-xs text-gray-400 mt-1">We'll respond to <b>{user.email}</b> shortly.</p>
                              </div>
                          ) : (
                              <form onSubmit={handleSubmit} className="space-y-3">
