@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ExamPaper } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -125,7 +126,7 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                 {parts.length > 0 && (
                     <div className="space-y-4 w-full">
                         {parts.map((part, idx) => (
-                            <div key={idx} className="flex items-start justify-between gap-4 sm:gap-8 w-full group/part">
+                            <div key={idx} className="flex items-start justify-between gap-8 w-full group/part">
                                 <div className="flex-1 min-w-0 text-gray-200 leading-relaxed font-serif text-base pt-0.5">
                                      <MarkdownRenderer content={part.content} mode="EXAM" />
                                 </div>
@@ -157,15 +158,15 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                 <div className="flex gap-2">
                     <button 
                         onClick={() => handleDownload('PAPER')}
-                        className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg border border-purple-500/50 text-purple-400 hover:shadow-[0_0_15px_rgba(168,85,247,0.5)] hover:bg-purple-500/10 text-xs font-bold transition-all bg-transparent"
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-500/50 text-purple-400 hover:shadow-[0_0_15px_rgba(168,85,247,0.5)] hover:bg-purple-500/10 text-xs font-bold transition-all bg-transparent"
                     >
-                        <Download size={14} /> <span className="hidden sm:inline">Print Paper</span> <span className="sm:hidden">Paper</span>
+                        <Download size={14} /> Print Paper
                     </button>
                     <button 
                         onClick={() => handleDownload('MARKSCHEME')}
-                        className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg border border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 text-xs font-bold transition-all bg-transparent"
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 text-xs font-bold transition-all bg-transparent"
                     >
-                        <ListStart size={14} /> <span className="hidden sm:inline">Markscheme</span> <span className="sm:hidden">Key</span>
+                        <ListStart size={14} /> Markscheme
                     </button>
                 </div>
             </div>
@@ -180,7 +181,7 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
 
                         {section.questions.map((q) => (
                             <div key={q.id} className="bg-[#0f0f0f] border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors shadow-lg group">
-                                <div className="bg-[#161616] px-4 sm:px-6 py-4 flex items-center justify-between border-b border-white/5">
+                                <div className="bg-[#161616] px-6 py-4 flex items-center justify-between border-b border-white/5">
                                     <div className="flex items-center gap-4">
                                         <span className="text-sm font-mono font-bold text-white">Q{q.number}</span>
                                         <span className="text-xs text-purple-200 font-bold px-3 py-1 rounded bg-purple-500/10 border border-purple-500/30 shadow-[0_0_5px_rgba(168,85,247,0.1)]">
@@ -206,7 +207,7 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                     </button>
                                 </div>
 
-                                <div className="p-5 sm:p-8">
+                                <div className="p-8">
                                     <QuestionBodyRenderer text={q.questionText} />
                                     
                                     {q.graphSvg && (

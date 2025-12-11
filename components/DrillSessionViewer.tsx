@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { DrillQuestion } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -228,7 +230,7 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({
             <div className="bg-[#121212] border border-white/10 rounded-2xl shadow-2xl overflow-hidden relative group">
                 <div className="absolute top-0 left-0 w-full h-1 bg-yellow-500/50"></div>
                 
-                <div className="bg-[#181818] border-b border-white/5 px-4 sm:px-6 py-3 flex items-center justify-between">
+                <div className="bg-[#181818] border-b border-white/5 px-6 py-3 flex items-center justify-between">
                      <div className="flex items-center gap-3">
                         {question.calculatorAllowed ? (
                             <div className="flex items-center gap-1.5 text-[10px] font-bold text-green-400 bg-green-900/10 px-2 py-0.5 rounded border border-green-500/20">
@@ -250,16 +252,16 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({
                      </button>
                 </div>
 
-                <div className="p-5 sm:p-8 min-h-[150px]">
+                <div className="p-8 min-h-[150px]">
                     <QuestionBodyRenderer text={question.questionText} />
                 </div>
 
                 <div className="bg-[#0a0a0a] border-t border-white/5 p-4 flex flex-col gap-3">
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0">
-                         <div className="flex gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
+                    <div className="flex items-center justify-between">
+                         <div className="flex gap-3">
                              <button 
                                 onClick={() => setShowHint(!showHint)}
-                                className={`p-2 rounded-lg transition-colors border flex-1 sm:flex-none justify-center sm:justify-start ${
+                                className={`p-2 rounded-lg transition-colors border ${
                                     showHint 
                                     ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400' 
                                     : 'bg-transparent border-transparent text-gray-500 hover:text-yellow-400 hover:bg-yellow-500/5'
@@ -271,21 +273,20 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({
 
                              <button 
                                 onClick={() => setShowAnswer(!showAnswer)}
-                                className={`text-xs font-bold px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 border flex-1 sm:flex-none ${
+                                className={`text-xs font-bold px-3 py-2 rounded-lg transition-colors flex items-center gap-2 border ${
                                     showAnswer 
                                     ? 'bg-white/5 border-white/10 text-white' 
                                     : 'bg-transparent border-transparent text-gray-500 hover:text-gray-300'
                                 }`}
                              >
                                 <CheckCircle2 size={14} />
-                                <span className="sm:hidden">Answer</span>
-                                <span className="hidden sm:inline">Check Answer</span>
+                                Check Answer
                              </button>
 
                              <button 
                                 onClick={handleSolutionClick}
                                 disabled={isGeneratingSolution}
-                                className={`text-xs font-bold px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 border flex-[2] sm:flex-none ${
+                                className={`text-xs font-bold px-3 py-2 rounded-lg transition-colors flex items-center gap-2 border ${
                                     showSolution 
                                     ? 'bg-white/5 border-white/10 text-white' 
                                     : 'bg-transparent border-transparent text-gray-500 hover:text-gray-300'
@@ -296,11 +297,11 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({
                              </button>
                          </div>
 
-                         <div className="flex items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
+                         <div className="flex items-center gap-3">
                              <button 
                                 onClick={onPrev}
                                 disabled={!hasPrev || isNextLoading}
-                                className={`text-gray-500 hover:text-white font-bold text-xs px-3 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all disabled:opacity-30 disabled:hover:text-gray-500 flex-1 sm:flex-none`}
+                                className={`text-gray-500 hover:text-white font-bold text-xs px-3 py-2.5 rounded-lg flex items-center gap-2 transition-all disabled:opacity-30 disabled:hover:text-gray-500`}
                              >
                                 <ArrowLeft size={14} /> Prev
                              </button>
@@ -309,7 +310,7 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({
                                 onClick={onNext}
                                 disabled={isNextLoading || isGeneratingSolution}
                                 className={`
-                                    relative overflow-hidden font-bold text-xs px-6 py-2.5 rounded-lg flex items-center gap-2 transition-all min-w-[140px] justify-center flex-[2] sm:flex-none
+                                    relative overflow-hidden font-bold text-xs px-6 py-2.5 rounded-lg flex items-center gap-2 transition-all min-w-[140px] justify-center
                                     ${isNextLoading 
                                         ? 'border border-yellow-500/20 text-yellow-500/70 bg-yellow-500/5 cursor-wait' 
                                         : 'border border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10 hover:shadow-[0_0_15px_rgba(234,179,8,0.2)]'

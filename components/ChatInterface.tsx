@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText, Zap, ChevronDown } from 'lucide-react';
+import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText, Zap, GraduationCap } from 'lucide-react';
 import { ChatMessage, MathSolution, DrillQuestion, AppMode } from '../types';
 import { createChatSession } from '../services/geminiService';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -13,7 +14,7 @@ interface ChatInterfaceProps {
   onClose: () => void;
   activeView: 'steps' | 'markscheme';
   mode: AppMode;
-  userName: string;
+  userName: string; // Add userName prop
 }
 
 type ChatScope = 'FULL' | 'STEP';
@@ -242,23 +243,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
 
   return (
     <div 
-      className={`fixed z-40 flex flex-col font-sans transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]
-        /* Mobile: Bottom Sheet */
-        bottom-0 right-0 w-full h-[80vh] rounded-t-[1.25rem] rounded-b-none 
-        /* Desktop: Floating Card */
-        sm:bottom-24 sm:right-6 sm:w-[375px] sm:h-[540px] sm:max-h-[75vh] sm:rounded-[1.25rem]
+      className={`fixed bottom-24 right-6 w-[375px] h-[540px] max-h-[75vh] z-40 flex flex-col font-sans origin-bottom-right transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]
         ${isOpen 
-            ? 'opacity-100 translate-y-0 pointer-events-auto' 
-            : 'opacity-0 translate-y-full sm:translate-y-6 sm:translate-x-4 pointer-events-none'
+            ? 'opacity-100 scale-100 translate-y-0 translate-x-0 pointer-events-auto rounded-[1.25rem]' 
+            : 'opacity-0 scale-75 translate-y-6 translate-x-4 pointer-events-none rounded-[2rem]'
         }`}
     >
-      {/* Frosted Glass Background */}
-      <div className="absolute inset-0 bg-black/80 sm:bg-black/20 backdrop-blur-3xl border border-white/10 shadow-2xl flex flex-col supports-[backdrop-filter]:bg-black/40 rounded-t-[1.25rem] sm:rounded-[1.25rem] rounded-b-none sm:rounded-b-[1.25rem]" />
+      {/* Frosted Glass Background - Very translucent */}
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-3xl rounded-[1.25rem] border border-white/10 shadow-2xl flex flex-col supports-[backdrop-filter]:bg-black/10" />
       
-      <div className="relative flex flex-col h-full z-10 overflow-hidden rounded-t-[1.25rem] sm:rounded-[1.25rem] rounded-b-none sm:rounded-b-[1.25rem]">
+      <div className="relative flex flex-col h-full z-10 overflow-hidden rounded-[1.25rem]">
         
         {/* Header */}
-        <div className="flex-shrink-0 px-5 py-4 flex items-center justify-between border-b border-white/5 bg-white/5 backdrop-blur-sm cursor-pointer sm:cursor-default" onClick={onClose}>
+        <div className="flex-shrink-0 px-5 py-4 flex items-center justify-between border-b border-white/5 bg-white/5 backdrop-blur-sm">
           <div className="flex items-center gap-2">
              <div className={`transition-all duration-500 ease-in-out flex items-center overflow-hidden ${messages.length > 0 ? 'w-5 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-4'}`}>
                 {mode === 'DRILL' ? <Zap size={16} className="text-yellow-400" /> : <Pen size={16} className="text-blue-400 flex-shrink-0" />}
@@ -266,39 +263,32 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
              <span className="text-white font-sans font-bold text-lg tracking-tighter">Bubble.</span>
           </div>
           
-          <div className="flex items-center gap-3">
-            {mode === 'DRILL' ? (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 border border-yellow-500/30 shadow-[0_0_10px_rgba(234,179,8,0.1)]">
-                    <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 shadow-[0_0_5px_rgba(234,179,8,0.8)]"></div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-200">
-                        Drill Coach
-                    </span>
-                </div>
-            ) : activeView === 'markscheme' ? (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.1)]">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.8)]"></div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
-                        Markscheme
-                    </span>
-                </div>
-            ) : (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); toggleScope(); }}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 border border-white/10 hover:border-blue-500/30 transition-colors group"
-                >
-                     <div className={`w-1.5 h-1.5 rounded-full ${activeScope === 'STEP' ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
-                     <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 group-hover:text-blue-200 w-16 text-center">
-                        {activeScope === 'STEP' ? `Step ${currentStepIndex + 1}` : 'Problem'}
-                     </span>
-                     <ArrowRightLeft size={10} className="text-gray-600 group-hover:text-blue-400" />
-                </button>
-            )}
-            
-            {/* Mobile Close Handle/Icon */}
-            <div className="sm:hidden text-gray-500">
-                <ChevronDown size={20} />
-            </div>
-          </div>
+          {mode === 'DRILL' ? (
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 border border-yellow-500/30 shadow-[0_0_10px_rgba(234,179,8,0.1)]">
+                  <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 shadow-[0_0_5px_rgba(234,179,8,0.8)]"></div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-200">
+                      Drill Coach
+                  </span>
+              </div>
+          ) : activeView === 'markscheme' ? (
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.1)]">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.8)]"></div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
+                      Markscheme
+                  </span>
+              </div>
+          ) : (
+              <button 
+                onClick={toggleScope}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 border border-white/10 hover:border-blue-500/30 transition-colors group"
+              >
+                   <div className={`w-1.5 h-1.5 rounded-full ${activeScope === 'STEP' ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
+                   <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 group-hover:text-blue-200 w-16 text-center">
+                      {activeScope === 'STEP' ? `Step ${currentStepIndex + 1}` : 'Problem'}
+                   </span>
+                   <ArrowRightLeft size={10} className="text-gray-600 group-hover:text-blue-400" />
+              </button>
+          )}
         </div>
 
         {/* Messages */}
@@ -477,7 +467,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 bg-white/5 backdrop-blur-md border-t border-white/5 flex flex-col p-3 pb-safe sm:pb-3">
+        <div className="flex-shrink-0 bg-white/5 backdrop-blur-md border-t border-white/5 flex flex-col p-3">
           <div className={`flex items-center gap-2 bg-black/20 rounded-full border border-white/10 transition-colors ${
               mode === 'DRILL' 
               ? 'focus-within:border-yellow-500/30'

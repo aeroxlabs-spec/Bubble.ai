@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from './types';
 import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution, getDailyUsage } from './services/geminiService';
@@ -67,7 +68,7 @@ const MagneticPencil = ({ onClick, isOpen, mode }: { onClick: () => void, isOpen
   const Icon = mode === 'DRILL' ? Zap : Pen;
 
   return (
-    <div className="fixed bottom-10 right-10 z-50 pointer-events-none hidden sm:block">
+    <div className="fixed bottom-10 right-10 z-50 pointer-events-none">
        <button
         ref={btnRef}
         onClick={onClick}
@@ -801,7 +802,7 @@ const toggleSection = (title: string) => {
             ? 'bg-black/70 backdrop-blur-md' 
             : 'bg-black/95 backdrop-blur-sm'
       }`}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
              <div className="group flex items-center gap-2 focus:outline-none pointer-events-none select-none">
                 <span className="font-sans font-bold text-2xl tracking-tighter text-white">
@@ -946,8 +947,9 @@ const toggleSection = (title: string) => {
                 </div>
           </div>
           
+          {/* ... (Rest of the render logic same as before, closing tags) */}
           {appState === AppState.SOLVED && appMode === 'SOLVER' && uploads.length > 1 && (
-             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 bg-[#121212] p-1 rounded-full border border-white/10 hidden lg:flex">
+             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 bg-[#121212] p-1 rounded-full border border-white/10">
                 {uploads.map((_, idx) => {
                     const isReady = !!solutions[idx];
                     const isSelected = activeTab === idx;
@@ -974,7 +976,7 @@ const toggleSection = (title: string) => {
 
       {/* Main Content Render Logic (Unchanged but ensuring component structure remains intact) */}
       <div className="relative z-10">
-        <main className="mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-6xl">
+        <main className="mx-auto px-6 py-8 max-w-6xl">
             {isLightboxOpen && activeInput?.type === 'image' && (
                 <Lightbox src={activeInput.preview!} onClose={() => setIsLightboxOpen(false)} />
             )}
@@ -1014,33 +1016,33 @@ const toggleSection = (title: string) => {
                         : <DrillConfigPanel onStart={handleDrillConfigSubmit} onCancel={() => setShowConfig(false)} />
                 ) : (
                     <div className="space-y-10 w-full flex flex-col items-center z-10 relative">
-                        <div className="text-center space-y-4 max-w-2xl px-2">
+                        <div className="text-center space-y-4 max-w-2xl">
                             {appMode === 'SOLVER' && (
                                 <>
-                                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white">
-                                        Math explained. <span className="text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)] block sm:inline">Simply.</span>
+                                    <h1 className="text-5xl font-bold tracking-tight text-white">
+                                        Math explained. <span className="text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">Simply.</span>
                                     </h1>
-                                    <p className="text-base sm:text-lg text-gray-500 font-normal max-w-md mx-auto">
+                                    <p className="text-lg text-gray-500 font-normal max-w-md mx-auto">
                                     Step-by-step IB HL analysis. Powered by Gemini.
                                     </p>
                                 </>
                             )}
                             {appMode === 'EXAM' && (
                                 <>
-                                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white">
-                                        Create perfect <span className="text-purple-400 drop-shadow-[0_0_15px_rgba(168,85,247,0.5)] block sm:inline">Exams.</span>
+                                    <h1 className="text-5xl font-bold tracking-tight text-white">
+                                        Create perfect <span className="text-purple-400 drop-shadow-[0_0_15px_rgba(168,85,247,0.5)]">Exams.</span>
                                     </h1>
-                                    <p className="text-base sm:text-lg text-gray-500 font-normal max-w-md mx-auto">
+                                    <p className="text-lg text-gray-500 font-normal max-w-md mx-auto">
                                     Upload notes or problems. Get a deployable IB paper.
                                     </p>
                                 </>
                             )}
                             {appMode === 'DRILL' && (
                                 <>
-                                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white">
-                                        Adaptive <span className="text-yellow-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)] block sm:inline">Practice.</span>
+                                    <h1 className="text-5xl font-bold tracking-tight text-white">
+                                        Adaptive <span className="text-yellow-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]">Practice.</span>
                                     </h1>
-                                    <p className="text-base sm:text-lg text-gray-500 font-normal max-w-md mx-auto">
+                                    <p className="text-lg text-gray-500 font-normal max-w-md mx-auto">
                                     Quick-fire drills that learn as you go.
                                     </p>
                                 </>
@@ -1158,10 +1160,10 @@ const toggleSection = (title: string) => {
             {/* Solved State */}
             {appState === AppState.SOLVED && (
                 appMode === 'SOLVER' && activeSolution ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 pb-32 animate-in fade-in duration-500">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-32 animate-in fade-in duration-500">
                          {/* Left Panel */}
                          <div className="lg:col-span-4 space-y-6">
-                            <div className="lg:sticky lg:top-24 space-y-6">
+                            <div className="sticky top-24 space-y-6">
                                 {activeInput?.type === 'image' ? (
                                     <div 
                                         className="group relative h-40 w-full rounded-lg overflow-hidden bg-black border border-white/10 cursor-pointer hover:border-white/30 transition-colors flex items-center justify-center"
@@ -1198,9 +1200,9 @@ const toggleSection = (title: string) => {
                          
                          {/* Right Panel */}
                          <div className="lg:col-span-8 space-y-6">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1">
+                            <div className="flex items-center justify-between px-1">
                                 <div className="flex items-center gap-6">
-                                    <h2 className="text-xl sm:text-2xl font-bold text-white">{solutions.length > 1 ? `Solution ${activeTab + 1}` : 'Solution'}</h2>
+                                    <h2 className="text-2xl font-bold text-white">{solutions.length > 1 ? `Solution ${activeTab + 1}` : 'Solution'}</h2>
                                     <div className="flex bg-[#121212] p-1 rounded-lg border border-white/10">
                                         <button onClick={() => handleViewChange('steps')} className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all flex items-center gap-2 ${activeView === 'steps' ? 'bg-[#1e293b] text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
                                             <Layers size={12} /> Detailed Steps
@@ -1210,17 +1212,17 @@ const toggleSection = (title: string) => {
                                         </button>
                                     </div>
                                 </div>
-                                {activeView === 'steps' && <span className="text-xs font-bold text-gray-500 hidden sm:inline">{activeSolution.steps.length} STEPS</span>}
+                                {activeView === 'steps' && <span className="text-xs font-bold text-gray-500">{activeSolution.steps.length} STEPS</span>}
                                 {activeView === 'markscheme' && activeSolution.markscheme && (
-                                    <button onClick={handleDownloadMarkscheme} className="text-xs font-bold text-gray-400 hover:text-white flex items-center gap-1.5 transition-colors self-end sm:self-auto"><Download size={14} /> Download PDF</button>
+                                    <button onClick={handleDownloadMarkscheme} className="text-xs font-bold text-gray-400 hover:text-white flex items-center gap-1.5 transition-colors"><Download size={14} /> Download PDF</button>
                                 )}
                             </div>
 
-                            <div className="bg-[#111] rounded-xl p-5 sm:p-6 border border-blue-500/20 relative overflow-hidden group">
+                            <div className="bg-[#111] rounded-xl p-6 border border-blue-500/20 relative overflow-hidden group">
                                 <div className="absolute top-0 left-0 w-1 h-full bg-blue-500/50" />
                                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                                 <div className="flex items-center gap-3 mb-3"><span className="bg-blue-500/10 text-blue-400 text-[10px] font-bold px-2 py-1 rounded border border-blue-500/20 uppercase tracking-widest">Exercise</span></div>
-                                <div className="text-gray-200 text-base sm:text-lg leading-relaxed font-medium"><MarkdownRenderer content={activeSolution.exerciseStatement} /></div>
+                                <div className="text-gray-200 text-lg leading-relaxed font-medium"><MarkdownRenderer content={activeSolution.exerciseStatement} /></div>
                             </div>
 
                             {activeView === 'steps' ? (
