@@ -67,6 +67,7 @@ export interface ApiLog {
     type: 'GENERATE' | 'CHAT' | 'TEST';
     status: 'PENDING' | 'SUCCESS' | 'ERROR';
     latency?: string;
+    dbError?: string; // New field for DB errors
 }
 
 const apiLogs: ApiLog[] = [];
@@ -97,15 +98,23 @@ const logRequest = (model: string, type: 'GENERATE' | 'CHAT' | 'TEST', appMode: 
         try {
             const user = await authService.getCurrentUser();
             if (user && !user.id.startsWith('guest-')) {
-                await supabase.from('usage_logs').insert({
+                const { error } = await supabase.from('usage_logs').insert({
                     user_id: user.id,
                     model: model,
                     mode: appMode,
                     created_at: new Date().toISOString()
                 });
+
+                if (error) {
+                    console.warn("Supabase Log Insert Error:", error.message);
+                    const targetLog = apiLogs.find(l => l.id === logId);
+                    if (targetLog) targetLog.dbError = `DB_ERROR: ${error.message}`;
+                }
             }
-        } catch (e) {
-            console.warn("Failed to log usage to Supabase:", e);
+        } catch (e: any) {
+            console.warn("Supabase Log Exception:", e);
+            const targetLog = apiLogs.find(l => l.id === logId);
+            if (targetLog) targetLog.dbError = `DB_EXCEPTION: ${e.message}`;
         }
     })();
 

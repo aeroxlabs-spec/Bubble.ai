@@ -345,7 +345,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
                                         </div>
                                     ) : (
                                         logs.map((log) => (
-                                            <div key={log.id} className="grid grid-cols-4 gap-2 px-4 py-3 border-b border-white/5 text-gray-300 hover:bg-white/5 transition-colors items-center">
+                                            <div key={log.id} className="grid grid-cols-4 gap-2 px-4 py-3 border-b border-white/5 text-gray-300 hover:bg-white/5 transition-colors items-center relative group">
                                                 <div className="text-gray-500">{log.timestamp}</div>
                                                 <div className="text-blue-400">{log.model}</div>
                                                 <div>
@@ -358,11 +358,21 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
                                                     </span>
                                                 </div>
                                                 <div className="text-right text-gray-600">{log.keyFingerprint}</div>
+                                                
+                                                {/* Tooltip for DB Errors */}
+                                                {log.dbError && (
+                                                    <div className="absolute left-0 top-full w-full z-10 hidden group-hover:block p-2 bg-red-900/90 border-t border-red-500/50 text-red-100 text-[9px] truncate">
+                                                        {log.dbError}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))
                                     )}
                                 </div>
                             </div>
+                            <p className="text-[10px] text-gray-500 text-center">
+                                Hover over logs to see details. 'DB_ERROR' indicates Supabase write failure.
+                            </p>
                         </div>
                     )}
                 </div>

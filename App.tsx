@@ -973,8 +973,8 @@ const App: React.FC = () => {
                                     <div className="text-[10px] text-gray-500 truncate">{user.email}</div>
                                 </div>
                                 <div className="p-1">
-                                    {/* Admin Button for Specific User */}
-                                    {user.email === ADMIN_EMAIL && (
+                                    {/* Admin Button for Specific User - Case Insensitive Check */}
+                                    {user.email && user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && (
                                         <button 
                                             onClick={() => { setShowAdminDashboard(true); setShowUserMenu(false); }}
                                             className="w-full text-left px-3 py-2 text-xs font-bold text-blue-400 hover:bg-blue-900/10 hover:text-blue-300 rounded-lg transition-colors flex items-center gap-2 mb-1"

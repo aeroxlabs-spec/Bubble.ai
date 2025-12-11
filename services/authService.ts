@@ -113,13 +113,14 @@ export const authService = {
         }
     },
 
-    async saveGeminiKey(userId: string, key: string): Promise<void> {
+    async saveGeminiKey(userId: string, key: string): Promise<{ success: boolean; error?: string }> {
         console.log("Bubble: Attempting to save API Key to Cloud...");
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                console.error("Bubble DB Error: No active session found when saving key.");
-                return;
+                const msg = "Bubble DB Error: No active session found when saving key.";
+                console.error(msg);
+                return { success: false, error: msg };
             }
 
             // Robust Check-then-Upsert
@@ -132,7 +133,7 @@ export const authService = {
 
             if (selectError) {
                 console.error("Bubble DB Error [Check Existing]:", selectError.message);
-                return;
+                return { success: false, error: `Check failed: ${selectError.message}` };
             }
 
             if (existing) {
@@ -150,8 +151,10 @@ export const authService = {
                 
                 if (updateError) {
                     console.error("Bubble DB Error [Update]:", updateError.message);
+                    return { success: false, error: `Update failed: ${updateError.message}` };
                 } else {
                     console.log("Bubble: API Key updated successfully.");
+                    return { success: true };
                 }
             } else {
                 console.log("Bubble: Inserting new cloud key...");
@@ -168,12 +171,15 @@ export const authService = {
                 
                 if (insertError) {
                     console.error("Bubble DB Error [Insert]:", insertError.message);
+                    return { success: false, error: `Insert failed: ${insertError.message}` };
                 } else {
                     console.log("Bubble: API Key inserted successfully.");
+                    return { success: true };
                 }
             }
         } catch (e: any) {
             console.error("Bubble DB Critical Error:", e.message);
+            return { success: false, error: `Exception: ${e.message}` };
         }
     },
 

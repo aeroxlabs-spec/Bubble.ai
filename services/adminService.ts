@@ -21,6 +21,66 @@ const fetchWithTimeout = async (promise: PromiseLike<any>): Promise<any> => {
 };
 
 export const adminService = {
+    async runDatabaseDiagnostics(): Promise<string[]> {
+        const logs: string[] = ["Starting Database Diagnostics..."];
+        
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            logs.push(`Auth Check: ${user ? `Logged in as ${user.email}` : "NO USER DETECTED"}`);
+            
+            if (!user) {
+                logs.push("CRITICAL: Cannot test RLS without an active user.");
+                return logs;
+            }
+
+            // Test 1: usage_logs
+            logs.push("Test 1: Writing to 'usage_logs'...");
+            const { error: usageError } = await supabase.from('usage_logs').insert({
+                user_id: user.id,
+                model: 'DIAGNOSTIC_TEST',
+                mode: 'UNKNOWN',
+                created_at: new Date().toISOString()
+            });
+
+            if (usageError) {
+                logs.push(`FAILED 'usage_logs': ${usageError.message} (Code: ${usageError.code})`);
+                logs.push(`Hint: Check RLS policy for INSERT on 'usage_logs'.`);
+            } else {
+                logs.push("SUCCESS 'usage_logs': Row inserted.");
+            }
+
+            // Test 2: feedback
+            logs.push("Test 2: Writing to 'feedback'...");
+            const { error: feedbackError } = await supabase.from('feedback').insert({
+                user_email: user.email || 'diagnostic@test.com',
+                type: 'GENERAL',
+                message: 'DIAGNOSTIC_TEST_MESSAGE',
+                status: 'ARCHIVED'
+            });
+
+            if (feedbackError) {
+                logs.push(`FAILED 'feedback': ${feedbackError.message} (Code: ${feedbackError.code})`);
+            } else {
+                logs.push("SUCCESS 'feedback': Row inserted.");
+            }
+
+            // Test 3: USER_API_KEYS (Read Check)
+            logs.push("Test 3: Reading 'USER_API_KEYS'...");
+            const { error: keyError } = await supabase.from('USER_API_KEYS').select('id').eq('user_id', user.id);
+            if (keyError) {
+                logs.push(`FAILED 'USER_API_KEYS': ${keyError.message}`);
+            } else {
+                logs.push("SUCCESS 'USER_API_KEYS': Table accessible.");
+            }
+
+        } catch (e: any) {
+            logs.push(`EXCEPTION: ${e.message}`);
+        }
+
+        logs.push("Diagnostics Complete.");
+        return logs;
+    },
+
     async submitFeedback(feedback: Omit<Feedback, 'id' | 'timestamp' | 'status'>): Promise<void> {
         // Schema mismatch fix: feedback table does NOT have user_id, only user_email
         const { error } = await supabase.from('feedback').insert({

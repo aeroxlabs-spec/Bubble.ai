@@ -1,9 +1,10 @@
 
+
 import React, { useEffect, useState, useRef } from 'react';
 import { AdminStats, Feedback } from '../types';
 import { adminService } from '../services/adminService';
 import { supabase } from '../services/supabaseClient';
-import { ArrowLeft, RefreshCw, Server, MessageSquare, ChevronDown, Award, X, Zap, WifiOff, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Server, MessageSquare, ChevronDown, Award, X, Zap, WifiOff, AlertTriangle, Activity } from 'lucide-react';
 
 interface AdminDashboardProps {
     onClose: () => void;
@@ -114,6 +115,7 @@ const CompactStatCard = ({ title, value, sub, accentColor }: any) => (
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
     const [stats, setStats] = useState<AdminStats | null>(null);
     const [feedback, setFeedback] = useState<Feedback[]>([]);
+    const [view, setView] = useState<'DASHBOARD' | 'HEALTH'>('DASHBOARD');
     
     // Connection States
     const [connectionStatus, setConnectionStatus] = useState<'CONNECTING' | 'CONNECTED' | 'ERROR' | 'TIMEOUT'>('CONNECTING');
@@ -123,6 +125,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
     // Notifications
     const [milestoneToast, setMilestoneToast] = useState<string | null>(null);
     const [liveEventToast, setLiveEventToast] = useState<string | null>(null);
+
+    // Diagnostics
+    const [diagnosticLogs, setDiagnosticLogs] = useState<string[]>([]);
+    const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
 
     const refreshData = async () => {
         setIsLoading(true);
@@ -142,10 +148,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
             } else {
                 setConnectionStatus('ERROR');
             }
+            // Auto-switch to Health view on error to guide user
+            setView('HEALTH');
         } finally {
             setIsLoading(false);
         }
     };
+
+    const runDiagnostics = async () => {
+        setIsRunningDiagnostics(true);
+        setDiagnosticLogs(["Running..."]);
+        try {
+            const logs = await adminService.runDatabaseDiagnostics();
+            setDiagnosticLogs(logs);
+        } catch (e) {
+            setDiagnosticLogs(prev => [...prev, "Critical Failure in Diagnostics runner"]);
+        } finally {
+            setIsRunningDiagnostics(false);
+        }
+    }
 
     useEffect(() => {
         refreshData();
@@ -235,94 +256,136 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
-                    <span className="text-[10px] text-gray-500 font-mono hidden sm:inline">{stats ? `DATA SYNCED: ${new Date().toLocaleTimeString()}` : "NO DATA"}</span>
+                <div className="flex items-center gap-4">
+                     <div className="flex bg-[#111] p-0.5 rounded-lg border border-white/10">
+                        <button onClick={() => setView('DASHBOARD')} className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-colors ${view === 'DASHBOARD' ? 'bg-white/10 text-white' : 'text-gray-500'}`}>Dashboard</button>
+                        <button onClick={() => setView('HEALTH')} className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-colors ${view === 'HEALTH' ? 'bg-white/10 text-white' : 'text-gray-500'}`}>System Health</button>
+                     </div>
+                    <span className="text-[10px] text-gray-500 font-mono hidden sm:inline border-l border-white/10 pl-4">{stats ? `DATA SYNCED: ${new Date().toLocaleTimeString()}` : "NO DATA"}</span>
                     <button onClick={refreshData} disabled={isLoading} className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors"><RefreshCw size={14} className={isLoading ? "animate-spin" : ""} /></button>
                 </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
-                {(connectionStatus === 'ERROR' || connectionStatus === 'TIMEOUT') && (
-                    <div className="max-w-4xl mx-auto mb-6 bg-red-900/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-4">
-                        <WifiOff className="text-red-500 mt-1" size={20} />
-                        <div>
-                            <h3 className="text-white font-bold text-sm">Connection Failed</h3>
-                            <p className="text-xs text-red-300 mt-1 leading-relaxed">
-                                {connectionStatus === 'TIMEOUT' ? "Request timed out. Check if RLS policies are blocking access or if the table is locked." : "Access denied. Ensure you are logged in as admin and RLS policies are correct."}
-                            </p>
+                
+                {view === 'HEALTH' ? (
+                    <div className="max-w-4xl mx-auto space-y-6">
+                         <div className="bg-[#111] border border-white/10 rounded-xl p-6">
+                             <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2"><Activity size={20} className="text-green-400" /> Database Diagnostics</h3>
+                                    <p className="text-gray-500 text-xs mt-1">Run an explicit write test to check if Supabase RLS policies are correct.</p>
+                                </div>
+                                <button 
+                                    onClick={runDiagnostics}
+                                    disabled={isRunningDiagnostics}
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                                >
+                                    {isRunningDiagnostics ? 'Running...' : 'Run Write Test'}
+                                </button>
+                             </div>
+
+                             <div className="bg-black rounded-lg border border-white/10 p-4 font-mono text-xs h-64 overflow-y-auto">
+                                 {diagnosticLogs.length === 0 ? (
+                                     <div className="text-gray-600 italic">No diagnostics run. Click the button to start.</div>
+                                 ) : (
+                                     <div className="space-y-1">
+                                         {diagnosticLogs.map((log, i) => (
+                                             <div key={i} className={`${log.includes('FAILED') || log.includes('CRITICAL') || log.includes('EXCEPTION') ? 'text-red-400' : log.includes('SUCCESS') ? 'text-green-400' : 'text-gray-300'}`}>
+                                                 <span className="opacity-50 mr-2">{new Date().toLocaleTimeString()}</span>
+                                                 {log}
+                                             </div>
+                                         ))}
+                                     </div>
+                                 )}
+                             </div>
+                         </div>
+                    </div>
+                ) : (
+                    <>
+                    {(connectionStatus === 'ERROR' || connectionStatus === 'TIMEOUT') && (
+                        <div className="max-w-4xl mx-auto mb-6 bg-red-900/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-4">
+                            <WifiOff className="text-red-500 mt-1" size={20} />
+                            <div>
+                                <h3 className="text-white font-bold text-sm">Connection Failed</h3>
+                                <p className="text-xs text-red-300 mt-1 leading-relaxed">
+                                    {connectionStatus === 'TIMEOUT' ? "Request timed out. Check if RLS policies are blocking access or if the table is locked." : "Access denied. Ensure you are logged in as admin and RLS policies are correct."}
+                                </p>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                <div className="max-w-6xl mx-auto space-y-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <CompactStatCard title="Active Users" value={stats?.totalUsers || 0} sub="In selected period" accentColor="text-blue-400" />
-                        <CompactStatCard title="Total Requests" value={stats?.totalRequests.toLocaleString() || 0} sub="Lifetime API Calls" accentColor="text-green-400" />
-                        <CompactStatCard title="Credits Used" value={stats?.creditsConsumed.toLocaleString() || 0} sub="Estimated Token Usage" accentColor="text-yellow-400" />
-                        <CompactStatCard title="Feedback Items" value={feedback.length} sub={`${feedback.filter(f => f.status === 'NEW').length} Pending Review`} accentColor="text-purple-400" />
-                    </div>
+                    <div className="max-w-6xl mx-auto space-y-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <CompactStatCard title="Active Users" value={stats?.totalUsers || 0} sub="In selected period" accentColor="text-blue-400" />
+                            <CompactStatCard title="Total Requests" value={stats?.totalRequests.toLocaleString() || 0} sub="Lifetime API Calls" accentColor="text-green-400" />
+                            <CompactStatCard title="Credits Used" value={stats?.creditsConsumed.toLocaleString() || 0} sub="Estimated Token Usage" accentColor="text-yellow-400" />
+                            <CompactStatCard title="Feedback Items" value={feedback.length} sub={`${feedback.filter(f => f.status === 'NEW').length} Pending Review`} accentColor="text-purple-400" />
+                        </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-auto lg:h-[320px]">
-                        <div className="lg:col-span-3 bg-[#111] border border-white/10 rounded-xl p-5 flex flex-col relative group hover:border-white/20 transition-colors min-h-[300px]">
-                            <div className="flex items-center justify-between mb-4">
-                                <div><h3 className="text-xs font-bold text-white uppercase tracking-wider">Request Traffic</h3><p className="text-[10px] text-gray-500 font-mono mt-0.5">API Calls per day</p></div>
-                                <div className="flex bg-[#050505] rounded-md border border-white/10 p-0.5">
-                                    {[7, 14, 30].map(days => (
-                                        <button key={days} onClick={() => setTimeRange(days)} className={`px-3 py-1 text-[10px] font-bold rounded-sm transition-colors ${timeRange === days ? 'bg-white/10 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}>{days}D</button>
-                                    ))}
+                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-auto lg:h-[320px]">
+                            <div className="lg:col-span-3 bg-[#111] border border-white/10 rounded-xl p-5 flex flex-col relative group hover:border-white/20 transition-colors min-h-[300px]">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div><h3 className="text-xs font-bold text-white uppercase tracking-wider">Request Traffic</h3><p className="text-[10px] text-gray-500 font-mono mt-0.5">API Calls per day</p></div>
+                                    <div className="flex bg-[#050505] rounded-md border border-white/10 p-0.5">
+                                        {[7, 14, 30].map(days => (
+                                            <button key={days} onClick={() => setTimeRange(days)} className={`px-3 py-1 text-[10px] font-bold rounded-sm transition-colors ${timeRange === days ? 'bg-white/10 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}>{days}D</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex-1 w-full min-h-0">
+                                    {stats ? <FunctioningGraph data={stats.requestsOverTime} /> : <div className="w-full h-full flex items-center justify-center text-gray-700 text-xs">Loading Data...</div>}
                                 </div>
                             </div>
-                            <div className="flex-1 w-full min-h-0">
-                                {stats ? <FunctioningGraph data={stats.requestsOverTime} /> : <div className="w-full h-full flex items-center justify-center text-gray-700 text-xs">Loading Data...</div>}
+
+                            <div className="bg-[#111] border border-white/10 rounded-xl p-5 flex flex-col min-h-[300px]">
+                                <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-6">Mode Distribution</h3>
+                                <div className="flex-1 flex flex-col justify-center space-y-6">
+                                    {stats?.modeDistribution.map((item) => {
+                                        const total = stats.modeDistribution.reduce((acc, curr) => acc + curr.count, 0) || 1;
+                                        const percent = Math.round((item.count / total) * 100);
+                                        const color = item.mode === 'SOLVER' ? 'bg-blue-500' : item.mode === 'EXAM' ? 'bg-purple-500' : 'bg-yellow-500';
+                                        const textCol = item.mode === 'SOLVER' ? 'text-blue-400' : item.mode === 'EXAM' ? 'text-purple-400' : 'text-yellow-400';
+                                        return (
+                                            <div key={item.mode} className="space-y-1.5">
+                                                <div className="flex justify-between items-end text-[10px] font-bold uppercase tracking-wide"><span className="text-gray-400">{item.mode}</span><span className={textCol}>{percent}%</span></div>
+                                                <div className="h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden"><div className={`h-full rounded-full ${color} transition-all duration-1000 ease-out`} style={{ width: `${percent}%` }} /></div>
+                                            </div>
+                                        )
+                                    })}
+                                    {(!stats || stats.modeDistribution.reduce((a, b) => a + b.count, 0) === 0) && <div className="text-center text-[10px] text-gray-600 italic">No usage data yet.</div>}
+                                </div>
                             </div>
                         </div>
 
-                        <div className="bg-[#111] border border-white/10 rounded-xl p-5 flex flex-col min-h-[300px]">
-                            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-6">Mode Distribution</h3>
-                            <div className="flex-1 flex flex-col justify-center space-y-6">
-                                {stats?.modeDistribution.map((item) => {
-                                    const total = stats.modeDistribution.reduce((acc, curr) => acc + curr.count, 0) || 1;
-                                    const percent = Math.round((item.count / total) * 100);
-                                    const color = item.mode === 'SOLVER' ? 'bg-blue-500' : item.mode === 'EXAM' ? 'bg-purple-500' : 'bg-yellow-500';
-                                    const textCol = item.mode === 'SOLVER' ? 'text-blue-400' : item.mode === 'EXAM' ? 'text-purple-400' : 'text-yellow-400';
-                                    return (
-                                        <div key={item.mode} className="space-y-1.5">
-                                            <div className="flex justify-between items-end text-[10px] font-bold uppercase tracking-wide"><span className="text-gray-400">{item.mode}</span><span className={textCol}>{percent}%</span></div>
-                                            <div className="h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden"><div className={`h-full rounded-full ${color} transition-all duration-1000 ease-out`} style={{ width: `${percent}%` }} /></div>
-                                        </div>
-                                    )
-                                })}
-                                {(!stats || stats.modeDistribution.reduce((a, b) => a + b.count, 0) === 0) && <div className="text-center text-[10px] text-gray-600 italic">No usage data yet.</div>}
+                        <div className="bg-[#111] border border-white/10 rounded-xl overflow-hidden flex flex-col">
+                            <div className="px-5 py-3 border-b border-white/5 bg-[#161616] flex items-center gap-2">
+                                <MessageSquare size={14} className="text-gray-400" />
+                                <h3 className="text-xs font-bold text-gray-200 uppercase tracking-wider">Recent Feedback</h3>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs text-gray-400">
+                                    <thead className="bg-[#0f0f0f] text-gray-500 font-bold uppercase tracking-wider border-b border-white/5">
+                                        <tr><th className="px-5 py-3 w-24">Type</th><th className="px-5 py-3">User</th><th className="px-5 py-3">Message</th><th className="px-5 py-3 w-32 text-right">Date</th></tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {feedback.length === 0 ? (<tr><td colSpan={4} className="px-6 py-8 text-center text-gray-600 italic">No feedback entries found.</td></tr>) : (
+                                            feedback.slice(0, 5).map((item) => (
+                                                <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                                                    <td className="px-5 py-3"><span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${item.type === 'BUG' ? 'bg-red-500/10 text-red-400 border-red-500/20' : item.type === 'FEATURE' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : item.type === 'HELP' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>{item.type}</span></td>
+                                                    <td className="px-5 py-3 font-medium text-gray-300">{item.userName}</td>
+                                                    <td className="px-5 py-3 truncate max-w-md text-gray-400" title={item.message}>{item.message}</td>
+                                                    <td className="px-5 py-3 text-right font-mono text-[10px] text-gray-500">{new Date(item.timestamp).toLocaleDateString()}</td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
-
-                    <div className="bg-[#111] border border-white/10 rounded-xl overflow-hidden flex flex-col">
-                        <div className="px-5 py-3 border-b border-white/5 bg-[#161616] flex items-center gap-2">
-                            <MessageSquare size={14} className="text-gray-400" />
-                            <h3 className="text-xs font-bold text-gray-200 uppercase tracking-wider">Recent Feedback</h3>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-xs text-gray-400">
-                                <thead className="bg-[#0f0f0f] text-gray-500 font-bold uppercase tracking-wider border-b border-white/5">
-                                    <tr><th className="px-5 py-3 w-24">Type</th><th className="px-5 py-3">User</th><th className="px-5 py-3">Message</th><th className="px-5 py-3 w-32 text-right">Date</th></tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5">
-                                    {feedback.length === 0 ? (<tr><td colSpan={4} className="px-6 py-8 text-center text-gray-600 italic">No feedback entries found.</td></tr>) : (
-                                        feedback.slice(0, 5).map((item) => (
-                                            <tr key={item.id} className="hover:bg-white/5 transition-colors">
-                                                <td className="px-5 py-3"><span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${item.type === 'BUG' ? 'bg-red-500/10 text-red-400 border-red-500/20' : item.type === 'FEATURE' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : item.type === 'HELP' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>{item.type}</span></td>
-                                                <td className="px-5 py-3 font-medium text-gray-300">{item.userName}</td>
-                                                <td className="px-5 py-3 truncate max-w-md text-gray-400" title={item.message}>{item.message}</td>
-                                                <td className="px-5 py-3 text-right font-mono text-[10px] text-gray-500">{new Date(item.timestamp).toLocaleDateString()}</td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+                    </>
+                )}
             </div>
         </div>
     );
