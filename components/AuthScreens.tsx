@@ -18,7 +18,7 @@ export const AuthScreens: React.FC = () => {
             {/* Header */}
             <nav className="relative z-10 flex items-center justify-between px-4 py-4 sm:px-8 sm:py-6 max-w-7xl mx-auto w-full">
                 <div className="flex items-center gap-2">
-                     <span className="text-xl sm:text-2xl font-bold tracking-tighter">Bubble.ib</span>
+                     <span className="text-xl sm:text-2xl font-bold tracking-tighter text-white">Bubble.ib</span>
                 </div>
                 {view === 'LANDING' && (
                     <div className="flex items-center gap-4 sm:gap-6">
@@ -376,7 +376,15 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
                 await signup(name, email, password, captchaToken || undefined);
             }
         } catch (err: any) {
-            setError(err.message || "Authentication failed");
+            console.error("Auth error details:", err);
+            
+            // Check for specific Supabase sitekey mismatch error
+            if (err.message && (err.message.includes("sitekey-secret-mismatch") || err.message.includes("captcha protection"))) {
+                 setError("Configuration Error: The Site Key and Secret Key in Supabase do not match. Please update your Supabase Auth Protection settings.");
+            } else {
+                 setError(err.message || "Authentication failed");
+            }
+            
             setIsLoading(false);
             setIsAnimating(false);
             if ((window as any).hcaptcha && widgetId.current !== null) {
@@ -495,8 +503,8 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
 
                     {error && (
                         <div className="flex items-center gap-2 p-3 rounded-lg bg-red-900/10 border border-red-500/20 text-red-400 text-sm animate-in fade-in slide-in-from-top-2">
-                            <AlertCircle size={16} />
-                            {error}
+                            <AlertCircle size={16} className="flex-shrink-0" />
+                            <span className="leading-snug">{error}</span>
                         </div>
                     )}
 

@@ -49,10 +49,13 @@ export const authService = {
     },
 
     async loginWithGoogle(): Promise<void> {
+        // Ensure the redirect URL is clean (no trailing slash) to prevent "invalid path" errors
+        const redirectUrl = window.location.origin.replace(/\/$/, '');
+        
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin
+                redirectTo: redirectUrl
             }
         });
 
@@ -104,7 +107,8 @@ export const authService = {
                 .maybeSingle();
             
             if (error) {
-                console.error("Bubble DB Error [getGeminiKey]:", error.message);
+                // If the table doesn't exist or RLS blocks it, return null gracefully
+                console.warn("Bubble DB Warning [getGeminiKey]:", error.message);
                 return null;
             }
             if (data) {
@@ -119,29 +123,32 @@ export const authService = {
     async saveGeminiKey(userId: string, key: string): Promise<{ success: boolean; error?: string }> {
         console.log("Bubble: Saving API Key...");
         try {
+            // CRITICAL: Get the ACTUAL session ID to ensure RLS compliance.
+            // Do not rely solely on the 'userId' argument which might be stale.
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) return { success: false, error: "No active session" };
+            
+            if (!session) {
+                return { success: false, error: "No active session" };
+            }
+            
+            const sessionUserId = session.user.id;
 
-            // STRATEGY: Delete existing key(s) first to ensure clean state and avoid duplication issues
-            // This relies on the RLS policy allowing DELETE for the auth user.
+            // STRATEGY: Delete existing key(s) first to ensure clean state
             const { error: deleteError } = await supabase
                 .from('USER_API_KEYS')
                 .delete()
-                .eq('user_id', userId)
+                .eq('user_id', sessionUserId)
                 .eq('provider', 'gemini');
 
             if (deleteError) {
                 console.warn("Bubble DB Warning [Delete Old Key]:", deleteError.message);
-                // We proceed to insert anyway, as the delete might fail if no rows exist or RLS quirks, 
-                // but usually it's fine.
             }
 
-            // Insert new key
-            // Crucial: Must provide 'last_error' as empty string because column is NOT NULL with no default
+            // Insert new key using the SESSION ID
             const { error: insertError } = await supabase
                 .from('USER_API_KEYS')
                 .insert({ 
-                    user_id: userId, 
+                    user_id: sessionUserId, 
                     provider: 'gemini', 
                     encrypted_key: key, 
                     is_valid: true,
@@ -163,10 +170,13 @@ export const authService = {
 
     async removeGeminiKey(userId: string): Promise<void> {
         try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+
             const { error } = await supabase
                 .from('USER_API_KEYS')
                 .delete()
-                .eq('user_id', userId)
+                .eq('user_id', session.user.id)
                 .eq('provider', 'gemini');
             
             if (error) console.error("Bubble DB Error [Remove]:", error.message);
