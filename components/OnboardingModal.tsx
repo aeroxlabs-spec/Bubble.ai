@@ -109,7 +109,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
     const slides = [
         {
             icon: GraduationCap,
-            title: "Welcome to Bubble",
+            title: "Welcome to Bubble.ib",
             subtitle: "Intelligent Tutor",
             text: "We are a **student-built platform** designed to help IB Math HL students understand complex exercises through **intelligent analysis**.",
             theme: {
@@ -122,7 +122,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
             icon: Hash,
             title: "Private & Sustainable",
             subtitle: "Your Data, Your Keys",
-            text: "Bubble uses a **Bring Your Own Key** model. Your API key is stored locally and never sent to our servers.",
+            text: "Bubble.ib uses a **Bring Your Own Key** model. Your API key is stored locally and never sent to our servers.",
             theme: {
                 color: 'text-purple-400',
                 bg: 'bg-purple-500',

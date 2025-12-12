@@ -799,7 +799,7 @@ const toggleSection = (title: string) => {
           <div className="flex items-center gap-6">
              <div className="group flex items-center gap-2 focus:outline-none pointer-events-none select-none">
                 <span className="font-sans font-bold text-xl sm:text-2xl tracking-tighter text-white">
-                    Bubble.
+                    Bubble.ib
                 </span>
              </div>
           </div>

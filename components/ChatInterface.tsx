@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText, Zap, GraduationCap, Minus } from 'lucide-react';
 import { ChatMessage, MathSolution, DrillQuestion, AppMode } from '../types';
@@ -242,12 +243,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
 
   return (
     <div 
-      className={`fixed bottom-0 sm:bottom-24 left-0 sm:left-auto right-0 sm:right-6 w-full sm:w-[375px] h-[85vh] sm:h-[540px] max-h-[90vh] sm:max-h-[75vh] z-40 flex flex-col font-sans transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]
+      className={`fixed bottom-0 sm:bottom-24 left-0 sm:left-auto right-0 sm:right-6 w-full sm:w-[375px] h-[85vh] sm:h-[540px] max-h-[90vh] sm:max-h-[75vh] z-40 flex flex-col font-sans transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] sm:rounded-[1.25rem] rounded-t-3xl shadow-2xl sm:origin-bottom-right
         ${isOpen 
-            ? 'opacity-100 translate-y-0 pointer-events-auto' 
-            : 'opacity-0 translate-y-full pointer-events-none'
-        } sm:rounded-[1.25rem] rounded-t-3xl shadow-2xl sm:origin-bottom-right sm:translate-y-0 sm:scale-100 sm:opacity-100 ${
-            !isOpen && 'sm:scale-75 sm:opacity-0 sm:translate-y-6 sm:translate-x-4'
+            ? 'opacity-100 translate-y-0 pointer-events-auto sm:translate-y-0 sm:scale-100 sm:opacity-100' 
+            : 'opacity-0 translate-y-full pointer-events-none sm:scale-75 sm:opacity-0 sm:translate-y-6 sm:translate-x-4'
         }`}
     >
       {/* Frosted Glass Background */}
@@ -266,7 +265,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
              <div className={`transition-all duration-500 ease-in-out flex items-center overflow-hidden ${messages.length > 0 ? 'w-5 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-4'}`}>
                 {mode === 'DRILL' ? <Zap size={16} className="text-yellow-400" /> : <Pen size={16} className="text-blue-400 flex-shrink-0" />}
              </div>
-             <span className="text-white font-sans font-bold text-lg tracking-tighter">Bubble.</span>
+             <span className="text-white font-sans font-bold text-lg tracking-tighter">Bubble.ib</span>
           </div>
           
           {mode === 'DRILL' ? (

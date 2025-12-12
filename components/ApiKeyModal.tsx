@@ -28,17 +28,24 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
     const [dailyUsage, setDailyUsage] = useState(0);
 
     useEffect(() => {
-        setInputKey(userApiKey || "");
-        setStatus('IDLE');
-        setErrorMsg('');
+        // Sync local input with global state only when opening or if global state changes externally
         if (isOpen) {
+             setInputKey(userApiKey || "");
+        }
+    }, [userApiKey, isOpen]);
+
+    useEffect(() => {
+        if (isOpen) {
+            setInputKey(userApiKey || "");
+            setStatus('IDLE');
+            setErrorMsg('');
             setLogs(getRecentLogs());
             const usage = getDailyUsage();
             setDailyLimit(usage.limit);
             setDailyUsage(usage.count);
             setActiveTab(initialTab);
         }
-    }, [userApiKey, isOpen, initialTab]);
+    }, [isOpen, initialTab]); // Removed userApiKey from dependency to prevent overwriting typing
 
     useEffect(() => {
         if (isOpen && activeTab === 'HEALTH') {
@@ -105,9 +112,13 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
 
     const handleRemove = async () => {
         if (confirm("Remove key? You will revert to using credits (if available).")) {
-            await updateApiKey("");
+            // Explicitly clear input and status immediately
             setInputKey("");
             setStatus('IDLE');
+            setErrorMsg("");
+            
+            // Update global state
+            await updateApiKey("");
         }
     };
 
@@ -214,8 +225,12 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
                                         >
                                             Get Key <ExternalLink size={10} />
                                         </a>
-                                        {userApiKey && !forced && (
-                                            <button onClick={handleRemove} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 transition-colors">
+                                        {inputKey && !forced && (
+                                            <button 
+                                                type="button" 
+                                                onClick={handleRemove} 
+                                                className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 transition-colors"
+                                            >
                                                 <Trash2 size={10} /> Revoke
                                             </button>
                                         )}

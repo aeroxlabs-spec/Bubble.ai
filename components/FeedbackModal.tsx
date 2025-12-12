@@ -1,6 +1,7 @@
 
+
 import React, { useState } from 'react';
-import { X, GraduationCap, Bug, Lightbulb, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, GraduationCap, Bug, Lightbulb, Loader2, Send } from 'lucide-react';
 import { adminService } from '../services/adminService';
 import { User, FeedbackType } from '../types';
 
@@ -74,12 +75,13 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, user }) 
 
                 {isSuccess ? (
                     <div className="p-12 flex flex-col items-center justify-center text-center space-y-6 animate-in fade-in zoom-in-95">
-                        <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center text-green-400 border border-green-500/20 mb-2">
-                            <CheckCircle2 size={32} />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-white">Received!</h3>
-                            <p className="text-gray-400 text-sm mt-1">Thanks for helping us improve Bubble.</p>
+                        <div className="flex flex-col items-center justify-center text-center py-6 bg-white/5 rounded-xl border border-white/10 w-full">
+                            <Send 
+                                size={24} 
+                                className="text-green-400 mb-3 animate-bounce" 
+                            />
+                            <p className="text-white font-bold text-sm">Request Sent</p>
+                            <p className="text-xs text-gray-400 mt-1">Thanks for helping us improve Bubble.ib.</p>
                         </div>
                     </div>
                 ) : (
@@ -96,7 +98,10 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, user }) 
                                             : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10'
                                     }`}
                                 >
-                                    <GraduationCap size={18} />
+                                    <GraduationCap 
+                                        size={18} 
+                                        className={`transition-transform duration-300 ${type === 'general' ? 'scale-110' : ''}`}
+                                    />
                                     <span className="text-[10px] font-bold">General</span>
                                 </button>
                                 <button
@@ -108,7 +113,10 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, user }) 
                                             : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10'
                                     }`}
                                 >
-                                    <Bug size={18} />
+                                    <Bug 
+                                        size={18} 
+                                        className={`transition-transform duration-300 ${type === 'bug' ? 'scale-110 -rotate-12' : ''}`} 
+                                    />
                                     <span className="text-[10px] font-bold">Bug</span>
                                 </button>
                                 <button
@@ -120,7 +128,10 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, user }) 
                                             : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10'
                                     }`}
                                 >
-                                    <Lightbulb size={18} />
+                                    <Lightbulb 
+                                        size={18} 
+                                        className={`transition-transform duration-300 ${type === 'feature' ? 'scale-110 rotate-12' : ''}`} 
+                                    />
                                     <span className="text-[10px] font-bold">Feature</span>
                                 </button>
                             </div>

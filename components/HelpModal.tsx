@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { X, ChevronDown, MessageCircle, HelpCircle, Send, Loader2 } from 'lucide-react';
 import { User } from '../types';
@@ -94,12 +95,12 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, user }) => {
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Common Questions</h3>
                         <div className="space-y-2">
                              <FAQItem 
-                                question="Is Bubble really free?" 
-                                answer="Yes. Bubble is a non-profit student initiative. You get 100 free credits to start. After that, you can use your own Gemini API key for unlimited free usage (within Google's free tier limits)." 
+                                question="Is Bubble.ib really free?" 
+                                answer="Yes. Bubble.ib is a non-profit student initiative. You get 100 free credits to start. After that, you can use your own Gemini API key for unlimited free usage (within Google's free tier limits)." 
                              />
                              <FAQItem 
                                 question="How do I get an API Key?" 
-                                answer="Go to Google AI Studio (aistudio.google.com), create a new project, and generate an API key. Then paste it into Bubble's settings." 
+                                answer="Go to Google AI Studio (aistudio.google.com), create a new project, and generate an API key. Then paste it into Bubble.ib's settings." 
                              />
                              <FAQItem 
                                 question="What is the difference between Solver and Drill?" 
@@ -121,7 +122,7 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, user }) => {
                              <div className="flex flex-col items-center justify-center text-center animate-in fade-in zoom-in-95 py-6 bg-white/5 rounded-xl border border-white/10">
                                  <Send 
                                     size={24} 
-                                    className="text-green-400 mb-3" 
+                                    className="text-green-400 mb-3 animate-bounce" 
                                  />
                                  <p className="text-white font-bold text-sm">Request Sent</p>
                                  <p className="text-xs text-gray-400 mt-1">We'll respond to <b>{user.email}</b> shortly.</p>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Pen, Zap, GraduationCap, ArrowRight, AlertCircle, Sigma, Divide, Minus, Lightbulb, Percent, Hash, Ghost } from 'lucide-react';
@@ -18,7 +17,7 @@ export const AuthScreens: React.FC = () => {
             {/* Header */}
             <nav className="relative z-10 flex items-center justify-between px-4 py-4 sm:px-8 sm:py-6 max-w-7xl mx-auto w-full">
                 <div className="flex items-center gap-2">
-                     <span className="text-xl sm:text-2xl font-bold tracking-tighter">Bubble.</span>
+                     <span className="text-xl sm:text-2xl font-bold tracking-tighter">Bubble.ib</span>
                 </div>
                 {view === 'LANDING' && (
                     <div className="flex items-center gap-4 sm:gap-6">
@@ -343,7 +342,7 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
                         {mode === 'LOGIN' ? 'Welcome back' : 'Create an account'}
                     </h2>
                     <p className="text-gray-500 text-xs sm:text-sm">
-                        {mode === 'LOGIN' ? 'Enter your credentials to access your workspace.' : 'Join Bubble to start mastering IB Math.'}
+                        {mode === 'LOGIN' ? 'Enter your credentials to access your workspace.' : 'Join Bubble.ib to start mastering IB Math.'}
                     </p>
                 </div>
                 
