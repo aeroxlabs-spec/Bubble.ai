@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Pen, Zap, GraduationCap, ArrowRight, AlertCircle, Sigma, Divide, Minus, Lightbulb, Percent, Hash, Ghost } from 'lucide-react';
@@ -15,21 +16,21 @@ export const AuthScreens: React.FC = () => {
             </div>
 
             {/* Header */}
-            <nav className="relative z-10 flex items-center justify-between px-6 sm:px-8 py-6 max-w-7xl mx-auto w-full">
+            <nav className="relative z-10 flex items-center justify-between px-4 py-4 sm:px-8 sm:py-6 max-w-7xl mx-auto w-full">
                 <div className="flex items-center gap-2">
-                     <span className="text-2xl font-bold tracking-tighter">Bubble.</span>
+                     <span className="text-xl sm:text-2xl font-bold tracking-tighter">Bubble.</span>
                 </div>
                 {view === 'LANDING' && (
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-4 sm:gap-6">
                         <button 
                             onClick={() => setView('LOGIN')}
-                            className="text-xs font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-wider"
+                            className="text-[10px] sm:text-xs font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-wider"
                         >
                             Log In
                         </button>
                         <button 
                             onClick={() => setView('SIGNUP')}
-                            className="text-xs font-bold bg-white/10 border border-white/20 text-white px-5 py-2 rounded-full hover:bg-white/20 hover:border-white/40 transition-all uppercase tracking-wider"
+                            className="text-[10px] sm:text-xs font-bold bg-white/10 border border-white/20 text-white px-4 py-1.5 sm:px-5 sm:py-2 rounded-full hover:bg-white/20 hover:border-white/40 transition-all uppercase tracking-wider"
                         >
                             Sign Up
                         </button>
@@ -57,38 +58,38 @@ export const AuthScreens: React.FC = () => {
 const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') => void }) => {
     
     return (
-        <div className="max-w-5xl mx-auto flex flex-col items-center text-center space-y-12 py-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative w-full">
+        <div className="max-w-5xl mx-auto flex flex-col items-center text-center space-y-6 sm:space-y-12 py-4 sm:py-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative w-full h-full justify-center min-h-[80vh] sm:min-h-0">
             
             {/* Hero Section */}
-            <div className="space-y-8 max-w-4xl relative z-20 flex flex-col items-center px-4">
+            <div className="space-y-6 sm:space-y-8 max-w-4xl relative z-20 flex flex-col items-center px-4 w-full">
                 
-                <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tighter leading-none mb-2">
+                <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tighter leading-[1.0] sm:leading-[1.1] mb-1 sm:mb-2">
                     Master IB Math <br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-yellow-400 pb-2 inline-block">
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-yellow-400 pb-1 sm:pb-2 inline-block">
                         with Intelligence.
                     </span>
                 </h1>
                 
-                <div className="text-base sm:text-lg md:text-xl text-gray-400 w-full mx-auto leading-relaxed relative flex flex-col items-center">
-                    <p className="whitespace-nowrap">
+                <div className="text-sm sm:text-lg md:text-xl text-gray-400 w-full mx-auto leading-relaxed relative flex flex-col items-center max-w-[280px] sm:max-w-xl">
+                    <p>
                         Step-by-step solutions, custom exam papers, and adaptive drills.
                     </p>
                 </div>
 
-                <div className="pt-4 flex flex-col items-center gap-4">
+                <div className="pt-2 sm:pt-4 flex flex-col items-center gap-4">
                     <button 
                         onClick={() => onViewChange('SIGNUP')}
-                        className="group relative px-10 py-4 rounded-full font-bold text-base bg-transparent border border-white/30 text-white hover:bg-white/5 hover:border-white/60 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] flex items-center gap-2"
+                        className="group relative px-5 py-2.5 sm:px-10 sm:py-4 rounded-full font-bold text-xs sm:text-base bg-transparent border border-white/30 text-white hover:bg-white/5 hover:border-white/60 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] flex items-center gap-2"
                     >
-                        Start learning <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform"/>
+                        Start learning <ArrowRight size={14} className="sm:w-[18px] sm:h-[18px] group-hover:translate-x-1 transition-transform"/>
                     </button>
                 </div>
             </div>
 
             {/* Feature Grid - Mobile: Grid 3 Cols, Desktop: Grid 3 Cols */}
-            <div className="w-full relative z-10 pt-10 sm:pt-20">
-                <div className="grid grid-cols-3 gap-2 px-2 md:gap-8 max-w-4xl mx-auto">
-                    <div>
+            <div className="w-full relative z-10 pt-8 sm:pt-20">
+                <div className="grid grid-cols-3 gap-2 sm:gap-8 max-w-4xl mx-auto w-full">
+                    <div className="w-full">
                         <FeatureCard 
                             icon={<Pen size={20} className="text-blue-400" />}
                             title="Smart Solver"
@@ -98,7 +99,7 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
                             gradient="from-blue-500/5"
                         />
                     </div>
-                    <div>
+                    <div className="w-full">
                         <FeatureCard 
                             icon={<GraduationCap size={20} className="text-purple-400" />}
                             title="Exam Creator"
@@ -108,7 +109,7 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
                             gradient="from-purple-500/5"
                         />
                     </div>
-                    <div>
+                    <div className="w-full">
                         <FeatureCard 
                             icon={<Zap size={20} className="text-yellow-400" />}
                             title="Adaptive Drill"
@@ -173,13 +174,13 @@ const FeatureCard = ({ icon, title, desc, color, gradient, extraInfo }: any) => 
 
     return (
         <div 
-            className="group relative w-full h-full min-h-[80px] sm:min-h-[180px]"
+            className="group relative w-full h-full min-h-[130px] sm:min-h-[180px]"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             onClick={handleClick}
         >
              {/* Peeping Icons Layer - Positioned relative to the card top */}
-             <div className="absolute top-0 left-0 right-0 h-0 flex justify-center z-0">
+             <div className="absolute top-0 left-0 right-0 h-0 flex justify-center z-0 hidden sm:flex">
                  {icons.map((item, i) => (
                      <div
                         key={i}
@@ -192,25 +193,31 @@ const FeatureCard = ({ icon, title, desc, color, gradient, extraInfo }: any) => 
                             zIndex: -1
                         }}
                      >
-                        <item.Icon size={16} className="drop-shadow-lg sm:w-5 sm:h-5" />
+                        <item.Icon size={20} className="drop-shadow-lg" />
                      </div>
                  ))}
              </div>
 
              {/* Card Content - Flexible height */}
-             <div className={`relative z-10 h-full p-3 sm:p-6 sm:pt-10 rounded-xl bg-[#0a0a0a] border ${color} transition-all duration-300 group-hover:scale-[1.02] shadow-lg flex flex-col items-center sm:items-start justify-center sm:justify-start cursor-pointer`}>
+             <div className={`relative z-10 h-full p-2.5 sm:p-6 sm:pt-10 rounded-xl bg-[#0a0a0a] border ${color} transition-all duration-300 group-hover:scale-[1.02] shadow-lg flex flex-col justify-between sm:justify-start cursor-pointer`}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${gradient} to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl`} />
-                <div className="relative z-10 space-y-2 sm:space-y-3 w-full text-center sm:text-left flex flex-col flex-1 items-center sm:items-start">
-                    <div className="p-2 sm:p-2.5 bg-[#151515] rounded-lg inline-block shadow-inner border border-white/5 w-fit">{icon}</div>
+                
+                {/* Top Section: Icon & Title */}
+                <div className="relative z-10 space-y-1 sm:space-y-3 w-full text-center sm:text-left flex flex-col items-center sm:items-start">
+                    <div className="p-0 sm:p-2.5 sm:bg-[#151515] rounded-lg inline-block sm:shadow-inner sm:border sm:border-white/5 w-fit">
+                        {/* React Clone Element to adjust icon size for mobile vs desktop */}
+                        {React.cloneElement(icon as React.ReactElement, { size: undefined, className: `${(icon as React.ReactElement).props.className} w-4 h-4 sm:w-5 sm:h-5` })}
+                    </div>
                     <div>
-                        <h3 className="font-bold text-xs sm:text-lg text-white mb-1 tracking-tight">{title}</h3>
+                        <h3 className="font-bold text-xs sm:text-lg text-white mb-0.5 sm:mb-1 tracking-tight">{title}</h3>
                         <p className="text-xs text-gray-400 leading-relaxed font-medium hidden sm:block">{desc}</p>
                     </div>
-                    {/* Extra Info - Flexible height */}
-                    <div className={`text-[11px] font-mono text-blue-300 mt-2 min-h-[3rem] transition-opacity duration-200 hidden sm:block ${typedText ? 'opacity-100' : 'opacity-0'}`}>
-                        {typedText}
-                        {typedText && <span className="inline-block w-1.5 h-3 bg-blue-400 ml-1 animate-pulse align-middle" />}
-                    </div>
+                </div>
+
+                {/* Bottom Section: Typing Text (Visible on Mobile) */}
+                <div className={`relative z-10 text-[8px] sm:text-[11px] font-mono text-blue-300 mt-auto pt-1 sm:pt-2 min-h-[2.5rem] sm:min-h-[3rem] transition-opacity duration-200 block justify-between ${typedText ? 'opacity-100' : 'block opacity-100 sm:opacity-0'}`}>
+                    {typedText || (!isHovered && <span className="opacity-0">Placeholder</span>)}
+                    {typedText && <span className="inline-block w-1 h-2 sm:w-1.5 sm:h-3 bg-blue-400 ml-1 animate-pulse align-middle" />}
                 </div>
              </div>
         </div>
@@ -327,15 +334,15 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
     return (
         <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-300 relative px-4">
             
-            <div className={`bg-[#121212] border border-white/10 rounded-2xl p-8 shadow-2xl relative overflow-hidden transition-all duration-500 ${isAnimating ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}`}>
+            <div className={`bg-[#121212] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden transition-all duration-500 ${isAnimating ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}`}>
                 {/* Updated notch to gradient as requested */}
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-yellow-500" />
                 
-                <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-white mb-2">
+                <div className="mb-6 sm:mb-8">
+                    <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
                         {mode === 'LOGIN' ? 'Welcome back' : 'Create an account'}
                     </h2>
-                    <p className="text-gray-500 text-sm">
+                    <p className="text-gray-500 text-xs sm:text-sm">
                         {mode === 'LOGIN' ? 'Enter your credentials to access your workspace.' : 'Join Bubble to start mastering IB Math.'}
                     </p>
                 </div>
@@ -347,7 +354,7 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
                     className="relative w-full h-[42px] mb-6 group bg-[#0a0a0a] border border-white/10 rounded-full flex items-center justify-center gap-2.5 transition-all hover:border-white/30 hover:bg-[#151515] disabled:opacity-50"
                 >
                      <GoogleGLogo />
-                     <span className="text-sm font-bold text-gray-300 group-hover:text-white font-sans">Continue with Google</span>
+                     <span className="text-xs sm:text-sm font-bold text-gray-300 group-hover:text-white font-sans">Continue with Google</span>
                 </button>
                 
                 <div className="flex items-center gap-4 mb-6">
@@ -356,7 +363,7 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
                     <div className="h-px bg-white/5 flex-1" />
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-5">
+                <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
                     {mode === 'SIGNUP' && (
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Full Name</label>
@@ -418,7 +425,7 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
                 <div className="mt-6 text-center">
                     <button 
                         onClick={onSwitch}
-                        className="text-sm text-gray-500 hover:text-white transition-colors"
+                        className="text-xs sm:text-sm text-gray-500 hover:text-white transition-colors"
                         disabled={isLoading}
                     >
                         {mode === 'LOGIN' ? "Don't have an account? Sign Up" : "Already have an account? Log In"}
