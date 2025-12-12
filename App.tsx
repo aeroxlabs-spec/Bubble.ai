@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from './types';
 import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution, getDailyUsage } from './services/geminiService';
@@ -16,7 +17,7 @@ import ApiKeyModal from './components/ApiKeyModal';
 import FeedbackModal from './components/FeedbackModal';
 import HelpModal from './components/HelpModal';
 import AdminFeedbackModal from './components/AdminFeedbackModal';
-import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator, Zap, LogOut, User as UserIcon, Check, AlertCircle, Key, Coins, MessageSquare, ShieldAlert, HelpCircle, Activity, LayoutDashboard } from 'lucide-react';
+import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator, Zap, LogOut, User as UserIcon, Check, AlertCircle, Key, Coins, MessageSquare, ShieldAlert, HelpCircle, Activity, LayoutDashboard, RefreshCw } from 'lucide-react';
 
 // Cost Configuration
 const COSTS = {
@@ -514,6 +515,7 @@ const App: React.FC = () => {
           }, 500);
         } catch (err: any) {
           console.error(err);
+          // err.message should now be the detailed string from mapGenAIError
           setErrorMsg(err.message || "Analysis failed. Please try again.");
           setAppState(AppState.ERROR);
         } finally {
@@ -965,20 +967,25 @@ const toggleSection = (title: string) => {
                 <MagneticPencil isOpen={isChatOpen} onClick={() => setIsChatOpen(!isChatOpen)} mode={appMode} />
             )}
             
-            {/* Error State */}
+            {/* Error State - Enhanced */}
             {appState === AppState.ERROR && (
-                <div className="mb-8 max-w-2xl mx-auto space-y-4">
-                    <div className="p-4 bg-[#1a0505] border border-red-900/50 rounded-lg text-red-400 flex flex-col gap-4">
-                        <div className="flex items-center gap-3">
-                            <AlertCircle size={20} className="text-red-500" />
-                            <span className="font-bold text-lg">Analysis Failed</span> 
+                <div className="mb-8 max-w-2xl mx-auto space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="p-6 bg-[#1a0505] border border-red-500/30 rounded-xl text-red-400 flex flex-col gap-4 shadow-[0_0_30px_rgba(239,68,68,0.1)]">
+                        <div className="flex items-center gap-3 border-b border-red-500/20 pb-3">
+                            <AlertCircle size={24} className="text-red-500" />
+                            <span className="font-bold text-lg text-red-100">Operation Failed</span> 
                         </div>
-                        <p className="text-sm bg-red-950/30 p-3 rounded font-mono text-red-300 border border-red-900/30">
-                            {errorMsg || "Unknown error occurred."}
-                        </p>
-                        <div className="flex justify-end">
-                             <button onClick={handleReset} className="font-bold text-xs bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded transition-colors">
-                                Try Again
+                        
+                        <div className="space-y-2">
+                            <p className="text-sm text-gray-400">The system encountered an error while processing your request:</p>
+                            <div className="bg-black/40 p-4 rounded-lg font-mono text-xs text-red-300 border border-red-900/50 break-words leading-relaxed">
+                                {errorMsg || "Unknown error occurred. Please check your network connection or API key."}
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end pt-2">
+                             <button onClick={handleReset} className="font-bold text-xs bg-red-600 hover:bg-red-500 text-white px-6 py-2.5 rounded-lg transition-all shadow-lg hover:shadow-red-900/20 active:scale-95 flex items-center gap-2">
+                                <RefreshCw size={14} /> Try Again
                              </button>
                         </div>
                     </div>

@@ -45,7 +45,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
             setDailyUsage(usage.count);
             setActiveTab(initialTab);
         }
-    }, [isOpen, initialTab]); // Removed userApiKey from dependency to prevent overwriting typing
+    }, [isOpen, initialTab]);
 
     useEffect(() => {
         if (isOpen && activeTab === 'HEALTH') {
@@ -75,15 +75,12 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
 
         try {
             // 1. Update Context & Save to DB
+            // If this throws, it means DB save failed (network/auth issue)
             await updateApiKey(cleanedKey); 
 
-            // 2. Test Connectivity (with timeout race to prevent infinite loading)
-            const connectivityPromise = runConnectivityTest();
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error("Connection check timed out")), 15000)
-            );
-
-            await Promise.race([connectivityPromise, timeoutPromise]);
+            // 2. Test Connectivity
+            // If this throws, the key is invalid or API is down
+            await runConnectivityTest();
 
             setStatus('VALID');
             setTimeout(() => {
@@ -117,8 +114,12 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
             setStatus('IDLE');
             setErrorMsg("");
             
-            // Update global state
-            await updateApiKey("");
+            try {
+                // Update global state
+                await updateApiKey("");
+            } catch (e: any) {
+                setErrorMsg(`Failed to remove key: ${e.message}`);
+            }
         }
     };
 
@@ -254,8 +255,12 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
                                 </div>
 
                                 {errorMsg && (
-                                    <div className="bg-red-900/10 border border-red-500/20 rounded-lg p-3">
-                                        <p className="text-red-400 text-xs font-mono">{errorMsg}</p>
+                                    <div className="bg-red-900/10 border border-red-500/20 rounded-lg p-3 animate-in fade-in slide-in-from-top-2">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <AlertTriangle size={12} className="text-red-500" />
+                                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Validation Error</span>
+                                        </div>
+                                        <p className="text-red-400 text-xs font-mono break-words leading-relaxed">{errorMsg}</p>
                                     </div>
                                 )}
                                 

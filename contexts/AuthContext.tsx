@@ -184,6 +184,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!user) return;
         
         if (!key) {
+            // REMOVE KEY SCENARIO
             if (!user.id.startsWith('guest-')) {
                 await authService.removeGeminiKey(user.id);
             }
@@ -191,11 +192,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUserApiKey("");
             setIsCloudSynced(false);
         } else {
+            // SAVE KEY SCENARIO
             if (!user.id.startsWith('guest-')) {
                 const result = await authService.saveGeminiKey(user.id, key);
                 if (!result.success) {
-                    // Critical: Throw error so UI knows save failed
-                    throw new Error("Cloud Save Failed: " + result.error);
+                    // Propagate specific DB error to the UI
+                    throw new Error(result.error);
                 }
                 setIsCloudSynced(true);
             } else {

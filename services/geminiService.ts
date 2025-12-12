@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from "../types";
 import { supabase } from "./supabaseClient";
@@ -67,6 +68,7 @@ export interface ApiLog {
     status: 'PENDING' | 'SUCCESS' | 'ERROR';
     latency?: string;
     dbError?: string; // New field for DB errors
+    errorMessage?: string; 
 }
 
 export interface SystemHealthReport {
@@ -121,13 +123,11 @@ const logRequest = (model: string, type: 'GENERATE' | 'CHAT' | 'TEST', appMode: 
                 });
 
                 if (error) {
-                    // console.warn("Supabase Log Insert Error:", error.message); // Silent fail
                     const targetLog = apiLogs.find(l => l.id === logId);
                     if (targetLog) targetLog.dbError = `DB_ERROR: ${error.message}`;
                 }
             }
         } catch (e: any) {
-            // console.warn("Supabase Log Exception:", e); // Silent fail
             const targetLog = apiLogs.find(l => l.id === logId);
             if (targetLog) targetLog.dbError = `DB_EXCEPTION: ${e.message}`;
         }
@@ -136,11 +136,12 @@ const logRequest = (model: string, type: 'GENERATE' | 'CHAT' | 'TEST', appMode: 
     return log;
 };
 
-const updateLogStatus = (logId: string, status: 'SUCCESS' | 'ERROR', startTime: number) => {
+const updateLogStatus = (logId: string, status: 'SUCCESS' | 'ERROR', startTime: number, errorDetails?: string) => {
     const log = apiLogs.find(l => l.id === logId);
     if (log) {
         log.status = status;
         log.latency = `${Date.now() - startTime}ms`;
+        if (errorDetails) log.errorMessage = errorDetails;
     }
 };
 
@@ -220,10 +221,9 @@ export const runDeepSystemCheck = async (): Promise<SystemHealthReport> => {
             // Check auth status
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
-                // Check KEY existence in Supabase
-                // Note: using 'encrypted_key' as per schema instructions
+                // Check KEY existence in Supabase (Lowercase table)
                 const { data, error } = await supabase
-                    .from('USER_API_KEYS')
+                    .from('user_api_keys')
                     .select('encrypted_key')
                     .eq('user_id', user.id)
                     .eq('provider', 'gemini')
@@ -303,7 +303,27 @@ const ensureClientReady = () => {
     return client;
 };
 
+// --- ERROR MAPPING UTILITY ---
+const mapGenAIError = (error: any): string => {
+    const msg = error.message || "";
+    const status = error.status || 0;
+
+    if (msg.includes("API Key Missing")) return msg;
+    if (msg.includes("400") || status === 400) return "Invalid Request (400). The image format might be unsupported or the prompt is too large.";
+    if (msg.includes("401") || status === 401) return "Unauthorized (401). Your API Key is invalid. Please update it in Settings.";
+    if (msg.includes("403") || status === 403) return "Permission Denied (403). Your API Key might be expired, or your billing project is inactive.";
+    if (msg.includes("404") || status === 404) return "Model Not Found (404). Gemini 2.5 Flash may not be available in your region yet.";
+    if (msg.includes("429") || status === 429) return "Rate Limit Exceeded (429). You are sending requests too fast. Please wait a moment.";
+    if (msg.includes("500") || status === 500) return "Google Server Error (500). The AI service is currently down. Try again later.";
+    if (msg.includes("503") || status === 503) return "Service Overloaded (503). Google's servers are busy.";
+    if (msg.includes("fetch failed") || msg.includes("NetworkError")) return "Network Error. Please check your internet connection.";
+    
+    return `AI Error: ${msg.substring(0, 100)}...`;
+};
+
 // --- SCHEMAS ---
+// (Keeping schemas identical for brevity, assuming they are unchanged from input)
+// ... [Existing schemas mathSolutionSchema, examPaperSchema, etc. remain here] ...
 
 const mathSolutionSchema: Schema = {
   type: Type.OBJECT,
@@ -493,7 +513,8 @@ const retryOperation = async <T>(operation: () => Promise<T>, retries = 3, delay
             await delay(delayMs);
             return retryOperation(operation, retries - 1, delayMs * 2);
         }
-        throw error;
+        // Throw mapped error immediately on final fail
+        throw new Error(mapGenAIError(error));
     }
 };
 
@@ -510,9 +531,10 @@ export const runConnectivityTest = async (): Promise<boolean> => {
         });
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return true;
-    } catch (e) {
-        updateLogStatus(log.id, 'ERROR', startTime);
-        throw e;
+    } catch (e: any) {
+        const mappedMsg = mapGenAIError(e);
+        updateLogStatus(log.id, 'ERROR', startTime, mappedMsg);
+        throw new Error(mappedMsg);
     }
 }
 
@@ -564,14 +586,14 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
         });
     
         const text = response.text;
-        if (!text) throw new Error("No response text from Gemini");
+        if (!text) throw new Error("Empty response from AI service.");
         
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return JSON.parse(text) as MathSolution;
-      } catch (error) {
-        console.error("Error analyzing math input:", error);
-        updateLogStatus(log.id, 'ERROR', startTime);
-        throw error;
+      } catch (error: any) {
+        const mappedMsg = mapGenAIError(error);
+        updateLogStatus(log.id, 'ERROR', startTime, mappedMsg);
+        throw new Error(mappedMsg);
       }
   });
 };
@@ -579,7 +601,7 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
 const reviewAndRefineQuestion = async (originalQ: any): Promise<any> => {
     return retryOperation(async () => {
         const startTime = Date.now();
-        const log = logRequest('gemini-2.5-flash', 'GENERATE', 'EXAM'); // Helper requests logged too
+        const log = logRequest('gemini-2.5-flash', 'GENERATE', 'EXAM'); 
         try {
             const client = ensureClientReady();
             const prompt = `Review question logic and LaTeX syntax. INPUT: ${JSON.stringify(originalQ)}`;
@@ -598,8 +620,8 @@ const reviewAndRefineQuestion = async (originalQ: any): Promise<any> => {
             updateLogStatus(log.id, 'SUCCESS', startTime);
             if (!text) return originalQ; 
             return JSON.parse(text);
-        } catch (e) {
-            updateLogStatus(log.id, 'ERROR', startTime);
+        } catch (e: any) {
+            updateLogStatus(log.id, 'ERROR', startTime, e.message);
             throw e;
         }
     });
@@ -638,10 +660,9 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
         });
 
         const text = response.text;
-        if (!text) throw new Error("No response from Gemini");
+        if (!text) throw new Error("AI returned empty content.");
         const draftPaper = JSON.parse(text) as ExamPaper;
 
-        // Audit phase (logs individual sub-requests)
         const refinedSections = await Promise.all(draftPaper.sections.map(async (section) => {
             const refinedQuestions = await Promise.all(section.questions.map(q => reviewAndRefineQuestion(q)));
             return { ...section, questions: refinedQuestions };
@@ -649,9 +670,10 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
 
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return { ...draftPaper, sections: refinedSections };
-    } catch (e) {
-        updateLogStatus(log.id, 'ERROR', startTime);
-        throw e;
+    } catch (e: any) {
+        const mappedMsg = mapGenAIError(e);
+        updateLogStatus(log.id, 'ERROR', startTime, mappedMsg);
+        throw new Error(mappedMsg);
     }
   });
 };
@@ -686,7 +708,7 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
             });
 
             const text = response.text;
-            if (!text) throw new Error("No response");
+            if (!text) throw new Error("AI returned empty content.");
             const q = JSON.parse(text) as DrillQuestion;
             q.number = questionNumber;
             q.difficultyLevel = prevDifficulty;
@@ -694,9 +716,10 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
             
             updateLogStatus(log.id, 'SUCCESS', startTime);
             return q;
-        } catch (e) {
-            updateLogStatus(log.id, 'ERROR', startTime);
-            throw e;
+        } catch (e: any) {
+            const mappedMsg = mapGenAIError(e);
+            updateLogStatus(log.id, 'ERROR', startTime, mappedMsg);
+            throw new Error(mappedMsg);
         }
     });
 }
@@ -724,29 +747,28 @@ export const generateDrillSolution = async (question: DrillQuestion): Promise<Ma
             const result = JSON.parse(text);
             updateLogStatus(log.id, 'SUCCESS', startTime);
             return result.steps as MathStep[];
-        } catch (e) {
-            updateLogStatus(log.id, 'ERROR', startTime);
-            throw e;
+        } catch (e: any) {
+            const mappedMsg = mapGenAIError(e);
+            updateLogStatus(log.id, 'ERROR', startTime, mappedMsg);
+            throw new Error(mappedMsg);
         }
     });
 };
 
 export const createChatSession = (systemInstruction: string) => {
-    const client = ensureClientReady();
-    // Chat messages are harder to log individually in this wrapper structure without proxying the chat object.
-    // For now, we log the *creation* of the session as a proxy for the user intent.
-    logRequest('gemini-2.5-flash', 'CHAT', 'CHAT'); 
-    return client.chats.create({
-        model: "gemini-2.5-flash",
-        config: {
-            systemInstruction
-        }
-    });
+    try {
+        const client = ensureClientReady();
+        logRequest('gemini-2.5-flash', 'CHAT', 'CHAT'); 
+        return client.chats.create({
+            model: "gemini-2.5-flash",
+            config: {
+                systemInstruction
+            }
+        });
+    } catch (e: any) {
+        throw new Error(mapGenAIError(e));
+    }
 };
-
-// ... existing helper functions (getStepHint, etc.) ...
-// For brevity, skipping instrumentation on minor helpers unless requested, but primary flows are covered.
-// Adding dummy instrumentation for helpers to prevent import errors if they are used.
 
 export const getStepHint = async (step: MathStep, context: string): Promise<string> => {
     const startTime = Date.now();
@@ -759,8 +781,8 @@ export const getStepHint = async (step: MathStep, context: string): Promise<stri
         });
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return response.text || "Hint unavailable.";
-    } catch (e) {
-        updateLogStatus(log.id, 'ERROR', startTime);
+    } catch (e: any) {
+        updateLogStatus(log.id, 'ERROR', startTime, e.message);
         return "Try breaking this step down.";
     }
 }
@@ -780,8 +802,8 @@ export const getStepBreakdown = async (step: MathStep, context: string): Promise
         });
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return JSON.parse(response.text || "[]");
-    } catch (e) {
-        updateLogStatus(log.id, 'ERROR', startTime);
+    } catch (e: any) {
+        updateLogStatus(log.id, 'ERROR', startTime, e.message);
         return [];
     }
 }
@@ -792,7 +814,6 @@ export const getMarkscheme = async (question: string, solution: string): Promise
     try {
         const client = ensureClientReady();
         
-        // Revised prompt for strict table output
         const prompt = `
             You are an expert IB Math Examiner. Create a detailed Markscheme for the following problem.
             
@@ -810,7 +831,6 @@ export const getMarkscheme = async (question: string, solution: string): Promise
         const response = await client.models.generateContent({
             model: "gemini-2.5-flash",
             contents: { parts: [{ text: prompt }] },
-            // Do not use JSON schema here to allow flexible table generation, but guide with text.
             config: {
                 responseMimeType: "text/plain",
                 temperature: 0.2
@@ -818,8 +838,8 @@ export const getMarkscheme = async (question: string, solution: string): Promise
         });
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return response.text || "";
-    } catch (e) {
-        updateLogStatus(log.id, 'ERROR', startTime);
+    } catch (e: any) {
+        updateLogStatus(log.id, 'ERROR', startTime, e.message);
         return "";
     }
 }

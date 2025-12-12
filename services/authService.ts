@@ -59,7 +59,7 @@ export const authService = {
             }
         });
 
-        if (error) throw new Error(error.message);
+        if (error) throw new Error(`Google Auth Error: ${error.message}`);
     },
 
     async logout(): Promise<void> {
@@ -94,20 +94,18 @@ export const authService = {
         } catch (e) { }
     },
 
-    // --- API Key Management (USER_API_KEYS Table) ---
+    // --- API Key Management (user_api_keys Table) ---
 
     async getGeminiKey(userId: string): Promise<string | null> {
         try {
             const { data, error } = await supabase
-                .from('USER_API_KEYS')
+                .from('user_api_keys')
                 .select('encrypted_key')
                 .eq('user_id', userId)
                 .eq('provider', 'gemini')
-                .limit(1)
                 .maybeSingle();
             
             if (error) {
-                // If the table doesn't exist or RLS blocks it, return null gracefully
                 console.warn("Bubble DB Warning [getGeminiKey]:", error.message);
                 return null;
             }
@@ -121,50 +119,37 @@ export const authService = {
     },
 
     async saveGeminiKey(userId: string, key: string): Promise<{ success: boolean; error?: string }> {
-        console.log("Bubble: Saving API Key...");
+        console.log("Bubble: Saving API Key to Cloud...");
         try {
-            // CRITICAL: Get the ACTUAL session ID to ensure RLS compliance.
-            // Do not rely solely on the 'userId' argument which might be stale.
             const { data: { session } } = await supabase.auth.getSession();
             
             if (!session) {
-                return { success: false, error: "No active session" };
+                return { success: false, error: "No active session found. Please reload." };
             }
             
             const sessionUserId = session.user.id;
 
-            // STRATEGY: Delete existing key(s) first to ensure clean state
-            const { error: deleteError } = await supabase
-                .from('USER_API_KEYS')
-                .delete()
-                .eq('user_id', sessionUserId)
-                .eq('provider', 'gemini');
-
-            if (deleteError) {
-                console.warn("Bubble DB Warning [Delete Old Key]:", deleteError.message);
-            }
-
-            // Insert new key using the SESSION ID
-            const { error: insertError } = await supabase
-                .from('USER_API_KEYS')
-                .insert({ 
+            // Use UPSERT logic with the unique constraint on (user_id, provider)
+            const { error } = await supabase
+                .from('user_api_keys')
+                .upsert({ 
                     user_id: sessionUserId, 
                     provider: 'gemini', 
                     encrypted_key: key, 
                     is_valid: true,
                     last_error: "" 
-                });
+                }, { onConflict: 'user_id, provider' });
             
-            if (insertError) {
-                console.error("Bubble DB Error [Insert]:", insertError.message);
-                return { success: false, error: insertError.message };
+            if (error) {
+                console.error("Bubble DB Error [Upsert]:", error.message, error.details);
+                return { success: false, error: `Database Error: ${error.message}` };
             }
 
             console.log("Bubble: API Key saved successfully.");
             return { success: true };
         } catch (e: any) {
             console.error("Bubble DB Critical Error:", e.message);
-            return { success: false, error: e.message };
+            return { success: false, error: `Unexpected Error: ${e.message}` };
         }
     },
 
@@ -174,7 +159,7 @@ export const authService = {
             if (!session) return;
 
             const { error } = await supabase
-                .from('USER_API_KEYS')
+                .from('user_api_keys')
                 .delete()
                 .eq('user_id', session.user.id)
                 .eq('provider', 'gemini');
