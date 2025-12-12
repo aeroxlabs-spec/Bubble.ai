@@ -3,10 +3,13 @@ import { User } from '../types';
 import { supabase } from './supabaseClient';
 
 export const authService = {
-    async login(email: string, password: string): Promise<User> {
+    async login(email: string, password: string, captchaToken?: string): Promise<User> {
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
+            options: {
+                captchaToken
+            }
         });
 
         if (error) throw new Error(error.message);
@@ -21,7 +24,7 @@ export const authService = {
         };
     },
 
-    async signup(name: string, email: string, password: string): Promise<User> {
+    async signup(name: string, email: string, password: string, captchaToken?: string): Promise<User> {
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -30,6 +33,7 @@ export const authService = {
                     full_name: name,
                     hasOnboarded: false
                 },
+                captchaToken
             },
         });
 

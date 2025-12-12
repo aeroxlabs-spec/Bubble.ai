@@ -8,8 +8,8 @@ import { setSessionKey } from '../services/geminiService';
 interface AuthContextType {
     user: User | null;
     loading: boolean;
-    login: (email: string, password: string) => Promise<void>;
-    signup: (name: string, email: string, password: string) => Promise<void>;
+    login: (email: string, password: string, captchaToken?: string) => Promise<void>;
+    signup: (name: string, email: string, password: string, captchaToken?: string) => Promise<void>;
     loginWithGoogle: (credential: string) => Promise<void>;
     loginAsGuest: () => Promise<void>;
     logout: () => Promise<void>;
@@ -145,13 +145,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, []);
 
-    const login = async (email: string, password: string) => {
-        const user = await authService.login(email, password);
+    const login = async (email: string, password: string, captchaToken?: string) => {
+        const user = await authService.login(email, password, captchaToken);
         setUser(user);
     };
 
-    const signup = async (name: string, email: string, password: string) => {
-        const user = await authService.signup(name, email, password);
+    const signup = async (name: string, email: string, password: string, captchaToken?: string) => {
+        const user = await authService.signup(name, email, password, captchaToken);
         setUser(user);
     };
 

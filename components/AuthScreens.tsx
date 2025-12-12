@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Pen, Zap, GraduationCap, ArrowRight, AlertCircle, Sigma, Divide, Minus, Lightbulb, Percent, Hash, Ghost } from 'lucide-react';
 
@@ -62,7 +63,7 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
             {/* Hero Section */}
             <div className="space-y-6 sm:space-y-8 max-w-4xl relative z-20 flex flex-col items-center px-4 w-full">
                 
-                <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tighter leading-[1.0] sm:leading-[1.1] mb-1 sm:mb-2">
+                <h1 className="text-4xl sm:text-4xl md:text-7xl font-bold tracking-tighter leading-[1.0] sm:leading-[1.1] mb-1 sm:mb-2">
                     Master IB Math <br />
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-yellow-400 pb-1 sm:pb-2 inline-block">
                         with Intelligence.
@@ -296,11 +297,70 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     
-    // Simplified Google Auth Handler using Supabase Redirect
+    // Captcha State
+    const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+    const captchaRef = useRef<HTMLDivElement>(null);
+    const widgetId = useRef<string | null>(null);
+
+    // Initial Captcha Rendering
+    useEffect(() => {
+        // Reset state on mode switch
+        setCaptchaToken(null);
+        setError(null);
+        widgetId.current = null;
+        
+        // Function to render captcha safely
+        const renderWidget = () => {
+            if ((window as any).hcaptcha && captchaRef.current) {
+                try {
+                    // Avoid duplicate renders if widgetId is already set
+                    if (widgetId.current !== null) {
+                         try {
+                             (window as any).hcaptcha.reset(widgetId.current);
+                         } catch(e) { /* ignore reset error */ }
+                         return;
+                    }
+
+                    captchaRef.current.innerHTML = '';
+                    const id = (window as any).hcaptcha.render(captchaRef.current, {
+                        sitekey: 'e376da06-df9e-4392-98f6-894a7080679e', // Updated Site Key
+                        theme: 'dark',
+                        callback: (token: string) => {
+                             setCaptchaToken(token);
+                             setError(null);
+                        },
+                        'expired-callback': () => setCaptchaToken(null),
+                        'error-callback': () => {
+                            setCaptchaToken(null);
+                            setError("Captcha connection error. Check your network or domain settings.");
+                        }
+                    });
+                    widgetId.current = id;
+                } catch (e) {
+                    console.warn("Captcha render failed", e);
+                }
+            }
+        };
+
+        // Attempt immediate render
+        renderWidget();
+
+        // Fallback polling for script load
+        const interval = setInterval(() => {
+            if ((window as any).hcaptcha && captchaRef.current && !captchaRef.current.hasChildNodes() && widgetId.current === null) {
+                renderWidget();
+            }
+        }, 500);
+
+        return () => {
+             clearInterval(interval);
+             // Note: We don't remove widget on unmount to prevent visual flickering if React Strict Mode runs twice quickly
+        };
+    }, [mode]);
+    
     const handleGoogleLogin = async () => {
         setIsLoading(true);
         try {
-            // "credential" param not needed for Supabase OAuth trigger, we just call the wrapper
             await loginWithGoogle(''); 
         } catch (e: any) {
             setError(e.message || "Google Login Failed");
@@ -311,23 +371,41 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
     const performAuth = async () => {
         try {
             if (mode === 'LOGIN') {
-                await login(email, password);
+                await login(email, password, captchaToken || undefined);
             } else {
-                await signup(name, email, password);
+                await signup(name, email, password, captchaToken || undefined);
             }
         } catch (err: any) {
             setError(err.message || "Authentication failed");
             setIsLoading(false);
             setIsAnimating(false);
+            if ((window as any).hcaptcha && widgetId.current !== null) {
+                 (window as any).hcaptcha.reset(widgetId.current);
+            }
+            setCaptchaToken(null);
         }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (!captchaToken) {
+            setError("Please complete the security check.");
+            return;
+        }
+
         setError(null);
         setIsLoading(true);
         setIsAnimating(true);
-        // Auth triggered via animation callback
+    };
+    
+    // Allow manual reset if user gets stuck in error state
+    const handleResetCaptcha = () => {
+        if ((window as any).hcaptcha && widgetId.current !== null) {
+             (window as any).hcaptcha.reset(widgetId.current);
+             setError(null);
+             setCaptchaToken(null);
+        }
     };
 
     return (
@@ -401,8 +479,22 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
                         />
                     </div>
 
+                    {/* HCaptcha Container */}
+                    <div className="flex flex-col items-center justify-center pt-2 min-h-[78px]">
+                        <div ref={captchaRef} id="hcaptcha-container" />
+                        {error && error.includes("Captcha") && (
+                            <button 
+                                type="button" 
+                                onClick={handleResetCaptcha}
+                                className="mt-2 text-[10px] font-bold uppercase tracking-wider text-blue-400 hover:text-white transition-colors"
+                            >
+                                Retry Captcha
+                            </button>
+                        )}
+                    </div>
+
                     {error && (
-                        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-900/10 border border-red-500/20 text-red-400 text-sm">
+                        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-900/10 border border-red-500/20 text-red-400 text-sm animate-in fade-in slide-in-from-top-2">
                             <AlertCircle size={16} />
                             {error}
                         </div>
@@ -410,8 +502,8 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
 
                     <button 
                         type="submit" 
-                        disabled={isLoading}
-                        className="w-full bg-transparent border border-white/20 text-white font-bold py-2.5 rounded-full hover:bg-white/5 hover:border-white/50 hover:shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-all flex items-center justify-center gap-2 mt-4"
+                        disabled={isLoading || !captchaToken}
+                        className="w-full bg-transparent border border-white/20 text-white font-bold py-2.5 rounded-full hover:bg-white/5 hover:border-white/50 hover:shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isLoading ? (
                              <span className="text-xs font-mono animate-pulse">Initializing...</span>
