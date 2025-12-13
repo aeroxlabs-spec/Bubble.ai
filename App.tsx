@@ -17,6 +17,8 @@ import ApiKeyModal from './components/ApiKeyModal';
 import FeedbackModal from './components/FeedbackModal';
 import HelpModal from './components/HelpModal';
 import AdminFeedbackModal from './components/AdminFeedbackModal';
+import InfoModal, { InfoPageType } from './components/InfoModal';
+import Footer from './components/Footer';
 import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator, Zap, LogOut, User as UserIcon, Check, AlertCircle, Key, Coins, MessageSquare, ShieldAlert, HelpCircle, Activity, LayoutDashboard, RefreshCw } from 'lucide-react';
 
 // Cost Configuration
@@ -363,6 +365,7 @@ const App: React.FC = () => {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [infoPage, setInfoPage] = useState<InfoPageType | null>(null);
   
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [startBackgroundEffects, setStartBackgroundEffects] = useState(false);
@@ -743,7 +746,7 @@ const toggleSection = (title: string) => {
   const diagnostics = getSystemDiagnostics();
   
   return (
-    <div className="min-h-screen text-gray-100 bg-black selection:bg-blue-900/50 font-sans overflow-x-hidden text-sm">
+    <div className="min-h-screen text-gray-100 bg-black selection:bg-blue-900/50 font-sans overflow-x-hidden text-sm flex flex-col">
       
       {!user.hasOnboarded && <OnboardingModal onComplete={finishOnboarding} />}
       
@@ -773,6 +776,13 @@ const toggleSection = (title: string) => {
             adminUser={user}
           />
       )}
+
+      {/* Info Modal for SEO pages */}
+      <InfoModal 
+        isOpen={!!infoPage} 
+        page={infoPage} 
+        onClose={() => setInfoPage(null)} 
+      />
 
       {/* Limit Warning Toast */}
       {limitWarning && (
@@ -957,7 +967,7 @@ const toggleSection = (title: string) => {
         </div>
       </nav>
 
-      <div className="relative z-10">
+      <div className="relative z-10 flex-1">
         <main className="mx-auto px-4 sm:px-6 py-4 sm:py-8 max-w-6xl">
             {isLightboxOpen && activeInput?.type === 'image' && (
                 <Lightbox src={activeInput.preview!} onClose={() => setIsLightboxOpen(false)} />
@@ -1010,7 +1020,7 @@ const toggleSection = (title: string) => {
                                         Math explained. <span className="text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">Simply.</span>
                                     </h1>
                                     <p className="text-base sm:text-lg text-gray-500 font-normal max-w-md mx-auto">
-                                    Step-by-step IB HL analysis. Powered by Gemini.
+                                        Bubble.ib is the intelligent AI tutor for IB Math Analysis and Approaches HL students. Get step-by-step solutions, markscheme analysis, and instant feedback.
                                     </p>
                                 </>
                             )}
@@ -1088,6 +1098,20 @@ const toggleSection = (title: string) => {
                                     )}
                                 </div>
                             </div>
+
+                            {/* SEO Content Block - Visible on landing */}
+                            {appMode === 'SOLVER' && (
+                                <div className="max-w-3xl mx-auto mt-16 pt-16 border-t border-white/5 px-4 text-center">
+                                    <h2 className="text-xl font-bold text-white mb-4">Master IB Math with AI Intelligence</h2>
+                                    <p className="text-gray-400 text-sm leading-relaxed max-w-2xl mx-auto">
+                                        Bubble.ib is the ultimate AI tutor designed specifically for International Baccalaureate (IB) Math Analysis and Approaches (AA) HL students. 
+                                        Powered by Google's advanced Gemini 2.5 Flash and Pro models, Bubble.ib goes beyond simple answers. 
+                                        It provides context-aware step-by-step solutions, identifies IB method marks (M1) and accuracy marks (A1), and explains the logic behind every calculation.
+                                        Whether you are stuck on a complex calculus problem, need a custom practice exam generated from your notes, or want to drill key topics, Bubble.ib is your 24/7 personalized math companion.
+                                    </p>
+                                </div>
+                            )}
+
                         </div>
                     </div>
                 )}
@@ -1285,6 +1309,10 @@ const toggleSection = (title: string) => {
             )}
         </main>
       </div>
+
+      {appState === AppState.IDLE && (
+          <Footer onLinkClick={setInfoPage} />
+      )}
 
       {appState === AppState.SOLVED && (
           <ChatInterface 
