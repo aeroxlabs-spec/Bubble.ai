@@ -19,19 +19,22 @@ const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose, page }) => {
                 return (
                     <div className="space-y-6">
                         <div className="space-y-2">
-                            <h3 className="text-lg font-bold text-white">Our Mission</h3>
+                            <h3 className="text-lg font-bold text-white">Our Educational Mission</h3>
                             <p className="text-gray-400 text-sm leading-relaxed">
-                                Bubble.ib is a student-led initiative designed to democratize high-quality mathematics tutoring. 
-                                Built specifically for the <strong>International Baccalaureate (IB)</strong> curriculum, we leverage advanced AI 
-                                (powered by Google's Gemini models) to help Math Analysis and Approaches HL students master complex concepts without the high cost of private tuition.
+                                Bubble.ib is a purely educational initiative built with a single objective: 
+                                to provide the most adapted <strong>AI tutoring for IB Math Analysis and Approaches (AA) HL</strong> completely for free. 
+                            </p>
+                            <p className="text-gray-400 text-sm leading-relaxed">
+                                We believe that high-quality academic support should be accessible to everyone. 
+                                By leveraging advanced technology, we aim to give every student the tools they need to learn at a faster pace, 
+                                master complex concepts, and achieve their academic goals without barriers.
                             </p>
                         </div>
                         <div className="space-y-2">
-                            <h3 className="text-lg font-bold text-white">How It Works</h3>
+                            <h3 className="text-lg font-bold text-white">Why We Built This</h3>
                             <p className="text-gray-400 text-sm leading-relaxed">
-                                Unlike generic math solvers, Bubble.ib is context-aware. It understands IB markschemes, 
-                                method marks (M1), and accuracy marks (A1). It doesn't just give you the answer; 
-                                it teaches you the methodology required to score maximum points in your exams.
+                                This platform functions as an intelligent study companion that understands the specific requirements of the curriculum. 
+                                It is designed solely for educational purposes to facilitate self-guided learning and improve mathematical understanding through context-aware feedback.
                             </p>
                         </div>
                     </div>
@@ -47,7 +50,7 @@ const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose, page }) => {
                                 </div>
                                 <p className="text-gray-400 text-xs leading-relaxed">
                                     Upload any math problem (image or text). Our AI breaks it down into logical steps, 
-                                    provides hints, and generates a detailed IB-style markscheme to help you self-assess.
+                                    provides hints, and generates a detailed markscheme style analysis to help you self-assess.
                                 </p>
                             </div>
 
@@ -90,8 +93,8 @@ const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose, page }) => {
                                 <div>
                                     <h4 className="font-bold text-white text-sm">Email Support</h4>
                                     <p className="text-gray-500 text-xs mb-1">For general inquiries and partnerships.</p>
-                                    <a href="mailto:support@bubbleib.eu" className="text-blue-400 text-xs hover:text-blue-300 transition-colors">
-                                        support@bubbleib.eu
+                                    <a href="mailto:bubbleib.contact@gmail.com" className="text-blue-400 text-xs hover:text-blue-300 transition-colors">
+                                        bubbleib.contact@gmail.com
                                     </a>
                                 </div>
                             </div>

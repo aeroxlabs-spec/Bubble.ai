@@ -1106,20 +1106,6 @@ const toggleSection = (title: string) => {
                                     )}
                                 </div>
                             </div>
-
-                            {/* SEO Content Block - Visible on landing */}
-                            {appMode === 'SOLVER' && (
-                                <div className="max-w-3xl mx-auto mt-16 pt-16 border-t border-white/5 px-4 text-center">
-                                    <h2 className="text-xl font-bold text-white mb-4">Master IB Math with AI Intelligence</h2>
-                                    <p className="text-gray-400 text-sm leading-relaxed max-w-2xl mx-auto">
-                                        Bubble.ib is the ultimate AI tutor designed specifically for International Baccalaureate (IB) Math Analysis and Approaches (AA) HL students. 
-                                        Powered by Google's advanced Gemini 2.5 Flash and Pro models, Bubble.ib goes beyond simple answers. 
-                                        It provides context-aware step-by-step solutions, identifies IB method marks (M1) and accuracy marks (A1), and explains the logic behind every calculation.
-                                        Whether you are stuck on a complex calculus problem, need a custom practice exam generated from your notes, or want to drill key topics, Bubble.ib is your 24/7 personalized math companion.
-                                    </p>
-                                </div>
-                            )}
-
                         </div>
                     </div>
                 )}
