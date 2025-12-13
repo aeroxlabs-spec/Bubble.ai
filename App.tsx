@@ -405,6 +405,29 @@ const App: React.FC = () => {
       }
   }, [user]);
 
+  // Keyboard Navigation for Steps in Solver Mode
+  useEffect(() => {
+      if (appState === AppState.SOLVED && appMode === 'SOLVER' && solutions[activeTab] && activeView === 'steps') {
+          const handleKeyDown = (e: KeyboardEvent) => {
+              // Only trigger if not typing in an input
+              if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+
+              if (e.key === 'ArrowRight') {
+                  setCurrentStepIndex(prev => {
+                      const max = solutions[activeTab]!.steps.length - 1;
+                      return prev < max ? prev + 1 : prev;
+                  });
+              } else if (e.key === 'ArrowLeft') {
+                  setCurrentStepIndex(prev => Math.max(0, prev - 1));
+              }
+          };
+
+          window.addEventListener('keydown', handleKeyDown);
+          return () => window.removeEventListener('keydown', handleKeyDown);
+      }
+  }, [appState, appMode, solutions, activeTab, activeView]);
+
+
   // Warm-up effect: Ping Supabase on mount to prevent cold start delays
   useEffect(() => {
     const warmUp = async () => {
@@ -1027,9 +1050,6 @@ const toggleSection = (title: string) => {
                                     <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
                                         Math explained. <span className="text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">Simply.</span>
                                     </h1>
-                                    <p className="text-base sm:text-lg text-gray-500 font-normal max-w-md mx-auto">
-                                        Bubble.ib is the intelligent AI tutor for IB Math Analysis and Approaches HL students. Get step-by-step solutions, markscheme analysis, and instant feedback.
-                                    </p>
                                 </>
                             )}
                             {appMode === 'EXAM' && (

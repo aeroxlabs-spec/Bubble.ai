@@ -91,10 +91,10 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
                 )
             },
             
-            // Error spans
+            // Error handling: If span has katex-error, return null (hide it)
             span: ({node, className, children, ...props}) => {
-                if (className?.includes('katex-error')) {
-                    return <span className="text-red-500 font-mono text-[10px]" title={`${children}`}>[Math Syntax Error]</span>
+                if (className?.includes('katex-error') || className?.includes('error')) {
+                    return null;
                 }
                 return <span className={className} {...props}>{children}</span>
             },
