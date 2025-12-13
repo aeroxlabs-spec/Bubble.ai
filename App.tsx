@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from './types';
-import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution, getDailyUsage } from './services/geminiService';
+import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution, getDailyUsage, generateDrillBatch } from './services/geminiService';
+import { supabase, withTimeout } from './services/supabaseClient';
 import { useAuth } from './contexts/AuthContext';
 import { AuthScreens } from './components/AuthScreens';
 import UploadZone from './components/UploadZone';
@@ -404,6 +405,20 @@ const App: React.FC = () => {
       }
   }, [user]);
 
+  // Warm-up effect: Ping Supabase on mount to prevent cold start delays
+  useEffect(() => {
+    const warmUp = async () => {
+        try {
+            // Simple lightweight query to wake up Supabase serverless function/db
+            await withTimeout(supabase.from('user_api_keys').select('count', { count: 'exact', head: true }), 5000);
+        } catch(e) { 
+            // Silent catch, this is non-critical optimization
+            console.log("Warmup ping completed (or timeout/fail)", e); 
+        }
+    };
+    warmUp();
+  }, []);
+
   const activeSolution = solutions[activeTab];
   const activeInput = uploads[activeTab];
 
@@ -550,16 +565,7 @@ const handleExamConfigSubmit = async (settings: ExamSettings) => {
     }, COSTS.EXAM_GENERATION);
 }
 
-const generateDrillBatch = async (startNum: number, prevDiff: number, count: number, settings: DrillSettings): Promise<DrillQuestion[]> => {
-    const promises = [];
-    let currentDiff = prevDiff;
-    for (let i = 0; i < count; i++) {
-        promises.push(generateDrillQuestion(settings, uploads, startNum + i, currentDiff));
-        currentDiff = Math.min(10, currentDiff + 0.5); 
-    }
-    return Promise.all(promises);
-}
-
+// Updated to use the new batch function that uses Promise.allSettled
 const handleDrillConfigSubmit = async (settings: DrillSettings) => {
     await checkKeyAndProceed(async () => {
         setShowConfig(false);
@@ -576,7 +582,8 @@ const handleDrillConfigSubmit = async (settings: DrillSettings) => {
         const startDiff = getBaseDifficulty(settings.difficulty);
 
         try {
-            const initialBatch = await generateDrillBatch(1, startDiff, 3, settings);
+            // Use improved batch function
+            const initialBatch = await generateDrillBatch(1, startDiff, 3, settings, uploads);
             setLoadingProgress(100);
             
             setTimeout(() => {
@@ -598,7 +605,8 @@ const handleNextDrillQuestion = async () => {
     if (drillQuestions.length > 0 && currentDrillIndex >= drillQuestions.length - 2 && !loadingDrill) {
          const lastQ = drillQuestions[drillQuestions.length - 1];
          setLoadingDrill(true);
-         generateDrillBatch(lastQ.number + 1, lastQ.difficultyLevel, 3, drillSettings)
+         // Use improved batch function in background
+         generateDrillBatch(lastQ.number + 1, lastQ.difficultyLevel, 3, drillSettings, uploads)
            .then(newQs => {
                setDrillQuestions(prev => [...prev, ...newQs]);
                setLoadingDrill(false);
@@ -615,7 +623,7 @@ const handleNextDrillQuestion = async () => {
         if (!loadingDrill) {
             setLoadingDrill(true);
             const lastQ = drillQuestions[drillQuestions.length - 1];
-            generateDrillBatch(lastQ.number + 1, lastQ.difficultyLevel, 3, drillSettings)
+            generateDrillBatch(lastQ.number + 1, lastQ.difficultyLevel, 3, drillSettings, uploads)
                .then(newQs => {
                    setDrillQuestions(prev => [...prev, ...newQs]);
                    setLoadingDrill(false);

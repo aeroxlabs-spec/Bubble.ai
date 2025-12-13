@@ -1,7 +1,7 @@
 
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenAI, Type, Schema, GenerateContentResponse } from "@google/genai";
 import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from "../types";
-import { supabase } from "./supabaseClient";
+import { supabase, withTimeout } from "./supabaseClient";
 import { authService } from "./authService";
 
 // Module-level variable to store the active user key directly from AuthContext
@@ -110,17 +110,18 @@ const logRequest = (model: string, type: 'GENERATE' | 'CHAT' | 'TEST', appMode: 
     };
     apiLogs.push(log);
 
-    // Fire-and-forget logging to Supabase
+    // Fire-and-forget logging to Supabase with timeout wrapper
     (async () => {
         try {
             const user = await authService.getCurrentUser();
             if (user && !user.id.startsWith('guest-')) {
-                const { error } = await supabase.from('usage_logs').insert({
+                // Wrap in timeout so it doesn't hang background processes
+                const { error } = await withTimeout(supabase.from('usage_logs').insert({
                     user_id: user.id,
                     model: model,
                     mode: appMode,
                     created_at: new Date().toISOString()
-                });
+                }), 5000).catch(e => ({ error: { message: "Log Timeout" } })) as any;
 
                 if (error) {
                     const targetLog = apiLogs.find(l => l.id === logId);
@@ -222,12 +223,12 @@ export const runDeepSystemCheck = async (): Promise<SystemHealthReport> => {
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
                 // Check KEY existence in Supabase (Lowercase table)
-                const { data, error } = await supabase
+                const { data, error } = await withTimeout(supabase
                     .from('user_api_keys')
                     .select('encrypted_key')
                     .eq('user_id', user.id)
                     .eq('provider', 'gemini')
-                    .maybeSingle();
+                    .maybeSingle(), 5000) as any;
                 
                 if (!error) {
                     report.checks.database = true;
@@ -266,10 +267,10 @@ export const runDeepSystemCheck = async (): Promise<SystemHealthReport> => {
         try {
              const startPing = Date.now();
              const client = new GoogleGenAI({ apiKey: activeKey });
-             await client.models.generateContent({
+             await withTimeout(client.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: { parts: [{ text: 'Ping' }] }
-             });
+             }), 10000);
              report.latencyMs = Date.now() - startPing;
              report.checks.apiKey = true;
         } catch (e) {
@@ -308,6 +309,7 @@ const mapGenAIError = (error: any): string => {
     const msg = error.message || "";
     const status = error.status || 0;
 
+    if (msg.includes("Request timed out")) return "Request Timeout. The server took too long to respond.";
     if (msg.includes("API Key Missing")) return msg;
     if (msg.includes("400") || status === 400) return "Invalid Request (400). The image format might be unsupported or the prompt is too large.";
     if (msg.includes("401") || status === 401) return "Unauthorized (401). Your API Key is invalid. Please update it in Settings.";
@@ -494,12 +496,14 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const retryOperation = async <T>(operation: () => Promise<T>, retries = 3, delayMs = 1000): Promise<T> => {
     try {
-        return await operation();
+        // Wrap the operation call in withTimeout to ensure we don't hang indefinitely waiting for Gemini
+        return await withTimeout(operation(), 60000); // 60s timeout for AI generation
     } catch (error: any) {
         const isNetworkError = 
             error.message?.includes('xhr error') || 
             error.message?.includes('fetch failed') ||
             error.message?.includes('network') ||
+            error.message?.includes('timed out') ||
             error.code === 6;
             
         const isServerOrQuota = 
@@ -525,10 +529,10 @@ export const runConnectivityTest = async (): Promise<boolean> => {
     const log = logRequest('gemini-2.5-flash', 'TEST', 'TEST');
     try {
         const client = ensureClientReady();
-        await client.models.generateContent({
+        await withTimeout(client.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: [{ text: 'Ping' }] }
-        });
+        }), 10000); // 10s timeout for simple ping
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return true;
     } catch (e: any) {
@@ -663,8 +667,18 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
         if (!text) throw new Error("AI returned empty content.");
         const draftPaper = JSON.parse(text) as ExamPaper;
 
+        // Use Promise.allSettled to prevent partial failures from crashing the whole exam generation
+        // Concurrency is handled by the browser/runtime
         const refinedSections = await Promise.all(draftPaper.sections.map(async (section) => {
-            const refinedQuestions = await Promise.all(section.questions.map(q => reviewAndRefineQuestion(q)));
+            const results = await Promise.allSettled(section.questions.map(q => reviewAndRefineQuestion(q)));
+            
+            const refinedQuestions = results.map((result, idx) => {
+                if (result.status === 'fulfilled') return result.value;
+                // Log failure but fallback to original
+                console.error(`Question ${idx} refinement failed:`, result.reason);
+                return section.questions[idx]; 
+            });
+
             return { ...section, questions: refinedQuestions };
         }));
 
@@ -724,6 +738,23 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
     });
 }
 
+// Helper to handle batch generation with allSettled
+export const generateDrillBatch = async (startNum: number, prevDiff: number, count: number, settings: DrillSettings, inputs: UserInput[]): Promise<DrillQuestion[]> => {
+    const promises = [];
+    let currentDiff = prevDiff;
+    for (let i = 0; i < count; i++) {
+        promises.push(generateDrillQuestion(settings, inputs, startNum + i, currentDiff));
+        currentDiff = Math.min(10, currentDiff + 0.5); 
+    }
+    
+    // Avoid Promise.all to prevent single failure from killing batch
+    const results = await Promise.allSettled(promises);
+    
+    return results
+        .filter(r => r.status === 'fulfilled')
+        .map(r => (r as PromiseFulfilledResult<DrillQuestion>).value);
+}
+
 export const generateDrillSolution = async (question: DrillQuestion): Promise<MathStep[]> => {
     return retryOperation(async () => {
         const startTime = Date.now();
@@ -775,10 +806,10 @@ export const getStepHint = async (step: MathStep, context: string): Promise<stri
     const log = logRequest('gemini-2.5-flash', 'CHAT', 'SOLVER');
     try {
         const client = ensureClientReady();
-        const response = await client.models.generateContent({
+        const response = await withTimeout(client.models.generateContent({
             model: "gemini-2.5-flash",
             contents: { parts: [{ text: `Hint for step: ${step.title}` }] }
-        });
+        }), 20000) as GenerateContentResponse;
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return response.text || "Hint unavailable.";
     } catch (e: any) {
@@ -792,14 +823,14 @@ export const getStepBreakdown = async (step: MathStep, context: string): Promise
     const log = logRequest('gemini-2.5-flash', 'GENERATE', 'SOLVER');
     try {
         const client = ensureClientReady();
-        const response = await client.models.generateContent({
+        const response = await withTimeout(client.models.generateContent({
             model: "gemini-2.5-flash",
             contents: { parts: [{ text: `Breakdown step: ${step.title}` }] },
              config: {
                 responseMimeType: "application/json",
                 responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } }
             }
-        });
+        }), 25000) as GenerateContentResponse;
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return JSON.parse(response.text || "[]");
     } catch (e: any) {
@@ -828,14 +859,14 @@ export const getMarkscheme = async (question: string, solution: string): Promise
             Reference Solution Steps: ${solution}
         `;
 
-        const response = await client.models.generateContent({
+        const response = await withTimeout(client.models.generateContent({
             model: "gemini-2.5-flash",
             contents: { parts: [{ text: prompt }] },
             config: {
                 responseMimeType: "text/plain",
                 temperature: 0.2
             }
-        });
+        }), 30000) as GenerateContentResponse;
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return response.text || "";
     } catch (e: any) {

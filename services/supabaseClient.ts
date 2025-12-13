@@ -17,3 +17,25 @@ export const supabase = createClient(PROJECT_URL, ANON_KEY, {
         headers: { 'x-application-name': 'bubble-math' },
     }
 });
+
+/**
+ * Wraps a promise with a timeout to prevent infinite hanging.
+ * @param promise The async operation to wrap
+ * @param timeoutMs Timeout in milliseconds (default 15000ms)
+ * @param errorMsg Custom error message
+ */
+export const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number = 15000, errorMsg = "Request timed out"): Promise<T> => {
+    let timeoutHandle: any;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => reject(new Error(errorMsg)), timeoutMs);
+    });
+
+    try {
+        const result = await Promise.race([promise, timeoutPromise]);
+        clearTimeout(timeoutHandle);
+        return result;
+    } catch (error) {
+        clearTimeout(timeoutHandle);
+        throw error;
+    }
+};
