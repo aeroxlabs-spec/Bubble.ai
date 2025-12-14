@@ -1379,7 +1379,7 @@ const toggleSection = (title: string) => {
                     </div>
                 ) : appMode === 'EXAM' && generatedExam ? (
                     <ExamViewer exam={generatedExam} />
-                ) : appMode === 'DRILL' && (
+                ) : appMode === 'DRILL' ? (
                     <DrillSessionViewer 
                         question={drillQuestions[currentDrillIndex] || null} 
                         isLoading={loadingDrill} 
