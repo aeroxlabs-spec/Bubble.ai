@@ -360,6 +360,9 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<'steps' | 'markscheme'>('steps');
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
+  // Chat Prompt Trigger
+  const [chatPrompt, setChatPrompt] = useState<string>('');
+
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [analyzingIndex, setAnalyzingIndex] = useState<number>(-1);
@@ -404,6 +407,7 @@ const App: React.FC = () => {
     setLoadingDrill(false);
     setLoadingDrillSolution(false);
     setLimitWarning(null); // Clear warnings on reset
+    setChatPrompt('');
   };
 
   useEffect(() => {
@@ -778,6 +782,11 @@ const toggleSection = (title: string) => {
       else next.add(title);
       return next;
   });
+};
+
+const handleOpenChatWithPrompt = (prompt: string) => {
+    setChatPrompt(prompt);
+    setIsChatOpen(true);
 };
 
   // Determine Current Cost
@@ -1250,6 +1259,10 @@ const toggleSection = (title: string) => {
                         />
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-full -translate-x-full animate-[shimmer_1.5s_infinite]" />
                     </div>
+                    {/* Percentage Indicator */}
+                    <div className="absolute top-3 right-0 text-[10px] font-mono font-bold text-gray-500">
+                        {Math.round(loadingProgress)}%
+                    </div>
                 </div>
             </div>
             )}
@@ -1258,6 +1271,7 @@ const toggleSection = (title: string) => {
             {appState === AppState.SOLVED && (
                 appMode === 'SOLVER' && activeSolution ? (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 pb-32 animate-in fade-in duration-500">
+                         {/* ... Solver Logic ... */}
                          {/* Left Panel */}
                          <div className="lg:col-span-4 space-y-6">
                             <div className="sticky top-24 space-y-6">
@@ -1365,7 +1379,6 @@ const toggleSection = (title: string) => {
                                                 }
                                             >
                                                 <div className="text-gray-300 text-sm">
-                                                    {/* Using activeSolution.markscheme assuming it's been normalized already or renderer handles it */}
                                                     <MarkdownRenderer content={activeSolution.markscheme} />
                                                 </div>
                                             </SectionContainer>
@@ -1391,7 +1404,7 @@ const toggleSection = (title: string) => {
                         isGeneratingSolution={loadingDrillSolution}
                     />
                 ) : appMode === 'CONCEPT' && conceptExplanation ? (
-                    <ConceptViewer concept={conceptExplanation} />
+                    <ConceptViewer concept={conceptExplanation} onChatAction={handleOpenChatWithPrompt} />
                 ) : null
             )}
         </main>
@@ -1413,6 +1426,7 @@ const toggleSection = (title: string) => {
              activeView={activeView} 
              mode={appMode}
              userName={user.name}
+             initialPrompt={chatPrompt}
           />
       )}
       

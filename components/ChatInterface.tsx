@@ -16,6 +16,7 @@ interface ChatInterfaceProps {
   activeView: 'steps' | 'markscheme';
   mode: AppMode;
   userName: string; 
+  initialPrompt?: string; // New prop for programmatic triggering
 }
 
 type ChatScope = 'FULL' | 'STEP';
@@ -82,7 +83,7 @@ const ThinkingIndicator = () => {
 };
 
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, concept, currentStepIndex, isOpen, onClose, activeView, mode, userName }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, concept, currentStepIndex, isOpen, onClose, activeView, mode, userName, initialPrompt }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -98,6 +99,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
     setActiveScope('FULL');
     chatSessionRef.current = null;
   }, [solution, drillQuestion, concept]);
+
+  // Handle external prompts (e.g., from Concept Viewer actions)
+  useEffect(() => {
+      if (isOpen && initialPrompt && !isLoading && !hasStarted) {
+          handleSendMessage(initialPrompt);
+      }
+  }, [isOpen, initialPrompt]);
 
   useEffect(() => {
       if (mode === 'SOLVER' && activeView === 'markscheme') {

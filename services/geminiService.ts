@@ -479,24 +479,24 @@ const conceptExplanationSchema: Schema = {
         topicTitle: { type: Type.STRING },
         introduction: { 
             type: Type.STRING,
-            description: "An engaging introductory hook explaining what the concept is about."
+            description: "An engaging theoretical overview explaining the concept. No flowery metaphors. Use LaTeX for math."
         },
         content: { 
             type: Type.STRING,
-            description: "Detailed explanation including use cases, thorough analysis, and logic. Use Markdown and LaTeX ($...$) for math."
+            description: "Main theoretical explanation. STRICT RULES: 1. Be methodological and concise. 2. NO metaphors. 3. Highlight keywords using **bold**. 4. Use LaTeX for ALL math. 5. Structure with bullet points if needed."
         },
         conclusion: { 
             type: Type.STRING,
-            description: "Summary that gives a sense of achievement."
+            description: "Concise summary of key takeaways."
         },
         examples: {
             type: Type.ARRAY,
             items: {
                 type: Type.OBJECT,
                 properties: {
-                    question: { type: Type.STRING, description: "IB-style question text with LaTeX." },
+                    question: { type: Type.STRING, description: "IB-style question text with LaTeX. Include Title/Topic." },
                     solution: { type: Type.STRING, description: "Full resolution with LaTeX." },
-                    explanation: { type: Type.STRING, description: "Why this solution works." }
+                    explanation: { type: Type.STRING, description: "Methodological explanation of the solution." }
                 },
                 required: ["question", "solution", "explanation"]
             }
@@ -838,13 +838,17 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
             Target Level: ${settings.level}
             Depth: ${settings.depth}
             
-            STRUCTURE:
-            1. Introduction: Hook the student.
-            2. Content: Thorough explanation tailored to IB requirements.
-            3. Conclusion: Summary & Achievement.
-            4. Examples: 2-3 IB style questions with solutions.
+            CRITICAL RULES:
+            1. CONTENT: Be methodological, theoretical, and concise. Avoid flowery metaphors or long "novel-like" text. 
+            2. FORMATTING: Use LaTeX ($...$) for ALL math.
+            3. KEYWORDS: Highlight key mathematical terms using **bold** markdown (e.g. **derivative**, **chain rule**).
+            4. EXAMPLES: Must be formatted with Title, Question, Solution.
             
-            Use LaTeX ($...$) for ALL math.
+            STRUCTURE:
+            1. Introduction: Concise definition/theory.
+            2. Content: The core mechanism/logic explained clearly.
+            3. Conclusion: Summary of the rule/method.
+            4. Examples: 2-3 IB style questions.
             `;
             parts.push({ text: prompt });
 
@@ -854,7 +858,7 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
                 config: {
                     responseMimeType: "application/json",
                     responseSchema: conceptExplanationSchema,
-                    temperature: 0.6
+                    temperature: 0.5 // Lower temperature for more factual/theoretical output
                 }
             });
 

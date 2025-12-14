@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, Info, Mail, Zap, GraduationCap, Pen } from 'lucide-react';
+import { X, Info, Mail, Zap, GraduationCap, Pen, Lightbulb } from 'lucide-react';
 
 export type InfoPageType = 'ABOUT' | 'SERVICES' | 'CONTACT';
 
@@ -73,6 +73,17 @@ const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose, page }) => {
                                 <p className="text-gray-400 text-xs leading-relaxed">
                                     A dynamic practice mode that adjusts difficulty based on your performance. 
                                     Master specific topics like Calculus or Vectors with rapid-fire questions and instant feedback.
+                                </p>
+                            </div>
+
+                            <div className="bg-[#121212] p-4 rounded-xl border border-green-500/20">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <Lightbulb className="text-green-400" size={20} />
+                                    <h4 className="font-bold text-white">Concept Explainer</h4>
+                                </div>
+                                <p className="text-gray-400 text-xs leading-relaxed">
+                                    Deep dive into IB concepts. Get theoretical explanations, methodological breakdowns, 
+                                    and IB-ready examples tailored to your level (SL/HL).
                                 </p>
                             </div>
                         </div>

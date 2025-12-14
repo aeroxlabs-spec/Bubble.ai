@@ -2,13 +2,14 @@
 import React, { useState } from 'react';
 import { ConceptExplanation } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
-import { BookOpen, GraduationCap, CheckCircle, ChevronDown } from 'lucide-react';
+import { BookOpen, GraduationCap, CheckCircle, ChevronDown, Zap, Search, MessageCircle } from 'lucide-react';
 
 interface ConceptViewerProps {
     concept: ConceptExplanation;
+    onChatAction?: (prompt: string) => void;
 }
 
-const ConceptViewer: React.FC<ConceptViewerProps> = ({ concept }) => {
+const ConceptViewer: React.FC<ConceptViewerProps> = ({ concept, onChatAction }) => {
     const [activeExample, setActiveExample] = useState<number | null>(null);
 
     return (
@@ -37,11 +38,41 @@ const ConceptViewer: React.FC<ConceptViewerProps> = ({ concept }) => {
 
             {/* Core Content */}
             <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl p-6 sm:p-8">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6 pb-2 border-b border-white/5">
-                    Core Concepts
-                </h3>
+                <div className="flex items-center justify-between mb-6 pb-2 border-b border-white/5">
+                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">
+                        Core Concepts
+                    </h3>
+                </div>
+                
                 <div className="text-gray-300 text-sm leading-loose">
                     <MarkdownRenderer content={concept.content} mode="CONCEPT" />
+                </div>
+
+                {/* Interactive Action Toolbar */}
+                <div className="mt-8 pt-4 border-t border-white/5 flex flex-wrap gap-2">
+                    <button 
+                        onClick={() => onChatAction?.("Explain this concept simply using a metaphor.")}
+                        className="px-3 py-2 rounded-lg bg-[#151515] border border-white/10 hover:border-green-500/30 hover:bg-green-500/5 transition-all flex items-center gap-2 group"
+                    >
+                        <Zap size={14} className="text-yellow-400 group-hover:scale-110 transition-transform" />
+                        <span className="text-xs font-bold text-gray-400 group-hover:text-green-300">Simplify (Metaphor)</span>
+                    </button>
+                    
+                    <button 
+                        onClick={() => onChatAction?.("Expand on the theoretical derivation of this concept.")}
+                        className="px-3 py-2 rounded-lg bg-[#151515] border border-white/10 hover:border-green-500/30 hover:bg-green-500/5 transition-all flex items-center gap-2 group"
+                    >
+                        <Search size={14} className="text-blue-400 group-hover:scale-110 transition-transform" />
+                        <span className="text-xs font-bold text-gray-400 group-hover:text-green-300">Deep Dive</span>
+                    </button>
+
+                    <button 
+                        onClick={() => onChatAction?.("Give me a real-world application of this concept.")}
+                        className="px-3 py-2 rounded-lg bg-[#151515] border border-white/10 hover:border-green-500/30 hover:bg-green-500/5 transition-all flex items-center gap-2 group"
+                    >
+                        <MessageCircle size={14} className="text-purple-400 group-hover:scale-110 transition-transform" />
+                        <span className="text-xs font-bold text-gray-400 group-hover:text-green-300">Use Case</span>
+                    </button>
                 </div>
             </div>
 
