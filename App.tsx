@@ -1239,14 +1239,14 @@ const handleOpenChatWithPrompt = (prompt: string) => {
                     ] : appMode === 'DRILL' ? [
                          "Calibrating initial difficulty...", "Analyzing topic requirements...", "Generating practice scenario..."
                     ] : [
-                         "Connecting concepts...", "Structuring explanation...", "Generating IB examples..."
+                         "Connecting concepts...", "Deriving key formulas...", "Drafting mathematical proofs...", "Generating IB examples..."
                     ]} />
                 </div>
 
                 <div className="w-full max-w-xs space-y-3 relative mb-6">
-                    <div className="h-1.5 w-full bg-[#111] rounded-full overflow-hidden border border-white/5 relative">
+                    <div className="h-1.5 w-full bg-[#111] rounded-full overflow-visible border border-white/5 relative">
                         <div 
-                            className={`h-full shadow-[0_0_10px_rgba(59,130,246,0.5)] transition-all duration-300 ease-out ${
+                            className={`h-full shadow-[0_0_10px_rgba(59,130,246,0.5)] transition-all duration-300 ease-out relative rounded-full ${
                                 appMode === 'SOLVER' 
                                 ? 'bg-gradient-to-r from-blue-600 to-blue-400' 
                                 : appMode === 'EXAM'
@@ -1256,12 +1256,12 @@ const handleOpenChatWithPrompt = (prompt: string) => {
                                     : 'bg-gradient-to-r from-green-600 to-green-400'
                             }`}
                             style={{ width: `${loadingProgress}%` }}
-                        />
+                        >
+                            <span className="absolute right-0 top-full mt-2 text-[10px] font-mono font-bold text-gray-500 transform translate-x-1/2 transition-all">
+                                {Math.round(loadingProgress)}%
+                            </span>
+                        </div>
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-full -translate-x-full animate-[shimmer_1.5s_infinite]" />
-                    </div>
-                    {/* Percentage Indicator */}
-                    <div className="absolute top-3 right-0 text-[10px] font-mono font-bold text-gray-500">
-                        {Math.round(loadingProgress)}%
                     </div>
                 </div>
             </div>

@@ -120,18 +120,22 @@ export interface ConceptSettings {
     depth: ConceptDepth;
 }
 
+export type ExampleDifficulty = 'BASIC' | 'EXAM' | 'HARD';
+
 export interface ConceptExample {
-    question: string;
-    solution: string;
-    explanation: string;
+    difficulty: ExampleDifficulty;
+    title: string;
+    requirements: string; // The "Question" part
+    solution: string; // The math steps
+    explanation: string; // The logic
 }
 
 export interface ConceptExplanation {
     topicTitle: string;
-    introduction: string; // The hook
-    content: string; // The core explanation
-    conclusion: string; // Summary/Achievement
-    examples: ConceptExample[]; // IB ready examples
+    coreFormulas: string[]; // List of LaTeX formulas
+    introduction: string; 
+    theoreticalContent: string; // Renamed for clarity
+    examples: ConceptExample[]; // Must be 3 (Basic, Exam, Hard)
 }
 
 // --- FEEDBACK TYPES (V2) ---

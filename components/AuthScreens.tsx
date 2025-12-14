@@ -58,7 +58,7 @@ export const AuthScreens: React.FC = () => {
 const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') => void }) => {
     
     return (
-        <div className="max-w-5xl mx-auto flex flex-col items-center text-center space-y-6 sm:space-y-12 py-4 sm:py-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative w-full h-full justify-center min-h-[80vh] sm:min-h-0">
+        <div className="max-w-7xl mx-auto flex flex-col items-center text-center space-y-6 sm:space-y-12 py-4 sm:py-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative w-full h-full justify-center min-h-[80vh] sm:min-h-0">
             
             {/* Hero Section */}
             <div className="space-y-6 sm:space-y-8 max-w-4xl relative z-20 flex flex-col items-center px-4 w-full">
@@ -72,7 +72,7 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
                 
                 <div className="text-sm sm:text-lg md:text-xl text-gray-400 w-full mx-auto leading-relaxed relative flex flex-col items-center max-w-[280px] sm:max-w-xl">
                     <p>
-                        Step-by-step solutions, custom exam papers, and adaptive drills.
+                        Step-by-step solutions, custom exam papers, adaptive drills, and deep concept mastery.
                     </p>
                 </div>
 
@@ -86,15 +86,15 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
                 </div>
             </div>
 
-            {/* Feature Grid - Mobile: Grid 3 Cols, Desktop: Grid 3 Cols */}
+            {/* Feature Grid - Now 4 Columns */}
             <div className="w-full relative z-10 pt-8 sm:pt-20">
-                <div className="grid grid-cols-3 gap-2 sm:gap-8 max-w-4xl mx-auto w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto w-full">
                     <div className="w-full">
                         <FeatureCard 
                             icon={<Pen size={20} className="text-blue-400" />}
                             title="Smart Solver"
-                            desc="Detailed breakdowns and markscheme analysis."
-                            extraInfo="Upload any math image. Gemini analyzes structure & logic."
+                            desc="Detailed breakdowns."
+                            extraInfo="Upload math. Get logic & markscheme."
                             color="border-blue-500/20 hover:border-blue-500/40"
                             gradient="from-blue-500/5"
                         />
@@ -103,8 +103,8 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
                         <FeatureCard 
                             icon={<GraduationCap size={20} className="text-purple-400" />}
                             title="Exam Creator"
-                            desc="Generate full IB papers from your notes."
-                            extraInfo="Select topics. AI generates a formatted IB PDF paper."
+                            desc="Full IB mock papers."
+                            extraInfo="Custom papers from your notes."
                             color="border-purple-500/20 hover:border-purple-500/40"
                             gradient="from-purple-500/5"
                         />
@@ -113,10 +113,20 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
                         <FeatureCard 
                             icon={<Zap size={20} className="text-yellow-400" />}
                             title="Adaptive Drill"
-                            desc="Sessions that adapt to your skill level."
-                            extraInfo="Practice mode. Questions adapt to your skill level in real-time."
+                            desc="Skill-based practice."
+                            extraInfo="Questions adapt to your level."
                             color="border-yellow-500/20 hover:border-yellow-500/40"
                             gradient="from-yellow-500/5"
+                        />
+                    </div>
+                    <div className="w-full">
+                        <FeatureCard 
+                            icon={<Lightbulb size={20} className="text-green-400" />}
+                            title="Concept Explainer"
+                            desc="Master the theory."
+                            extraInfo="Methodological deep dives & proofs."
+                            color="border-green-500/20 hover:border-green-500/40"
+                            gradient="from-green-500/5"
                         />
                     </div>
                 </div>
@@ -174,7 +184,7 @@ const FeatureCard = ({ icon, title, desc, color, gradient, extraInfo }: any) => 
 
     return (
         <div 
-            className="group relative w-full h-full min-h-[130px] sm:min-h-[180px]"
+            className="group relative w-full h-full min-h-[130px] sm:min-h-[160px]"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             onClick={handleClick}
@@ -199,25 +209,25 @@ const FeatureCard = ({ icon, title, desc, color, gradient, extraInfo }: any) => 
              </div>
 
              {/* Card Content - Flexible height */}
-             <div className={`relative z-10 h-full p-2.5 sm:p-6 sm:pt-10 rounded-xl bg-[#0a0a0a] border ${color} transition-all duration-300 group-hover:scale-[1.02] shadow-lg flex flex-col justify-between sm:justify-start cursor-pointer`}>
+             <div className={`relative z-10 h-full p-2.5 sm:p-5 rounded-xl bg-[#0a0a0a] border ${color} transition-all duration-300 group-hover:scale-[1.02] shadow-lg flex flex-col justify-between sm:justify-start cursor-pointer`}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${gradient} to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl`} />
                 
                 {/* Top Section: Icon & Title */}
-                <div className="relative z-10 space-y-1 sm:space-y-3 w-full text-center sm:text-left flex flex-col items-center sm:items-start">
+                <div className="relative z-10 space-y-2 w-full text-center sm:text-left flex flex-col items-center sm:items-start">
                     <div className="p-0 sm:p-2.5 sm:bg-[#151515] rounded-lg inline-block sm:shadow-inner sm:border sm:border-white/5 w-fit">
                         {/* React Clone Element to adjust icon size for mobile vs desktop */}
                         {React.cloneElement(icon as React.ReactElement, { size: undefined, className: `${(icon as React.ReactElement).props.className} w-4 h-4 sm:w-5 sm:h-5` })}
                     </div>
                     <div>
-                        <h3 className="font-bold text-xs sm:text-lg text-white mb-0.5 sm:mb-1 tracking-tight">{title}</h3>
-                        <p className="text-xs text-gray-400 leading-relaxed font-medium hidden sm:block">{desc}</p>
+                        <h3 className="font-bold text-xs sm:text-base text-white mb-0.5 tracking-tight">{title}</h3>
+                        <p className="text-[10px] sm:text-xs text-gray-400 leading-relaxed font-medium hidden sm:block">{desc}</p>
                     </div>
                 </div>
 
                 {/* Bottom Section: Typing Text (Visible on Mobile) */}
-                <div className={`relative z-10 text-[8px] sm:text-[11px] font-mono text-blue-300 mt-auto pt-1 sm:pt-2 min-h-[2.5rem] sm:min-h-[3rem] transition-opacity duration-200 block justify-between ${typedText ? 'opacity-100' : 'block opacity-100 sm:opacity-0'}`}>
+                <div className={`relative z-10 text-[9px] sm:text-[10px] font-mono text-blue-300 mt-auto pt-1 sm:pt-2 min-h-[2rem] transition-opacity duration-200 block justify-between ${typedText ? 'opacity-100' : 'block opacity-100 sm:opacity-0'}`}>
                     {typedText || (!isHovered && <span className="opacity-0">Placeholder</span>)}
-                    {typedText && <span className="inline-block w-1 h-2 sm:w-1.5 sm:h-3 bg-blue-400 ml-1 animate-pulse align-middle" />}
+                    {typedText && <span className="inline-block w-1 h-2 sm:w-1.5 sm:h-2.5 bg-blue-400 ml-1 animate-pulse align-middle" />}
                 </div>
              </div>
         </div>

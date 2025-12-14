@@ -477,13 +477,18 @@ const conceptExplanationSchema: Schema = {
     type: Type.OBJECT,
     properties: {
         topicTitle: { type: Type.STRING },
+        coreFormulas: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "List of core LaTeX equations related to this concept."
+        },
         introduction: { 
             type: Type.STRING,
-            description: "An engaging theoretical overview explaining the concept. No flowery metaphors. Use LaTeX for math."
+            description: "Concise theoretical definition. Use LaTeX for math."
         },
-        content: { 
+        theoreticalContent: { 
             type: Type.STRING,
-            description: "Main theoretical explanation. STRICT RULES: 1. Be methodological and concise. 2. NO metaphors. 3. Highlight keywords using **bold**. 4. Use LaTeX for ALL math. 5. Structure with bullet points if needed."
+            description: "Main theoretical explanation. STRICT RULES: 1. NO metaphors. 2. High Math Density. 3. Use LaTeX for ALL math. 4. Focus on methodology and proofs."
         },
         conclusion: { 
             type: Type.STRING,
@@ -494,15 +499,17 @@ const conceptExplanationSchema: Schema = {
             items: {
                 type: Type.OBJECT,
                 properties: {
-                    question: { type: Type.STRING, description: "IB-style question text with LaTeX. Include Title/Topic." },
-                    solution: { type: Type.STRING, description: "Full resolution with LaTeX." },
-                    explanation: { type: Type.STRING, description: "Methodological explanation of the solution." }
+                    difficulty: { type: Type.STRING, enum: ['BASIC', 'EXAM', 'HARD'] },
+                    title: { type: Type.STRING },
+                    requirements: { type: Type.STRING, description: "The problem statement with LaTeX." },
+                    solution: { type: Type.STRING, description: "Full step-by-step mathematical derivation." },
+                    explanation: { type: Type.STRING, description: "Why this method was chosen." }
                 },
-                required: ["question", "solution", "explanation"]
+                required: ["difficulty", "title", "requirements", "solution", "explanation"]
             }
         }
     },
-    required: ["topicTitle", "introduction", "content", "conclusion", "examples"]
+    required: ["topicTitle", "coreFormulas", "introduction", "theoreticalContent", "conclusion", "examples"]
 };
 
 const questionValidationSchema: Schema = {
@@ -842,13 +849,14 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
             1. CONTENT: Be methodological, theoretical, and concise. Avoid flowery metaphors or long "novel-like" text. 
             2. FORMATTING: Use LaTeX ($...$) for ALL math.
             3. KEYWORDS: Highlight key mathematical terms using **bold** markdown (e.g. **derivative**, **chain rule**).
-            4. EXAMPLES: Must be formatted with Title, Question, Solution.
+            4. EXAMPLES: Provide exactly 3 examples: one 'BASIC', one 'EXAM', and one 'HARD'.
             
             STRUCTURE:
             1. Introduction: Concise definition/theory.
-            2. Content: The core mechanism/logic explained clearly.
-            3. Conclusion: Summary of the rule/method.
-            4. Examples: 2-3 IB style questions.
+            2. Content: The core mechanism/logic explained clearly. Focus on mathematical derivation.
+            3. Core Formulas: A list of key equations.
+            4. Conclusion: Summary of the rule/method.
+            5. Examples: 3 IB style questions with title, requirements, solution, explanation.
             `;
             parts.push({ text: prompt });
 
@@ -858,7 +866,7 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
                 config: {
                     responseMimeType: "application/json",
                     responseSchema: conceptExplanationSchema,
-                    temperature: 0.5 // Lower temperature for more factual/theoretical output
+                    temperature: 0.4 
                 }
             });
 
