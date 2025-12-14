@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from './types';
-import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution, getDailyUsage, generateDrillBatch } from './services/geminiService';
+import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty, ConceptSettings, ConceptExplanation } from './types';
+import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution, getDailyUsage, generateDrillBatch, generateConceptExplanation } from './services/geminiService';
 import { supabase, withTimeout } from './services/supabaseClient';
 import { useAuth } from './contexts/AuthContext';
 import { AuthScreens } from './components/AuthScreens';
@@ -13,6 +13,8 @@ import ExamConfigPanel from './components/ExamConfigPanel';
 import ExamViewer from './components/ExamViewer';
 import DrillConfigPanel from './components/DrillConfigPanel';
 import DrillSessionViewer from './components/DrillSessionViewer';
+import ConceptConfigPanel from './components/ConceptConfigPanel';
+import ConceptViewer from './components/ConceptViewer';
 import OnboardingModal from './components/OnboardingModal'; 
 import ApiKeyModal from './components/ApiKeyModal'; 
 import FeedbackModal from './components/FeedbackModal';
@@ -26,7 +28,8 @@ import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText
 const COSTS = {
     SOLVER_PER_IMAGE: 5,
     EXAM_GENERATION: 25,
-    DRILL_SESSION: 10
+    DRILL_SESSION: 10,
+    CONCEPT_EXPLANATION: 15
 };
 
 const MagneticPencil = ({ onClick, isOpen, mode }: { onClick: () => void, isOpen: boolean, mode: AppMode }) => {
@@ -64,11 +67,13 @@ const MagneticPencil = ({ onClick, isOpen, mode }: { onClick: () => void, isOpen
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [isOpen]);
 
-  const colorClass = mode === 'DRILL' 
-    ? 'text-yellow-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]' 
-    : 'text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]';
+  let colorClass = 'text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]';
+  if (mode === 'DRILL') colorClass = 'text-yellow-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]';
+  if (mode === 'CONCEPT') colorClass = 'text-green-400 drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]';
 
-  const Icon = mode === 'DRILL' ? Zap : Pen;
+  let Icon = Pen;
+  if (mode === 'DRILL') Icon = Zap;
+  if (mode === 'CONCEPT') Icon = Lightbulb;
 
   return (
     <div className="fixed bottom-10 right-10 z-50 pointer-events-none">
@@ -343,6 +348,7 @@ const App: React.FC = () => {
   const [uploads, setUploads] = useState<UserInput[]>([]);
   const [solutions, setSolutions] = useState<(MathSolution | null)[]>([]); 
   const [generatedExam, setGeneratedExam] = useState<ExamPaper | null>(null);
+  const [conceptExplanation, setConceptExplanation] = useState<ConceptExplanation | null>(null);
 
   const [drillSettings, setDrillSettings] = useState<DrillSettings | null>(null);
   const [drillQuestions, setDrillQuestions] = useState<DrillQuestion[]>([]);
@@ -382,6 +388,7 @@ const App: React.FC = () => {
     setAppState(AppState.IDLE);
     setSolutions([]);
     setGeneratedExam(null);
+    setConceptExplanation(null);
     setUploads([]);
     setCurrentStepIndex(0);
     setActiveTab(0);
@@ -622,6 +629,29 @@ const handleDrillConfigSubmit = async (settings: DrillSettings) => {
     }, COSTS.DRILL_SESSION);
 }
 
+const handleConceptConfigSubmit = async (settings: ConceptSettings) => {
+    await checkKeyAndProceed(async () => {
+        setShowConfig(false);
+        setAppState(AppState.ANALYZING);
+        setLoadingProgress(0);
+        setStartBackgroundEffects(false);
+        setShowActionButtons(false);
+
+        try {
+            const explanation = await generateConceptExplanation(uploads, settings);
+            setLoadingProgress(100);
+            setTimeout(() => {
+                setConceptExplanation(explanation);
+                setAppState(AppState.SOLVED);
+            }, 500);
+        } catch (e: any) {
+            console.error(e);
+            setErrorMsg(e.message || "Failed to generate explanation.");
+            setAppState(AppState.ERROR);
+        }
+    }, COSTS.CONCEPT_EXPLANATION);
+};
+
 const handleNextDrillQuestion = async () => {
     if (!drillSettings) return;
     const nextIndex = currentDrillIndex + 1;
@@ -758,6 +788,8 @@ const toggleSection = (title: string) => {
       currentActionCost = COSTS.EXAM_GENERATION;
   } else if (appMode === 'DRILL') {
       currentActionCost = COSTS.DRILL_SESSION;
+  } else if (appMode === 'CONCEPT') {
+      currentActionCost = COSTS.CONCEPT_EXPLANATION;
   }
 
   if (authLoading) {
@@ -774,7 +806,6 @@ const toggleSection = (title: string) => {
 
   const totalMarks = activeSolution?.markscheme ? calculateTotalMarks(activeSolution.markscheme) : 0;
   const isNextButtonLoading = waitingForNext || (loadingDrill && currentDrillIndex === drillQuestions.length - 1 && waitingForNext);
-  const diagnostics = getSystemDiagnostics();
   
   return (
     <div className="min-h-screen text-gray-100 bg-black selection:bg-blue-900/50 font-sans overflow-x-hidden text-sm flex flex-col">
@@ -906,7 +937,7 @@ const toggleSection = (title: string) => {
                         }`}
                         title="Exam Creator"
                         >
-                        <GraduationCap size={14} /> <span className="hidden sm:inline">Exam Creator</span>
+                        <GraduationCap size={14} /> <span className="hidden sm:inline">Exam</span>
                         </button>
                         <button
                         onClick={() => setAppMode('DRILL')}
@@ -918,6 +949,17 @@ const toggleSection = (title: string) => {
                         title="Drill"
                         >
                         <Zap size={14} /> <span className="hidden sm:inline">Drill</span>
+                        </button>
+                        <button
+                        onClick={() => setAppMode('CONCEPT')}
+                        className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                            appMode === 'CONCEPT' 
+                            ? 'bg-[#1e293b] text-green-400 shadow-sm' 
+                            : 'text-gray-500 hover:text-gray-300'
+                        }`}
+                        title="Concept"
+                        >
+                        <Lightbulb size={14} /> <span className="hidden sm:inline">Concept</span>
                         </button>
                     </div>
                 )}
@@ -1004,7 +1046,7 @@ const toggleSection = (title: string) => {
                 <Lightbox src={activeInput.preview!} onClose={() => setIsLightboxOpen(false)} />
             )}
 
-            {appState === AppState.SOLVED && (appMode === 'SOLVER' || appMode === 'DRILL') && (
+            {appState === AppState.SOLVED && (appMode === 'SOLVER' || appMode === 'DRILL' || appMode === 'CONCEPT') && (
                 <MagneticPencil isOpen={isChatOpen} onClick={() => setIsChatOpen(!isChatOpen)} mode={appMode} />
             )}
             
@@ -1041,7 +1083,9 @@ const toggleSection = (title: string) => {
                 {showConfig ? (
                     appMode === 'EXAM' 
                         ? <ExamConfigPanel onStart={handleExamConfigSubmit} onCancel={() => setShowConfig(false)} />
-                        : <DrillConfigPanel onStart={handleDrillConfigSubmit} onCancel={() => setShowConfig(false)} />
+                        : appMode === 'DRILL'
+                        ? <DrillConfigPanel onStart={handleDrillConfigSubmit} onCancel={() => setShowConfig(false)} />
+                        : <ConceptConfigPanel onStart={handleConceptConfigSubmit} onCancel={() => setShowConfig(false)} initialTopic={uploads[0]?.content || ''} />
                 ) : (
                     <div className="space-y-10 w-full flex flex-col items-center z-10 relative">
                         <div className="text-center space-y-4 max-w-2xl px-4">
@@ -1050,6 +1094,9 @@ const toggleSection = (title: string) => {
                                     <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
                                         Math explained. <span className="text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">Simply.</span>
                                     </h1>
+                                    <p className="text-base sm:text-lg text-gray-500 font-normal max-w-md mx-auto">
+                                        Upload any math problem. Get step-by-step solutions.
+                                    </p>
                                 </>
                             )}
                             {appMode === 'EXAM' && (
@@ -1058,7 +1105,7 @@ const toggleSection = (title: string) => {
                                         Create perfect <span className="text-purple-400 drop-shadow-[0_0_15px_rgba(168,85,247,0.5)]">Exams.</span>
                                     </h1>
                                     <p className="text-base sm:text-lg text-gray-500 font-normal max-w-md mx-auto">
-                                    Upload notes or problems. Get a deployable IB paper.
+                                        Upload notes or problems. Get a deployable IB paper.
                                     </p>
                                 </>
                             )}
@@ -1068,7 +1115,17 @@ const toggleSection = (title: string) => {
                                         Adaptive <span className="text-yellow-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]">Practice.</span>
                                     </h1>
                                     <p className="text-base sm:text-lg text-gray-500 font-normal max-w-md mx-auto">
-                                    Quick-fire drills that learn as you go.
+                                        Quick-fire drills that learn as you go.
+                                    </p>
+                                </>
+                            )}
+                            {appMode === 'CONCEPT' && (
+                                <>
+                                    <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
+                                        Deep <span className="text-green-400 drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]">Understanding.</span>
+                                    </h1>
+                                    <p className="text-base sm:text-lg text-gray-500 font-normal max-w-md mx-auto">
+                                        Visualize and master complex IB concepts.
                                     </p>
                                 </>
                             )}
@@ -1095,18 +1152,23 @@ const toggleSection = (title: string) => {
                                             ? 'bg-[#1c1c1e] hover:bg-[#252525] border-blue-500/30 text-blue-100' 
                                         : appMode === 'EXAM'
                                             ? 'bg-[#1c1c1e] hover:bg-[#252525] border-purple-500/30 text-purple-100'
-                                        : 'bg-[#1c1c1e] hover:bg-[#252525] border-yellow-500/30 text-yellow-400'
+                                        : appMode === 'DRILL'
+                                            ? 'bg-[#1c1c1e] hover:bg-[#252525] border-yellow-500/30 text-yellow-400'
+                                        : 'bg-[#1c1c1e] hover:bg-[#252525] border-green-500/30 text-green-400'
                                     } ${appMode === 'SOLVER' && uploads.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     {appMode === 'SOLVER' 
                                         ? `Analyze ${uploads.length} Problem${uploads.length > 1 ? 's' : ''}` 
-                                        : appMode === 'EXAM' ? 'Configure Exam Paper' : 'Configure Drill'
+                                        : appMode === 'EXAM' ? 'Configure Exam Paper' 
+                                        : appMode === 'DRILL' ? 'Configure Drill'
+                                        : 'Explain Concept'
                                     }
                                     
                                     <ArrowRight size={16} className={`group-hover:translate-x-0.5 transition-transform ${
                                         appMode === 'SOLVER' ? 'text-blue-400' 
                                         : appMode === 'EXAM' ? 'text-purple-400' 
-                                        : 'text-yellow-400'
+                                        : appMode === 'DRILL' ? 'text-yellow-400'
+                                        : 'text-green-400'
                                     }`} />
                                 </button>
                                 
@@ -1139,7 +1201,10 @@ const toggleSection = (title: string) => {
                 <div className="relative flex flex-col items-center gap-8">
                     <div className="relative group">
                         <div className={`absolute inset-0 rounded-full animate-pulse ${
-                            appMode === 'SOLVER' ? 'bg-blue-500/5' : (appMode === 'EXAM' ? 'bg-purple-500/5' : 'bg-yellow-500/5')
+                            appMode === 'SOLVER' ? 'bg-blue-500/5' : 
+                            appMode === 'EXAM' ? 'bg-purple-500/5' : 
+                            appMode === 'DRILL' ? 'bg-yellow-500/5' :
+                            'bg-green-500/5'
                         }`}></div>
                         <div className="relative z-10 animate-bounce duration-[2000ms]">
                              <div className="animate-[spin_3s_ease-in-out_infinite]">
@@ -1147,8 +1212,10 @@ const toggleSection = (title: string) => {
                                     <Pen size={24} className="text-blue-400 transform -rotate-45" />
                                 ) : appMode === 'EXAM' ? (
                                     <GraduationCap size={24} className="text-purple-400" />
-                                ) : (
+                                ) : appMode === 'DRILL' ? (
                                     <Zap size={24} className="text-yellow-400" />
+                                ) : (
+                                    <Lightbulb size={24} className="text-green-400" />
                                 )}
                              </div>
                         </div>
@@ -1158,11 +1225,13 @@ const toggleSection = (title: string) => {
                 <div className="min-h-[24px]">
                     <TypewriterLoader phrases={appMode === 'SOLVER' ? [
                         "Analyzing problem structure...", "Extracting mathematical context...", "Generating step-by-step solution..."
-                    ] : (appMode === 'EXAM' ? [
+                    ] : appMode === 'EXAM' ? [
                          "Drafting initial questions...", "Calculating mark allocations...", "Auditing math logic..."
-                    ] : [
+                    ] : appMode === 'DRILL' ? [
                          "Calibrating initial difficulty...", "Analyzing topic requirements...", "Generating practice scenario..."
-                    ])} />
+                    ] : [
+                         "Connecting concepts...", "Structuring explanation...", "Generating IB examples..."
+                    ]} />
                 </div>
 
                 <div className="w-full max-w-xs space-y-3 relative mb-6">
@@ -1173,7 +1242,9 @@ const toggleSection = (title: string) => {
                                 ? 'bg-gradient-to-r from-blue-600 to-blue-400' 
                                 : appMode === 'EXAM'
                                     ? 'bg-gradient-to-r from-purple-600 to-purple-400'
-                                    : 'bg-gradient-to-r from-yellow-600 to-yellow-400'
+                                : appMode === 'DRILL'
+                                    ? 'bg-gradient-to-r from-yellow-600 to-yellow-400'
+                                    : 'bg-gradient-to-r from-green-600 to-green-400'
                             }`}
                             style={{ width: `${loadingProgress}%` }}
                         />
@@ -1319,7 +1390,9 @@ const toggleSection = (title: string) => {
                         onGenerateSolution={handleGenerateDrillSolution}
                         isGeneratingSolution={loadingDrillSolution}
                     />
-                )
+                ) : appMode === 'CONCEPT' && conceptExplanation ? (
+                    <ConceptViewer concept={conceptExplanation} />
+                ) : null
             )}
         </main>
       </div>
@@ -1333,6 +1406,7 @@ const toggleSection = (title: string) => {
              key={appMode === 'DRILL' ? currentDrillIndex : activeTab} 
              solution={appMode === 'SOLVER' ? activeSolution || undefined : undefined} 
              drillQuestion={appMode === 'DRILL' ? drillQuestions[currentDrillIndex] : undefined}
+             concept={appMode === 'CONCEPT' ? conceptExplanation || undefined : undefined}
              currentStepIndex={currentStepIndex} 
              isOpen={isChatOpen} 
              onClose={() => setIsChatOpen(false)} 

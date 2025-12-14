@@ -49,7 +49,7 @@ export interface User {
 
 // --- MODES ---
 
-export type AppMode = 'SOLVER' | 'EXAM' | 'DRILL';
+export type AppMode = 'SOLVER' | 'EXAM' | 'DRILL' | 'CONCEPT';
 
 // --- EXAM TYPES ---
 
@@ -107,6 +107,31 @@ export interface DrillQuestion {
   steps?: MathStep[]; // Optional, generated on demand
   hint: string;
   calculatorAllowed: boolean;
+}
+
+// --- CONCEPT TYPES ---
+
+export type IBLevel = 'SL' | 'HL';
+export type ConceptDepth = 'SUMMARY' | 'DETAILED';
+
+export interface ConceptSettings {
+    topic: string;
+    level: IBLevel;
+    depth: ConceptDepth;
+}
+
+export interface ConceptExample {
+    question: string;
+    solution: string;
+    explanation: string;
+}
+
+export interface ConceptExplanation {
+    topicTitle: string;
+    introduction: string; // The hook
+    content: string; // The core explanation
+    conclusion: string; // Summary/Achievement
+    examples: ConceptExample[]; // IB ready examples
 }
 
 // --- FEEDBACK TYPES (V2) ---

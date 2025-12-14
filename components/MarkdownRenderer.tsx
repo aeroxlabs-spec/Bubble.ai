@@ -9,7 +9,7 @@ interface MarkdownRendererProps {
   content: string;
   className?: string;
   theme?: 'dark' | 'light';
-  mode?: 'SOLVER' | 'EXAM' | 'DRILL';
+  mode?: 'SOLVER' | 'EXAM' | 'DRILL' | 'CONCEPT';
 }
 
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '', theme = 'dark', mode = 'SOLVER' }) => {
@@ -26,7 +26,6 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
           codeBg: 'bg-blue-900/10',
           th: 'text-blue-400',
           
-          // Light theme fallbacks (if needed)
           mathLight: 'text-blue-700',
           codeTextLight: 'text-blue-800',
           codeBgLight: 'bg-blue-100'
@@ -56,6 +55,19 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
           mathLight: 'text-purple-700',
           codeTextLight: 'text-purple-800',
           codeBgLight: 'bg-purple-100'
+      },
+      CONCEPT: {
+          bold: 'text-green-300',
+          header: 'text-green-100',
+          math: 'text-green-400',
+          mathBg: 'bg-transparent',
+          codeText: 'text-green-200',
+          codeBg: 'bg-green-900/10',
+          th: 'text-green-400',
+
+          mathLight: 'text-green-700',
+          codeTextLight: 'text-green-800',
+          codeBgLight: 'bg-green-100'
       }
   };
 

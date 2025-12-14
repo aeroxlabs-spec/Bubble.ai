@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, Schema, GenerateContentResponse } from "@google/genai";
-import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty } from "../types";
+import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty, ConceptSettings, ConceptExplanation } from "../types";
 import { supabase, withTimeout } from "./supabaseClient";
 import { authService } from "./authService";
 
@@ -324,8 +324,6 @@ const mapGenAIError = (error: any): string => {
 };
 
 // --- SCHEMAS ---
-// (Keeping schemas identical for brevity, assuming they are unchanged from input)
-// ... [Existing schemas mathSolutionSchema, examPaperSchema, etc. remain here] ...
 
 const mathSolutionSchema: Schema = {
   type: Type.OBJECT,
@@ -475,6 +473,38 @@ const drillSolutionSchema: Schema = {
     required: ["steps"]
 };
 
+const conceptExplanationSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+        topicTitle: { type: Type.STRING },
+        introduction: { 
+            type: Type.STRING,
+            description: "An engaging introductory hook explaining what the concept is about."
+        },
+        content: { 
+            type: Type.STRING,
+            description: "Detailed explanation including use cases, thorough analysis, and logic. Use Markdown and LaTeX ($...$) for math."
+        },
+        conclusion: { 
+            type: Type.STRING,
+            description: "Summary that gives a sense of achievement."
+        },
+        examples: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    question: { type: Type.STRING, description: "IB-style question text with LaTeX." },
+                    solution: { type: Type.STRING, description: "Full resolution with LaTeX." },
+                    explanation: { type: Type.STRING, description: "Why this solution works." }
+                },
+                required: ["question", "solution", "explanation"]
+            }
+        }
+    },
+    required: ["topicTitle", "introduction", "content", "conclusion", "examples"]
+};
+
 const questionValidationSchema: Schema = {
     type: Type.OBJECT,
     properties: {
@@ -551,7 +581,7 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
         const isImage = input.type === 'image';
         
         const systemPrompt = `
-        You are an expert IB Math AA HL tutor. 
+        You are an expert IB Math tutor. 
         CRITICAL FORMATTING RULES:
         1. ALL math, numbers, variables must be wrapped in LaTeX delimiters ($...$).
            - BAD: x = 3, sin(x), 45 degrees
@@ -648,7 +678,7 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
         });
 
         const prompt = `
-          Create an IB Math AA HL Exam.
+          Create an IB Math Exam.
           SETTINGS: Difficulty ${settings.difficulty}, Duration ${settings.durationMinutes} min, Topics ${settings.topics.join(', ') || "General"}
         `;
         parts.push({ text: prompt });
@@ -675,7 +705,7 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
             const refinedQuestions = results.map((result, idx) => {
                 if (result.status === 'fulfilled') return result.value;
                 // Log failure but fallback to original
-                console.error(`Question ${idx} refinement failed:`, result.reason);
+                console.error(`Question ${idx} refinement failed: ${result.reason}`);
                 return section.questions[idx]; 
             });
 
@@ -778,6 +808,60 @@ export const generateDrillSolution = async (question: DrillQuestion): Promise<Ma
             const result = JSON.parse(text);
             updateLogStatus(log.id, 'SUCCESS', startTime);
             return result.steps as MathStep[];
+        } catch (e: any) {
+            const mappedMsg = mapGenAIError(e);
+            updateLogStatus(log.id, 'ERROR', startTime, mappedMsg);
+            throw new Error(mappedMsg);
+        }
+    });
+};
+
+export const generateConceptExplanation = async (inputs: UserInput[], settings: ConceptSettings): Promise<ConceptExplanation> => {
+    return retryOperation(async () => {
+        const startTime = Date.now();
+        const log = logRequest('gemini-2.5-flash', 'GENERATE', 'CONCEPT');
+        try {
+            const client = ensureClientReady();
+            const parts: any[] = [];
+
+            inputs.forEach(input => {
+                if (input.type === 'image' || input.type === 'pdf') {
+                    parts.push({ inlineData: { data: input.content, mimeType: input.mimeType } });
+                } else {
+                    parts.push({ text: `User Query/Context: ${input.content}` });
+                }
+            });
+
+            const prompt = `
+            Act as an expert IB Math Tutor.
+            Explain the concept: "${settings.topic}".
+            Target Level: ${settings.level}
+            Depth: ${settings.depth}
+            
+            STRUCTURE:
+            1. Introduction: Hook the student.
+            2. Content: Thorough explanation tailored to IB requirements.
+            3. Conclusion: Summary & Achievement.
+            4. Examples: 2-3 IB style questions with solutions.
+            
+            Use LaTeX ($...$) for ALL math.
+            `;
+            parts.push({ text: prompt });
+
+            const response = await client.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: { parts },
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: conceptExplanationSchema,
+                    temperature: 0.6
+                }
+            });
+
+            const text = response.text;
+            if (!text) throw new Error("Empty AI response");
+            updateLogStatus(log.id, 'SUCCESS', startTime);
+            return JSON.parse(text) as ConceptExplanation;
         } catch (e: any) {
             const mappedMsg = mapGenAIError(e);
             updateLogStatus(log.id, 'ERROR', startTime, mappedMsg);
