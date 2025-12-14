@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, Schema, GenerateContentResponse } from "@google/genai";
-import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty, ConceptSettings, ConceptExplanation } from "../types";
+import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty, ConceptSettings, ConceptExplanation, ConceptExample } from "../types";
 import { supabase, withTimeout } from "./supabaseClient";
 import { authService } from "./authService";
 
@@ -325,6 +325,17 @@ const mapGenAIError = (error: any): string => {
 
 // --- SCHEMAS ---
 
+const mathStepSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+        section: { type: Type.STRING },
+        title: { type: Type.STRING },
+        explanation: { type: Type.STRING },
+        keyEquation: { type: Type.STRING }
+    },
+    required: ["section", "title", "explanation", "keyEquation"]
+};
+
 const mathSolutionSchema: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -338,28 +349,7 @@ const mathSolutionSchema: Schema = {
     },
     steps: {
       type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          section: {
-            type: Type.STRING,
-            description: "Section name (e.g., 'Part (a)').",
-          },
-          title: {
-            type: Type.STRING,
-            description: "Step title. Use LaTeX ($...$) for math.",
-          },
-          explanation: {
-            type: Type.STRING,
-            description: "Explanation. Highlight 1-2 keywords with **bold**. Use LaTeX ($...$) for ALL math terms.",
-          },
-          keyEquation: {
-            type: Type.STRING,
-            description: "The core equation in LaTeX (without $ delimiters).",
-          },
-        },
-        required: ["section", "title", "explanation", "keyEquation"],
-      },
+      items: mathStepSchema,
     },
     finalAnswer: {
       type: Type.STRING,
@@ -445,28 +435,7 @@ const drillSolutionSchema: Schema = {
     properties: {
         steps: {
             type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                section: {
-                    type: Type.STRING,
-                    description: "Section name (e.g., 'Part (a)').",
-                },
-                title: {
-                    type: Type.STRING,
-                    description: "Step title. Use LaTeX ($...$) for math.",
-                },
-                explanation: {
-                    type: Type.STRING,
-                    description: "Explanation. Highlight 1-2 keywords with **bold**. Use LaTeX ($...$) for ALL math terms.",
-                },
-                keyEquation: {
-                    type: Type.STRING,
-                    description: "The core equation in LaTeX (without $ delimiters).",
-                },
-                },
-                required: ["section", "title", "explanation", "keyEquation"],
-            },
+            items: mathStepSchema,
             description: "Full Smart-Solver style step-by-step solution."
         }
     },
@@ -477,22 +446,27 @@ const conceptExplanationSchema: Schema = {
     type: Type.OBJECT,
     properties: {
         topicTitle: { type: Type.STRING },
+        introduction: { 
+            type: Type.STRING,
+            description: "A short, concise definition or single-paragraph intro. Use LaTeX for math."
+        },
+        conceptBlocks: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    title: { type: Type.STRING, description: "Block title (e.g. 'Derivation', 'Key Idea')" },
+                    content: { type: Type.STRING, description: "Explanation text. Mixed LaTeX. Highlight key terms with **bold**. NO metaphors." },
+                    keyEquation: { type: Type.STRING, description: "Optional LaTeX formula to highlight in this block." }
+                },
+                required: ["title", "content"]
+            },
+            description: "Break the theory into logical, bite-sized blocks."
+        },
         coreFormulas: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
             description: "List of core LaTeX equations related to this concept."
-        },
-        introduction: { 
-            type: Type.STRING,
-            description: "Concise theoretical definition. Use LaTeX for math."
-        },
-        theoreticalContent: { 
-            type: Type.STRING,
-            description: "Main theoretical explanation. STRICT RULES: 1. NO metaphors. 2. High Math Density. 3. Use LaTeX for ALL math. 4. Focus on methodology and proofs."
-        },
-        conclusion: { 
-            type: Type.STRING,
-            description: "Concise summary of key takeaways."
         },
         examples: {
             type: Type.ARRAY,
@@ -500,16 +474,37 @@ const conceptExplanationSchema: Schema = {
                 type: Type.OBJECT,
                 properties: {
                     difficulty: { type: Type.STRING, enum: ['BASIC', 'EXAM', 'HARD'] },
-                    title: { type: Type.STRING },
-                    requirements: { type: Type.STRING, description: "The problem statement with LaTeX." },
-                    solution: { type: Type.STRING, description: "Full step-by-step mathematical derivation." },
-                    explanation: { type: Type.STRING, description: "Why this method was chosen." }
+                    question: { type: Type.STRING, description: "The problem statement with LaTeX." },
+                    hint: { type: Type.STRING, description: "A nudge in the right direction." },
+                    solutionSteps: {
+                        type: Type.ARRAY,
+                        items: mathStepSchema,
+                        description: "Step-by-step solution."
+                    },
+                    finalAnswer: { type: Type.STRING },
+                    explanation: { type: Type.STRING, description: "Brief context on why this method was used." }
                 },
-                required: ["difficulty", "title", "requirements", "solution", "explanation"]
+                required: ["difficulty", "question", "hint", "solutionSteps", "finalAnswer", "explanation"]
             }
         }
     },
-    required: ["topicTitle", "coreFormulas", "introduction", "theoreticalContent", "conclusion", "examples"]
+    required: ["topicTitle", "introduction", "conceptBlocks", "examples"]
+};
+
+const exampleReloadSchema: Schema = {
+    type: Type.ARRAY,
+    items: {
+        type: Type.OBJECT,
+        properties: {
+            difficulty: { type: Type.STRING, enum: ['BASIC', 'EXAM', 'HARD'] },
+            question: { type: Type.STRING },
+            hint: { type: Type.STRING },
+            solutionSteps: { type: Type.ARRAY, items: mathStepSchema },
+            finalAnswer: { type: Type.STRING },
+            explanation: { type: Type.STRING }
+        },
+        required: ["difficulty", "question", "hint", "solutionSteps", "finalAnswer", "explanation"]
+    }
 };
 
 const questionValidationSchema: Schema = {
@@ -850,13 +845,13 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
             2. FORMATTING: Use LaTeX ($...$) for ALL math.
             3. KEYWORDS: Highlight key mathematical terms using **bold** markdown (e.g. **derivative**, **chain rule**).
             4. EXAMPLES: Provide exactly 3 examples: one 'BASIC', one 'EXAM', and one 'HARD'.
+            5. BREAKDOWN: Divide the main theoretical explanation into logical 'conceptBlocks' rather than one long text.
             
             STRUCTURE:
-            1. Introduction: Concise definition/theory.
-            2. Content: The core mechanism/logic explained clearly. Focus on mathematical derivation.
-            3. Core Formulas: A list of key equations.
-            4. Conclusion: Summary of the rule/method.
-            5. Examples: 3 IB style questions with title, requirements, solution, explanation.
+            1. Introduction: Short, concise definition (1 paragraph).
+            2. ConceptBlocks: Array of logical steps/parts of the theory.
+            3. Core Formulas: List of key equations.
+            4. Examples: 3 IB style questions (Basic, Exam, Hard) with solution steps.
             `;
             parts.push({ text: prompt });
 
@@ -878,6 +873,72 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
             const mappedMsg = mapGenAIError(e);
             updateLogStatus(log.id, 'ERROR', startTime, mappedMsg);
             throw new Error(mappedMsg);
+        }
+    });
+};
+
+export const breakdownConceptBlock = async (blockContent: string, topic: string): Promise<string> => {
+    const startTime = Date.now();
+    const log = logRequest('gemini-2.5-flash', 'GENERATE', 'CONCEPT');
+    try {
+        const client = ensureClientReady();
+        const prompt = `
+            Break down the following mathematical concept block into simpler, atomic points.
+            Topic: ${topic}
+            Content: "${blockContent}"
+            
+            Output: A bulleted list or short sentences explaining the "why" and "how" of this specific block.
+            Use LaTeX for math. Keep it concise.
+        `;
+
+        const response = await client.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts: [{ text: prompt }] },
+            config: {
+                responseMimeType: "text/plain",
+                temperature: 0.5
+            }
+        });
+        
+        updateLogStatus(log.id, 'SUCCESS', startTime);
+        return response.text || "Breakdown unavailable.";
+    } catch (e: any) {
+        updateLogStatus(log.id, 'ERROR', startTime, e.message);
+        return "Could not generate breakdown.";
+    }
+};
+
+export const reloadConceptExamples = async (currentExplanation: ConceptExplanation): Promise<ConceptExample[]> => {
+    return retryOperation(async () => {
+        const startTime = Date.now();
+        const log = logRequest('gemini-2.5-flash', 'GENERATE', 'CONCEPT');
+        try {
+            const client = ensureClientReady();
+            const prompt = `
+                Generate 3 NEW IB Math examples for the topic: "${currentExplanation.topicTitle}".
+                Levels: 1 Basic, 1 Exam-Style, 1 Hard (7-level).
+                Previous Examples Context (Do NOT repeat): ${currentExplanation.examples.map(e => e.question).join(' | ')}
+                
+                Format: JSON Array of 3 Example Objects.
+            `;
+
+            const response = await client.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: { parts: [{ text: prompt }] },
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: exampleReloadSchema,
+                    temperature: 0.7
+                }
+            });
+
+            const text = response.text;
+            if (!text) throw new Error("Empty response");
+            updateLogStatus(log.id, 'SUCCESS', startTime);
+            return JSON.parse(text) as ConceptExample[];
+        } catch (e: any) {
+            updateLogStatus(log.id, 'ERROR', startTime, e.message);
+            throw e;
         }
     });
 };

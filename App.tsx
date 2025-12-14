@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty, ConceptSettings, ConceptExplanation } from './types';
-import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution, getDailyUsage, generateDrillBatch, generateConceptExplanation } from './services/geminiService';
+import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution, getDailyUsage, generateDrillBatch, generateConceptExplanation, reloadConceptExamples } from './services/geminiService';
 import { supabase, withTimeout } from './services/supabaseClient';
 import { useAuth } from './contexts/AuthContext';
 import { AuthScreens } from './components/AuthScreens';
@@ -29,7 +29,8 @@ const COSTS = {
     SOLVER_PER_IMAGE: 5,
     EXAM_GENERATION: 25,
     DRILL_SESSION: 10,
-    CONCEPT_EXPLANATION: 15
+    CONCEPT_EXPLANATION: 15,
+    CONCEPT_RELOAD: 1
 };
 
 const MagneticPencil = ({ onClick, isOpen, mode }: { onClick: () => void, isOpen: boolean, mode: AppMode }) => {
@@ -656,6 +657,18 @@ const handleConceptConfigSubmit = async (settings: ConceptSettings) => {
     }, COSTS.CONCEPT_EXPLANATION);
 };
 
+const handleReloadConceptExamples = async () => {
+    if (!conceptExplanation) return;
+    await checkKeyAndProceed(async () => {
+        try {
+            const newExamples = await reloadConceptExamples(conceptExplanation);
+            setConceptExplanation(prev => prev ? { ...prev, examples: newExamples } : null);
+        } catch (e) {
+            console.error(e);
+        }
+    }, COSTS.CONCEPT_RELOAD);
+};
+
 const handleNextDrillQuestion = async () => {
     if (!drillSettings) return;
     const nextIndex = currentDrillIndex + 1;
@@ -1209,22 +1222,17 @@ const handleOpenChatWithPrompt = (prompt: string) => {
             <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in duration-700">
                 <div className="relative flex flex-col items-center gap-8">
                     <div className="relative group">
-                        <div className={`absolute inset-0 rounded-full animate-pulse ${
-                            appMode === 'SOLVER' ? 'bg-blue-500/5' : 
-                            appMode === 'EXAM' ? 'bg-purple-500/5' : 
-                            appMode === 'DRILL' ? 'bg-yellow-500/5' :
-                            'bg-green-500/5'
-                        }`}></div>
+                        {/* Removed the large pulsing background circle to clean up visuals */}
                         <div className="relative z-10 animate-bounce duration-[2000ms]">
                              <div className="animate-[spin_3s_ease-in-out_infinite]">
                                 {appMode === 'SOLVER' ? (
-                                    <Pen size={24} className="text-blue-400 transform -rotate-45" />
+                                    <Pen size={32} className="text-blue-400 transform -rotate-45" />
                                 ) : appMode === 'EXAM' ? (
-                                    <GraduationCap size={24} className="text-purple-400" />
+                                    <GraduationCap size={32} className="text-purple-400" />
                                 ) : appMode === 'DRILL' ? (
-                                    <Zap size={24} className="text-yellow-400" />
+                                    <Zap size={32} className="text-yellow-400" />
                                 ) : (
-                                    <Lightbulb size={24} className="text-green-400" />
+                                    <Lightbulb size={32} className="text-green-400" />
                                 )}
                              </div>
                         </div>
@@ -1261,7 +1269,6 @@ const handleOpenChatWithPrompt = (prompt: string) => {
                                 {Math.round(loadingProgress)}%
                             </span>
                         </div>
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-full -translate-x-full animate-[shimmer_1.5s_infinite]" />
                     </div>
                 </div>
             </div>
@@ -1404,7 +1411,11 @@ const handleOpenChatWithPrompt = (prompt: string) => {
                         isGeneratingSolution={loadingDrillSolution}
                     />
                 ) : appMode === 'CONCEPT' && conceptExplanation ? (
-                    <ConceptViewer concept={conceptExplanation} onChatAction={handleOpenChatWithPrompt} />
+                    <ConceptViewer 
+                        concept={conceptExplanation} 
+                        onChatAction={handleOpenChatWithPrompt} 
+                        onReloadExamples={handleReloadConceptExamples}
+                    />
                 ) : null
             )}
         </main>

@@ -1,29 +1,30 @@
 
 import React, { useState } from 'react';
-import { ConceptExplanation, ExampleDifficulty } from '../types';
+import { ConceptExplanation, ConceptBlock, ConceptExample, ExampleDifficulty } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
-import { BookOpen, GraduationCap, CheckCircle, ChevronDown, Zap, Search, Layers, Variable, ListOrdered } from 'lucide-react';
+import StepCard from './StepCard'; // Re-use StepCard for exercises
+import { breakdownConceptBlock } from '../services/geminiService';
+import { BookOpen, GraduationCap, Variable, ListOrdered, Plus, X, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react';
 
 interface ConceptViewerProps {
     concept: ConceptExplanation;
     onChatAction?: (prompt: string) => void;
+    onReloadExamples?: () => void;
 }
 
-const ConceptViewer: React.FC<ConceptViewerProps> = ({ concept, onChatAction }) => {
-    const [activeExample, setActiveExample] = useState<number | null>(null);
-    const [showFormulas, setShowFormulas] = useState(true);
+const ConceptViewer: React.FC<ConceptViewerProps> = ({ concept, onChatAction, onReloadExamples }) => {
+    const [reloading, setReloading] = useState(false);
 
-    const getDifficultyColor = (diff: ExampleDifficulty) => {
-        switch (diff) {
-            case 'BASIC': return 'text-green-400 border-green-500/30 bg-green-500/10';
-            case 'EXAM': return 'text-purple-400 border-purple-500/30 bg-purple-500/10';
-            case 'HARD': return 'text-red-400 border-red-500/30 bg-red-500/10';
-            default: return 'text-gray-400 border-gray-500/30';
+    const handleReload = async () => {
+        if (onReloadExamples) {
+            setReloading(true);
+            await onReloadExamples();
+            setReloading(false);
         }
     };
 
     return (
-        <div className="max-w-5xl mx-auto space-y-8 pb-32 animate-in fade-in duration-500">
+        <div className="max-w-4xl mx-auto space-y-8 pb-32 animate-in fade-in duration-500">
             
             {/* Header */}
             <div className="text-center space-y-2 mb-8">
@@ -35,148 +36,223 @@ const ConceptViewer: React.FC<ConceptViewerProps> = ({ concept, onChatAction }) 
                 </h1>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                
-                {/* Left Column: Theory & Core */}
-                <div className="lg:col-span-7 space-y-6">
-                    
-                    {/* Introduction */}
-                    <div className="bg-[#121212] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-green-500/50" />
-                        <h3 className="text-xs font-bold text-green-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                            <GraduationCap size={14} /> Definition
-                        </h3>
-                        <div className="text-gray-200 text-sm leading-relaxed">
-                            <MarkdownRenderer content={concept.introduction} mode="CONCEPT" />
-                        </div>
-                    </div>
-
-                    {/* Formula Deck */}
-                    {concept.coreFormulas && concept.coreFormulas.length > 0 && (
-                        <div className="bg-[#0f0f0f] border border-white/10 rounded-2xl overflow-hidden">
-                            <button 
-                                onClick={() => setShowFormulas(!showFormulas)}
-                                className="w-full flex items-center justify-between p-4 bg-white/5 border-b border-white/5 hover:bg-white/10 transition-colors"
-                            >
-                                <div className="flex items-center gap-2 text-xs font-bold text-gray-300 uppercase tracking-wider">
-                                    <Variable size={14} className="text-blue-400" /> Core Formulas
-                                </div>
-                                <ChevronDown size={16} className={`text-gray-500 transition-transform ${showFormulas ? 'rotate-180' : ''}`} />
-                            </button>
-                            
-                            {showFormulas && (
-                                <div className="p-4 grid gap-3 bg-black/20">
-                                    {concept.coreFormulas.map((formula, idx) => (
-                                        <div key={idx} className="bg-[#050505] border border-white/10 rounded-xl p-4 flex items-center justify-center min-h-[60px] shadow-inner">
-                                            <MarkdownRenderer content={`$$ ${formula} $$`} mode="CONCEPT" />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Theoretical Content */}
-                    <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl p-6 sm:p-8">
-                        <div className="flex items-center justify-between mb-6 pb-2 border-b border-white/5">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                                <Layers size={14} /> Methodology
-                            </h3>
-                        </div>
-                        <div className="text-gray-300 text-sm leading-loose">
-                            <MarkdownRenderer content={concept.theoreticalContent} mode="CONCEPT" />
-                        </div>
-                    </div>
-
-                    {/* Tools & Actions */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <button 
-                            onClick={() => onChatAction?.("Generate a visual graph SVG representing this concept.")}
-                            className="p-4 rounded-xl bg-[#151515] border border-white/10 hover:border-green-500/30 hover:bg-green-500/5 transition-all group text-left"
-                        >
-                            <Zap size={18} className="text-yellow-400 mb-2 group-hover:scale-110 transition-transform" />
-                            <div className="text-xs font-bold text-white">Visualize</div>
-                            <div className="text-[10px] text-gray-500 mt-0.5">Generate Graph</div>
-                        </button>
-                        <button 
-                            onClick={() => onChatAction?.("Provide a detailed step-by-step mathematical proof/derivation for this.")}
-                            className="p-4 rounded-xl bg-[#151515] border border-white/10 hover:border-green-500/30 hover:bg-green-500/5 transition-all group text-left"
-                        >
-                            <Search size={18} className="text-blue-400 mb-2 group-hover:scale-110 transition-transform" />
-                            <div className="text-xs font-bold text-white">Derivation</div>
-                            <div className="text-[10px] text-gray-500 mt-0.5">See the Proof</div>
-                        </button>
-                    </div>
-                </div>
-
-                {/* Right Column: Examples */}
-                <div className="lg:col-span-5 space-y-6">
-                    <div className="flex items-center gap-2 mb-2">
-                        <ListOrdered size={16} className="text-white" />
-                        <h3 className="text-sm font-bold text-white uppercase tracking-wider">Example Progression</h3>
-                    </div>
-
-                    {concept.examples.map((ex, idx) => (
-                        <div key={idx} className="bg-[#121212] border border-white/10 rounded-xl overflow-hidden shadow-lg transition-all duration-300 hover:border-white/20">
-                            
-                            {/* Example Header */}
-                            <div className="p-4 border-b border-white/5 bg-[#181818] flex items-center justify-between">
-                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${getDifficultyColor(ex.difficulty)}`}>
-                                    {ex.difficulty}
-                                </span>
-                                <span className="text-[10px] font-mono text-gray-500">Ex {idx + 1}</span>
-                            </div>
-
-                            {/* Question Body */}
-                            <div className="p-5">
-                                <h4 className="text-xs font-bold text-white mb-3">{ex.title}</h4>
-                                <div className="text-xs text-gray-300 bg-[#0a0a0a] p-3 rounded-lg border border-white/5 mb-4">
-                                    <span className="text-[9px] font-bold text-gray-500 uppercase block mb-1">Requirements</span>
-                                    <MarkdownRenderer content={ex.requirements} mode="CONCEPT" />
-                                </div>
-
-                                {/* Accordion for Solution */}
-                                <button 
-                                    onClick={() => setActiveExample(activeExample === idx ? null : idx)}
-                                    className="w-full flex items-center justify-between text-xs font-bold text-gray-400 hover:text-white transition-colors py-2 border-t border-white/5"
-                                >
-                                    <span>{activeExample === idx ? 'Hide Solution' : 'View Solution'}</span>
-                                    <ChevronDown size={14} className={`transition-transform duration-300 ${activeExample === idx ? 'rotate-180' : ''}`} />
-                                </button>
-
-                                <div className={`transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden ${activeExample === idx ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                                    <div className="pt-4 space-y-4">
-                                        <div className="text-xs text-gray-300 leading-relaxed font-mono bg-[#080808] p-3 rounded border border-white/5">
-                                            <MarkdownRenderer content={ex.solution} mode="CONCEPT" />
-                                        </div>
-                                        <div className="flex gap-2 items-start bg-green-900/10 p-3 rounded border border-green-500/20">
-                                            <CheckCircle size={12} className="text-green-400 flex-shrink-0 mt-0.5" />
-                                            <div className="text-[10px] text-green-200/80 leading-relaxed">
-                                                <MarkdownRenderer content={ex.explanation} mode="CONCEPT" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+            {/* 1. Introduction Card */}
+            <div className="bg-[#121212] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-green-500/50" />
+                <h3 className="text-xs font-bold text-green-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <GraduationCap size={14} /> Definition
+                </h3>
+                <div className="text-gray-200 text-sm leading-relaxed">
+                    <MarkdownRenderer content={concept.introduction} mode="CONCEPT" />
                 </div>
             </div>
 
-            {/* Conclusion Footer */}
-            <div className="bg-[#121212] border-t border-white/10 p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-                <div>
-                    <h3 className="text-sm font-bold text-white mb-1">Concept Mastered?</h3>
-                    <div className="text-xs text-gray-400 max-w-lg">
-                        <MarkdownRenderer content={concept.conclusion} mode="CONCEPT" />
+            {/* 2. Concept Blocks (Body) */}
+            <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                    <BookOpen size={16} className="text-white" />
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">Theory Breakdown</h3>
+                </div>
+                {concept.conceptBlocks.map((block, idx) => (
+                    <BlockCard key={idx} block={block} topic={concept.topicTitle} />
+                ))}
+            </div>
+
+            {/* 3. Formulas (Optional) */}
+            {concept.coreFormulas && concept.coreFormulas.length > 0 && (
+                <div className="bg-[#0f0f0f] border border-white/10 rounded-2xl overflow-hidden p-6">
+                    <div className="flex items-center gap-2 text-xs font-bold text-gray-300 uppercase tracking-wider mb-4">
+                        <Variable size={14} className="text-blue-400" /> Core Formulas
+                    </div>
+                    <div className="grid gap-3 bg-black/20 rounded-xl p-4">
+                        {concept.coreFormulas.map((formula, idx) => (
+                            <div key={idx} className="flex justify-center">
+                                <MarkdownRenderer content={`$$ ${formula} $$`} mode="CONCEPT" />
+                            </div>
+                        ))}
                     </div>
                 </div>
+            )}
+
+            {/* 4. Exercises */}
+            <div className="space-y-6 pt-4 border-t border-white/5">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <ListOrdered size={16} className="text-white" />
+                        <h3 className="text-sm font-bold text-white uppercase tracking-wider">Concept Checks</h3>
+                    </div>
+                    <button 
+                        onClick={handleReload}
+                        disabled={reloading}
+                        className="text-[10px] font-bold text-gray-500 hover:text-white flex items-center gap-1 transition-colors disabled:opacity-50"
+                    >
+                        <RefreshCw size={12} className={reloading ? "animate-spin" : ""} /> Reload (1 Credit)
+                    </button>
+                </div>
+
+                <div className="grid gap-6">
+                    {concept.examples.map((ex, idx) => (
+                        <ConceptExerciseCard key={idx} example={ex} index={idx} />
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+interface BlockCardProps {
+    block: ConceptBlock;
+    topic: string;
+}
+
+const BlockCard: React.FC<BlockCardProps> = ({ block, topic }) => {
+    const [breakdown, setBreakdown] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    const handleExpand = async () => {
+        if (breakdown) {
+            setBreakdown(null); // Close
+            return;
+        }
+        setLoading(true);
+        try {
+            const text = await breakdownConceptBlock(block.content, topic);
+            setBreakdown(text);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-5 relative group transition-all hover:border-white/20">
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{block.title}</h4>
+            
+            <div className="text-sm text-gray-200 leading-relaxed mb-3">
+                <MarkdownRenderer content={block.content} mode="CONCEPT" />
+            </div>
+
+            {block.keyEquation && (
+                <div className="bg-black/40 border border-white/5 rounded-lg p-3 my-3 flex justify-center">
+                    <MarkdownRenderer content={`$$ ${block.keyEquation} $$`} mode="CONCEPT" />
+                </div>
+            )}
+
+            {/* Breakdown Toggle */}
+            <div className="relative">
                 <button 
-                    onClick={() => onChatAction?.("Give me a quick 1-question quiz to test my understanding.")}
-                    className="px-6 py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-full text-xs font-bold transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:shadow-[0_0_20px_rgba(34,197,94,0.5)]"
+                    onClick={handleExpand}
+                    className="absolute -right-2 -bottom-2 p-1.5 rounded-lg bg-white/5 text-gray-500 hover:text-white hover:bg-white/10 transition-colors border border-transparent hover:border-white/10"
+                    title="Breakdown this concept"
                 >
-                    Take Quiz
+                    {breakdown ? <X size={14} /> : <Plus size={14} className={loading ? "animate-pulse" : ""} />}
                 </button>
+
+                {breakdown && (
+                    <div className="mt-4 pt-4 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="text-xs text-green-300 font-bold mb-2 uppercase tracking-wide">Detailed Breakdown</div>
+                        <div className="text-xs text-gray-400 leading-relaxed">
+                            <MarkdownRenderer content={breakdown} mode="CONCEPT" />
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+interface ConceptExerciseCardProps {
+    example: ConceptExample;
+    index: number;
+}
+
+const ConceptExerciseCard: React.FC<ConceptExerciseCardProps> = ({ example, index }) => {
+    const [activeStep, setActiveStep] = useState(0);
+    const [showHint, setShowHint] = useState(false);
+    const [showSolution, setShowSolution] = useState(false);
+
+    const getDifficultyColor = (diff: ExampleDifficulty) => {
+        switch (diff) {
+            case 'BASIC': return 'text-green-400 border-green-500/30 bg-green-500/10';
+            case 'EXAM': return 'text-purple-400 border-purple-500/30 bg-purple-500/10';
+            case 'HARD': return 'text-red-400 border-red-500/30 bg-red-500/10';
+            default: return 'text-gray-400';
+        }
+    };
+
+    return (
+        <div className="bg-[#121212] border border-white/10 rounded-xl overflow-hidden shadow-lg">
+            <div className="bg-[#181818] border-b border-white/5 px-4 py-3 flex items-center justify-between">
+                <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${getDifficultyColor(example.difficulty)}`}>
+                    {example.difficulty}
+                </span>
+                <span className="text-[10px] font-mono text-gray-500">Ex {index + 1}</span>
+            </div>
+
+            <div className="p-5">
+                <div className="text-sm text-white font-medium mb-4">
+                    <MarkdownRenderer content={example.question} mode="CONCEPT" />
+                </div>
+
+                {/* Controls */}
+                <div className="flex gap-2 border-t border-white/5 pt-4">
+                    <button 
+                        onClick={() => setShowHint(!showHint)}
+                        className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${showHint ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-transparent text-gray-500 border-white/10 hover:text-white'}`}
+                    >
+                        Hint
+                    </button>
+                    <button 
+                        onClick={() => setShowSolution(!showSolution)}
+                        className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${showSolution ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : 'bg-transparent text-gray-500 border-white/10 hover:text-white'}`}
+                    >
+                        {showSolution ? 'Hide Solution' : 'Solve'}
+                    </button>
+                </div>
+
+                {showHint && (
+                    <div className="mt-3 p-3 bg-yellow-900/10 border border-yellow-500/20 rounded-lg text-xs text-gray-300 italic animate-in fade-in">
+                        <MarkdownRenderer content={example.hint} mode="CONCEPT" />
+                    </div>
+                )}
+
+                {showSolution && (
+                    <div className="mt-6 space-y-4 animate-in slide-in-from-top-4 fade-in">
+                        {/* Brief Logic */}
+                        <div className="flex gap-2 items-start bg-green-900/10 p-3 rounded border border-green-500/20 mb-4">
+                            <CheckCircle2 size={12} className="text-green-400 flex-shrink-0 mt-0.5" />
+                            <div className="text-[10px] text-green-200/80 leading-relaxed">
+                                <MarkdownRenderer content={example.explanation} mode="CONCEPT" />
+                            </div>
+                        </div>
+
+                        {/* Steps */}
+                        {example.solutionSteps.map((step, idx) => (
+                            <StepCard 
+                                key={idx}
+                                step={step}
+                                index={idx}
+                                isActive={activeStep === idx}
+                                problemContext={example.question}
+                                onClick={() => setActiveStep(idx)}
+                                onNext={() => setActiveStep(idx < example.solutionSteps.length - 1 ? idx + 1 : idx)}
+                                onPrev={() => setActiveStep(idx > 0 ? idx - 1 : idx)}
+                                isFirst={idx === 0}
+                                isLast={idx === example.solutionSteps.length - 1}
+                                mode="DRILL" // Use Drill styling for steps
+                            />
+                        ))}
+
+                        {/* Final Answer */}
+                        <div className="bg-[#080808] p-4 rounded-lg border border-white/10 mt-4">
+                            <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Final Answer</div>
+                            <div className="text-sm text-white">
+                                <MarkdownRenderer content={example.finalAnswer} mode="CONCEPT" />
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -124,17 +124,24 @@ export type ExampleDifficulty = 'BASIC' | 'EXAM' | 'HARD';
 
 export interface ConceptExample {
     difficulty: ExampleDifficulty;
-    title: string;
-    requirements: string; // The "Question" part
-    solution: string; // The math steps
-    explanation: string; // The logic
+    question: string;
+    hint: string;
+    solutionSteps: MathStep[]; // Reusing MathStep for consistency
+    finalAnswer: string;
+    explanation: string; // Brief theoretical context
+}
+
+export interface ConceptBlock {
+    title: string; // e.g., "The Logic", "Derivation"
+    content: string; // The explanation text
+    keyEquation?: string; // Optional emphasized formula
 }
 
 export interface ConceptExplanation {
     topicTitle: string;
-    coreFormulas: string[]; // List of LaTeX formulas
-    introduction: string; 
-    theoreticalContent: string; // Renamed for clarity
+    introduction: string; // Short paragraph
+    conceptBlocks: ConceptBlock[]; // The body divided into ideas
+    coreFormulas?: string[]; // Optional formulas block
     examples: ConceptExample[]; // Must be 3 (Basic, Exam, Hard)
 }
 
