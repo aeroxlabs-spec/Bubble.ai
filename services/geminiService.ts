@@ -786,7 +786,7 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
   });
 };
 
-export const generateDrillQuestion = async (settings: DrillSettings, inputs: UserInput[], questionNumber: number, prevDifficulty: number): Promise<DrillQuestion> => {
+export const generateDrillQuestion = async (settings: DrillSettings, inputs: UserInput[], questionNumber: number, prevDifficulty: number, specificTopic?: string): Promise<DrillQuestion> => {
     return retryOperation(async () => {
         const startTime = Date.now();
         const log = logRequest('gemini-2.5-flash', 'GENERATE', 'DRILL');
@@ -802,10 +802,12 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
                 }
             });
 
+            const topicToUse = specificTopic || settings.topics.join(', ');
+
             const prompt = `
                 Generate Drill Question #${questionNumber}. 
                 Difficulty ${prevDifficulty}/10. 
-                Topics: ${settings.topics.join(', ')}. 
+                Topic: ${topicToUse}. 
                 Include 'graphFunctions' or 'geometryConfig' if visual is needed.
                 
                 STRICT FORMATTING RULE:
@@ -846,8 +848,14 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
 export const generateDrillBatch = async (startNum: number, prevDiff: number, count: number, settings: DrillSettings, inputs: UserInput[]): Promise<DrillQuestion[]> => {
     const promises = [];
     let currentDiff = prevDiff;
+    const topics = settings.topics.length > 0 ? settings.topics : ["General Math"]; // Fallback
+
     for (let i = 0; i < count; i++) {
-        promises.push(generateDrillQuestion(settings, inputs, startNum + i, currentDiff));
+        // Rotate through selected topics to ensure mix
+        const topicIndex = (startNum + i) % topics.length;
+        const topic = topics[topicIndex];
+        
+        promises.push(generateDrillQuestion(settings, inputs, startNum + i, currentDiff, topic));
         currentDiff = Math.min(10, currentDiff + 0.5); 
     }
     

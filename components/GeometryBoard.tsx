@@ -17,6 +17,23 @@ const GeometryBoard: React.FC<GeometryBoardProps> = ({ config, className = '', h
     const [renderError, setRenderError] = useState<string | null>(null);
     const [key, setKey] = useState(0);
 
+    // Helper to clean labels from LaTeX symbols for JSXGraph rendering
+    const cleanLabel = (label: string | undefined) => {
+        if (!label) return '';
+        // Strip $ delimiters
+        let clean = label.replace(/\$/g, '');
+        // Replace common LaTeX symbols with approximate unicode or text
+        clean = clean.replace(/\\alpha/g, 'α')
+                     .replace(/\\beta/g, 'β')
+                     .replace(/\\gamma/g, 'γ')
+                     .replace(/\\theta/g, 'θ')
+                     .replace(/\\pi/g, 'π')
+                     .replace(/\\angle/g, '∠')
+                     .replace(/\\degree/g, '°')
+                     .replace(/\\vec/g, ''); // just remove \vec
+        return clean.trim();
+    };
+
     useEffect(() => {
         // Ensure JXG is loaded
         if (!(window as any).JXG) {
@@ -71,15 +88,22 @@ const GeometryBoard: React.FC<GeometryBoardProps> = ({ config, className = '', h
             // Render loop
             config.objects.forEach(obj => {
                 try {
+                    const labelText = cleanLabel(obj.label);
+                    
                     const commonProps = {
-                        name: obj.label || '',
-                        withLabel: !!obj.label,
+                        name: labelText,
+                        withLabel: !!labelText,
                         strokeColor: mainColor,
                         fillColor: mainColor,
                         highlightStrokeColor: '#fff',
                         highlightFillColor: '#fff',
                         fixed: true, // Non-draggable by default for problems
-                        label: { color: '#ccc' }
+                        label: { 
+                            color: '#e5e7eb', // Tailwind gray-200 for high contrast
+                            fontSize: 16,
+                            offset: [10, 10], // Slightly further away to prevent overlap
+                            strokeColor: 'none' // Remove label text stroke if default exists
+                        }
                     };
 
                     let el;
@@ -90,7 +114,8 @@ const GeometryBoard: React.FC<GeometryBoardProps> = ({ config, className = '', h
                                 el = board.create('point', obj.coords, {
                                     ...commonProps,
                                     size: 3,
-                                    label: { offset: [5, 5], color: '#ccc' }
+                                    // Points need explicit label color in some versions of JXG
+                                    label: { ...commonProps.label, offset: [5, 10] } 
                                 });
                             }
                             break;
@@ -103,7 +128,8 @@ const GeometryBoard: React.FC<GeometryBoardProps> = ({ config, className = '', h
                                 if (p1 && p2) {
                                     el = board.create(obj.type, [p1, p2], {
                                         ...commonProps,
-                                        strokeWidth: 2
+                                        strokeWidth: 2,
+                                        label: { ...commonProps.label, position: 'top' }
                                     });
                                 }
                             } else if (obj.coords && obj.coords.length >= 4) {

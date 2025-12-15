@@ -5,7 +5,7 @@ import MarkdownRenderer from './MarkdownRenderer';
 import StepCard from './StepCard';
 import InteractiveGraph from './InteractiveGraph';
 import GeometryBoard from './GeometryBoard';
-import { Calculator, Zap, ArrowRight, ArrowLeft, CheckCircle2, BookOpen, Lightbulb, Copy, Check, Loader2 } from 'lucide-react';
+import { Calculator, Zap, ArrowRight, ArrowLeft, CheckCircle2, BookOpen, Lightbulb, Copy, Check, Loader2, RefreshCw } from 'lucide-react';
 
 interface DrillSessionViewerProps {
     question: DrillQuestion | null;
@@ -176,7 +176,7 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({
         );
     };
 
-    if (!question && isLoading) {
+    if (isLoading && !question) {
         return (
              <div className="max-w-3xl mx-auto space-y-6 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex items-center justify-between px-2 opacity-50">
@@ -198,7 +198,21 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({
         );
     }
 
-    if (!question) return null;
+    if (!question) {
+        return (
+            <div className="max-w-3xl mx-auto space-y-6 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex flex-col items-center justify-center h-[300px] bg-[#121212] border border-red-500/20 rounded-2xl border-dashed">
+                    <p className="text-gray-400 text-sm mb-4">Could not load current question.</p>
+                    <button 
+                        onClick={onNext}
+                        className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-2"
+                    >
+                        <RefreshCw size={14} /> Skip to Next
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-3xl mx-auto space-y-6 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">

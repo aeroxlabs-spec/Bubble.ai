@@ -715,32 +715,53 @@ const handleReloadConceptExamples = async () => {
 const handleNextDrillQuestion = async () => {
     if (!drillSettings) return;
     const nextIndex = currentDrillIndex + 1;
+    
+    // Check if we need to pre-fetch more questions
     if (drillQuestions.length > 0 && currentDrillIndex >= drillQuestions.length - 2 && !loadingDrill) {
          const lastQ = drillQuestions[drillQuestions.length - 1];
          setLoadingDrill(true);
-         // Use improved batch function in background
+         
+         // Fetch next batch
          generateDrillBatch(lastQ.number + 1, lastQ.difficultyLevel, 3, drillSettings, uploads)
            .then(newQs => {
-               setDrillQuestions(prev => [...prev, ...newQs]);
+               if (newQs.length > 0) {
+                   setDrillQuestions(prev => [...prev, ...newQs]);
+               } else {
+                   console.warn("No new questions generated in batch");
+               }
                setLoadingDrill(false);
            })
            .catch(e => {
                console.error("Background fetch failed", e);
                setLoadingDrill(false);
+               // Don't advance if we are at the end and fetch failed
+               if (currentDrillIndex >= drillQuestions.length - 1) {
+                   setErrorMsg("Could not load more questions. Please try again.");
+               }
            });
     }
 
+    // Safe transition logic
     if (nextIndex < drillQuestions.length) {
         setCurrentDrillIndex(nextIndex);
     } else {
+        // If we are at the end and loading, wait. If not loading and no next Q, trigger load or stop.
         if (!loadingDrill) {
             setLoadingDrill(true);
             const lastQ = drillQuestions[drillQuestions.length - 1];
             generateDrillBatch(lastQ.number + 1, lastQ.difficultyLevel, 3, drillSettings, uploads)
                .then(newQs => {
-                   setDrillQuestions(prev => [...prev, ...newQs]);
                    setLoadingDrill(false);
-                   setCurrentDrillIndex(prev => prev + 1);
+                   if (newQs.length > 0) {
+                        setDrillQuestions(prev => [...prev, ...newQs]);
+                        setCurrentDrillIndex(prev => prev + 1);
+                   } else {
+                        setErrorMsg("Failed to generate new question.");
+                   }
+               })
+               .catch(e => {
+                   setLoadingDrill(false);
+                   setErrorMsg("Failed to load next question.");
                });
         }
     }
