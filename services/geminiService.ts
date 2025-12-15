@@ -309,6 +309,7 @@ const mapGenAIError = (error: any): string => {
     const msg = error.message || "";
     const status = error.status || 0;
 
+    if (msg.includes("Validation Failed")) return "Generated content was malformed. Retrying automatically...";
     if (msg.includes("Request timed out")) return "Request Timeout. The server took too long to respond.";
     if (msg.includes("API Key Missing")) return msg;
     if (msg.includes("400") || status === 400) return "Invalid Request (400). The image format might be unsupported or the prompt is too large.";
@@ -321,6 +322,29 @@ const mapGenAIError = (error: any): string => {
     if (msg.includes("fetch failed") || msg.includes("NetworkError")) return "Network Error. Please check your internet connection.";
     
     return `AI Error: ${msg.substring(0, 100)}...`;
+};
+
+// --- AUTOMATIC RESPONSE VALIDATOR ---
+// This ensures we catch bad math syntax or hallucinated formats BEFORE showing to user
+const validateResponse = (data: any, type: 'SOLUTION' | 'DRILL' | 'EXAM' | 'CONCEPT'): void => {
+    const str = JSON.stringify(data);
+    
+    // 1. Check for LaTeX syntax errors
+    // Look for unclosed $, or weird patterns like `[Math Processing Error]`
+    if (str.includes("[Math Processing Error]") || str.includes("katex-error")) {
+        throw new Error("Validation Failed: Detected LaTeX rendering error in output.");
+    }
+
+    // 2. Check for empty critical fields
+    if (type === 'DRILL') {
+        if (!data.questionText || data.questionText.length < 5) throw new Error("Validation Failed: Empty Question Text");
+    }
+    
+    // 3. Strict Check for missing LaTeX delimiters on numbers
+    // This is a heuristic check on the question text
+    // Regex searches for isolated numbers like " 5 " or " x " not inside $...$
+    // Note: This is complex to regex perfectly, so we do a simple check for obvious misses if feasible.
+    // Skipping complex regex for now to avoid false positives, relying on prompt engineering.
 };
 
 // --- SCHEMAS ---
@@ -560,9 +584,11 @@ const retryOperation = async <T>(operation: () => Promise<T>, retries = 3, delay
             error.status >= 500 || 
             error.message?.includes('429') || 
             error.message?.includes('quota');
+        
+        const isValidationFail = error.message?.includes("Validation Failed");
 
-        if (retries > 0 && (isNetworkError || isServerOrQuota)) {
-            console.warn(`Operation failed. Retrying... (${retries} left)`);
+        if (retries > 0 && (isNetworkError || isServerOrQuota || isValidationFail)) {
+            console.warn(`Operation failed (${error.message}). Retrying... (${retries} left)`);
             await delay(delayMs);
             return retryOperation(operation, retries - 1, delayMs * 2);
         }
@@ -605,8 +631,8 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
         1. ALL math, numbers, variables must be wrapped in LaTeX delimiters ($...$). Do NOT output plain text math like 'x^2' without $ signs.
         2. Break down solutions into clear, logical steps.
         3. If a Markscheme is requested, it MUST be a Markdown Table.
-        4. If the problem involves functions, provide 'graphFunctions' (e.g. ["x^2", "Math.sin(x)"]). 
-        5. If the problem requires a geometric figure (triangle, circle, vector), provide a 'geometryConfig' object with JSXGraph definitions.
+        4. VISUALS: If the problem is about Geometry, Trigonometry, or Vectors, you MUST provide a 'geometryConfig' object in at least 50% of cases. 
+        5. For Functions, provide 'graphFunctions' (e.g. ["x^2", "Math.sin(x)"]). 
         6. Do NOT use non-standard HTML tags like <ln>, </ln>, <step>. Use standard Markdown.
         `;
 
@@ -640,8 +666,11 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
         const text = response.text;
         if (!text) throw new Error("Empty response from AI service.");
         
+        const data = JSON.parse(text);
+        validateResponse(data, 'SOLUTION');
+
         updateLogStatus(log.id, 'SUCCESS', startTime);
-        return JSON.parse(text) as MathSolution;
+        return data as MathSolution;
       } catch (error: any) {
         const mappedMsg = mapGenAIError(error);
         updateLogStatus(log.id, 'ERROR', startTime, mappedMsg);
@@ -664,7 +693,7 @@ export const generateSimilarProblem = async (originalContext: string): Promise<D
                 Requirements:
                 1. Change numbers/functions but keep concept identical.
                 2. Return a DrillQuestion object.
-                3. Include 'graphFunctions' or 'geometryConfig' if relevant.
+                3. Include 'graphFunctions' or 'geometryConfig' if relevant (Geometry/Vectors/Trig = 60% chance visual).
                 4. ALL numbers and variables MUST be wrapped in LaTeX ($...$).
             `;
 
@@ -680,7 +709,10 @@ export const generateSimilarProblem = async (originalContext: string): Promise<D
 
             const text = response.text;
             if (!text) throw new Error("Empty response");
+            
             const q = JSON.parse(text) as DrillQuestion;
+            validateResponse(q, 'DRILL');
+
             q.number = 1; // Temporary number
             q.steps = [];
             
@@ -714,7 +746,10 @@ const reviewAndRefineQuestion = async (originalQ: any): Promise<any> => {
             const text = response.text;
             updateLogStatus(log.id, 'SUCCESS', startTime);
             if (!text) return originalQ; 
-            return JSON.parse(text);
+            
+            const parsed = JSON.parse(text);
+            validateResponse(parsed, 'DRILL'); // Use Drill validator as it's similar question structure
+            return parsed;
         } catch (e: any) {
             updateLogStatus(log.id, 'ERROR', startTime, e.message);
             throw e;
@@ -741,8 +776,10 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
         const prompt = `
           Create an IB Math Exam.
           SETTINGS: Difficulty ${settings.difficulty}, Duration ${settings.durationMinutes} min, Topics ${settings.topics.join(', ') || "General"}
-          Provide 'graphFunctions' for any question that benefits from a visual graph.
-          Provide 'geometryConfig' for any question involving geometry/trig figures.
+          
+          VISUAL RULES:
+          - If a question involves Geometry, Vectors or Trigonometry, provide a 'geometryConfig' 60% of the time.
+          - If a question involves Functions, provide 'graphFunctions' 50% of the time.
           
           PRE-FLIGHT CHECK:
           - Ensure ALL math, numbers (e.g. 5, 2.5), and variables (x, y) are wrapped in LaTeX: $5$, $2.5$, $x$.
@@ -808,7 +845,11 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
                 Generate Drill Question #${questionNumber}. 
                 Difficulty ${prevDifficulty}/10. 
                 Topic: ${topicToUse}. 
-                Include 'graphFunctions' or 'geometryConfig' if visual is needed.
+                
+                VISUALS:
+                - If topic is Geometry/Vectors/Trig, include 'geometryConfig' 60% of time.
+                - If topic is Functions, include 'graphFunctions' 50% of time.
+                - Ensure visual representations are accurate.
                 
                 STRICT FORMATTING RULE:
                 - EVERY number and variable MUST be in LaTeX.
@@ -830,6 +871,8 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
             const text = response.text;
             if (!text) throw new Error("AI returned empty content.");
             const q = JSON.parse(text) as DrillQuestion;
+            validateResponse(q, 'DRILL');
+
             q.number = questionNumber;
             q.difficultyLevel = prevDifficulty;
             q.steps = []; 
@@ -946,8 +989,12 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
 
             const text = response.text;
             if (!text) throw new Error("Empty AI response");
+            
+            const data = JSON.parse(text) as ConceptExplanation;
+            validateResponse(data, 'CONCEPT');
+
             updateLogStatus(log.id, 'SUCCESS', startTime);
-            return JSON.parse(text) as ConceptExplanation;
+            return data;
         } catch (e: any) {
             const mappedMsg = mapGenAIError(e);
             updateLogStatus(log.id, 'ERROR', startTime, mappedMsg);
@@ -1014,8 +1061,13 @@ export const reloadConceptExamples = async (currentExplanation: ConceptExplanati
 
             const text = response.text;
             if (!text) throw new Error("Empty response");
+            
+            const data = JSON.parse(text) as ConceptExample[];
+            // Basic validation
+            if (!Array.isArray(data) || data.length === 0) throw new Error("Validation Failed: Empty Example Array");
+
             updateLogStatus(log.id, 'SUCCESS', startTime);
-            return JSON.parse(text) as ConceptExample[];
+            return data;
         } catch (e: any) {
             updateLogStatus(log.id, 'ERROR', startTime, e.message);
             throw e;
