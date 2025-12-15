@@ -339,12 +339,6 @@ const validateResponse = (data: any, type: 'SOLUTION' | 'DRILL' | 'EXAM' | 'CONC
     if (type === 'DRILL') {
         if (!data.questionText || data.questionText.length < 5) throw new Error("Validation Failed: Empty Question Text");
     }
-    
-    // 3. Strict Check for missing LaTeX delimiters on numbers
-    // This is a heuristic check on the question text
-    // Regex searches for isolated numbers like " 5 " or " x " not inside $...$
-    // Note: This is complex to regex perfectly, so we do a simple check for obvious misses if feasible.
-    // Skipping complex regex for now to avoid false positives, relying on prompt engineering.
 };
 
 // --- SCHEMAS ---
@@ -631,9 +625,12 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
         1. ALL math, numbers, variables must be wrapped in LaTeX delimiters ($...$). Do NOT output plain text math like 'x^2' without $ signs.
         2. Break down solutions into clear, logical steps.
         3. If a Markscheme is requested, it MUST be a Markdown Table.
-        4. VISUALS: If the problem is about Geometry, Trigonometry, or Vectors, you MUST provide a 'geometryConfig' object in at least 50% of cases. 
-        5. For Functions, provide 'graphFunctions' (e.g. ["x^2", "Math.sin(x)"]). 
-        6. Do NOT use non-standard HTML tags like <ln>, </ln>, <step>. Use standard Markdown.
+        
+        VISUALIZATION RULES (BALANCE):
+        4. If the problem is specifically about Geometry, Vectors, or Trigonometry, provide a 'geometryConfig' object in roughly 50% of cases to visualize the problem.
+        5. For the other 50% of cases (especially algebraic vectors/trig), DO NOT provide geometryConfig. Force the student to rely on algebraic understanding.
+        6. For Functions, provide 'graphFunctions' (e.g. ["x^2", "Math.sin(x)"]) where helpful.
+        7. Do NOT use non-standard HTML tags like <ln>, </ln>, <step>. Use standard Markdown.
         `;
 
         const parts = isImage 
@@ -693,7 +690,7 @@ export const generateSimilarProblem = async (originalContext: string): Promise<D
                 Requirements:
                 1. Change numbers/functions but keep concept identical.
                 2. Return a DrillQuestion object.
-                3. Include 'graphFunctions' or 'geometryConfig' if relevant (Geometry/Vectors/Trig = 60% chance visual).
+                3. BALANCED VISUALS: If topic is Vectors/Trig/Geometry, ensure a 50/50 chance of including a 'geometryConfig'. Do not make every question visual.
                 4. ALL numbers and variables MUST be wrapped in LaTeX ($...$).
             `;
 
@@ -777,9 +774,13 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
           Create an IB Math Exam.
           SETTINGS: Difficulty ${settings.difficulty}, Duration ${settings.durationMinutes} min, Topics ${settings.topics.join(', ') || "General"}
           
-          VISUAL RULES:
-          - If a question involves Geometry, Vectors or Trigonometry, provide a 'geometryConfig' 60% of the time.
-          - If a question involves Functions, provide 'graphFunctions' 50% of the time.
+          VISUAL RULES (STRICT BALANCE):
+          - For Vectors, Geometry, and Trigonometry questions:
+            * 50% MUST include a 'geometryConfig' for visualization.
+            * 50% MUST NOT include any visualization (pure algebra/text).
+          - For Functions:
+            * 50% should include 'graphFunctions'.
+            * 50% should be analytical only.
           
           PRE-FLIGHT CHECK:
           - Ensure ALL math, numbers (e.g. 5, 2.5), and variables (x, y) are wrapped in LaTeX: $5$, $2.5$, $x$.
@@ -841,15 +842,19 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
 
             const topicToUse = specificTopic || settings.topics.join(', ');
 
+            // Randomly decide if this question should be visual to enforce balance
+            // This forces the LLM to adhere to our 50/50 rule over a session
+            const forceVisual = Math.random() > 0.5;
+
             const prompt = `
                 Generate Drill Question #${questionNumber}. 
                 Difficulty ${prevDifficulty}/10. 
                 Topic: ${topicToUse}. 
                 
-                VISUALS:
-                - If topic is Geometry/Vectors/Trig, include 'geometryConfig' 60% of time.
-                - If topic is Functions, include 'graphFunctions' 50% of time.
-                - Ensure visual representations are accurate.
+                VISUAL REQUIREMENT:
+                ${forceVisual 
+                    ? "- This question MUST have a visual representation (graphFunctions or geometryConfig)." 
+                    : "- This question MUST be purely textual/algebraic (NO geometryConfig or graphFunctions)."}
                 
                 STRICT FORMATTING RULE:
                 - EVERY number and variable MUST be in LaTeX.
@@ -967,7 +972,7 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
             1. CONTENT: Be methodological, theoretical, and concise. Avoid flowery metaphors.
             2. FORMATTING: Use LaTeX ($...$) for ALL math.
             3. EXAMPLES: Provide exactly 3 examples (BASIC, EXAM, HARD).
-            4. VISUALS: Provide 'graphFunctions' or 'geometryConfig' if helpful.
+            4. VISUALS: Ensure at least one example has a relevant visual aid (graph or geometryConfig).
             
             STRUCTURE:
             1. Introduction: Short, concise definition.
