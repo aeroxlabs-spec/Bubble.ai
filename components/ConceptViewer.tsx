@@ -5,6 +5,7 @@ import MarkdownRenderer from './MarkdownRenderer';
 import StepCard from './StepCard'; // Re-use StepCard for exercises
 import { breakdownConceptBlock } from '../services/geminiService';
 import { BookOpen, GraduationCap, Variable, ListOrdered, Plus, X, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react';
+import InteractiveGraph from './InteractiveGraph';
 
 interface ConceptViewerProps {
     concept: ConceptExplanation;
@@ -219,6 +220,23 @@ const ConceptExerciseCard: React.FC<ConceptExerciseCardProps> = ({ example, inde
 
                 {showSolution && (
                     <div className="mt-6 space-y-4 animate-in slide-in-from-top-4 fade-in">
+                        {/* Interactive Graph Integration */}
+                        {example.graphFunctions && example.graphFunctions.length > 0 && (
+                            <div className="mt-6 mb-4 flex justify-center">
+                                <div className="max-w-[500px] w-full">
+                                    <InteractiveGraph functions={example.graphFunctions} mode="CONCEPT" />
+                                </div>
+                            </div>
+                        )}
+                        {/* Geometry SVG */}
+                        {example.geometrySvg && (
+                            <div className="mt-6 mb-4 flex justify-center">
+                                <div className="p-4 bg-black/40 border border-white/10 rounded-lg max-w-[400px] w-full flex items-center justify-center">
+                                    <div dangerouslySetInnerHTML={{ __html: example.geometrySvg }} className="w-full" />
+                                </div>
+                            </div>
+                        )}
+
                         {/* Brief Logic */}
                         <div className="flex gap-2 items-start bg-green-900/10 p-3 rounded border border-green-500/20 mb-4">
                             <CheckCircle2 size={12} className="text-green-400 flex-shrink-0 mt-0.5" />

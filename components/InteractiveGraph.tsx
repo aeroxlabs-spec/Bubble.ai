@@ -1,5 +1,6 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 
 interface InteractiveGraphProps {
     functions: string[]; // e.g. ["x^2", "sin(x)"]
@@ -10,14 +11,36 @@ interface InteractiveGraphProps {
 
 const InteractiveGraph: React.FC<InteractiveGraphProps> = ({ functions, className = '', height = 300, mode = 'SOLVER' }) => {
     const rootRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
     const graphId = useRef(`graph-${Math.random().toString(36).substr(2, 9)}`);
+    const [renderError, setRenderError] = useState<string | null>(null);
+    const [key, setKey] = useState(0); // Used to force re-mount on reset
 
-    useEffect(() => {
-        if (!rootRef.current || !functions || functions.length === 0) return;
-        if (!(window as any).functionPlot) return;
+    // Function to safely evaluate string for plotting (FunctionPlot handles this, but we clean inputs)
+    const cleanFunction = (fn: string) => {
+        // Replace unicode characters that might break eval
+        return fn.replace(/–/g, '-').replace(/—/g, '-').trim();
+    };
+
+    const drawGraph = () => {
+        if (!containerRef.current || !functions || functions.length === 0) return;
+        if (!(window as any).functionPlot) {
+            setRenderError("Graphing library not loaded.");
+            return;
+        }
 
         try {
-            const width = rootRef.current.offsetWidth;
+            // Clear previous graph contents explicitly
+            containerRef.current.innerHTML = '';
+            setRenderError(null);
+
+            const width = containerRef.current.offsetWidth || 300;
+            const validFunctions = functions.map(cleanFunction).filter(f => f.length > 0);
+
+            if (validFunctions.length === 0) {
+                setRenderError("No valid functions to plot.");
+                return;
+            }
             
             // Theme colors based on mode
             let color = '#3b82f6'; // Blue (Solver)
@@ -26,10 +49,11 @@ const InteractiveGraph: React.FC<InteractiveGraphProps> = ({ functions, classNam
             if (mode === 'CONCEPT') color = '#4ade80'; // Green
 
             // Determine data array
-            const data = functions.map(fn => ({
+            const data = validFunctions.map(fn => ({
                 fn: fn,
                 color: color,
-                graphType: 'polyline'
+                graphType: 'polyline',
+                // Add derivative for visual richness if it's a simple polynomial? No, confusing.
             }));
 
             (window as any).functionPlot({
@@ -41,32 +65,63 @@ const InteractiveGraph: React.FC<InteractiveGraphProps> = ({ functions, classNam
                 grid: true,
                 data: data,
                 tip: {
-                    xLine: true,    // dashed line parallel to y = 0
-                    yLine: true,    // dashed line parallel to x = 0
+                    xLine: true,
+                    yLine: true,
                     renderer: function (x: number, y: number, index: number) {
-                      // Custom tooltip logic if needed
+                        // basic tip
+                        return `(${x.toFixed(3)}, ${y.toFixed(3)})`;
                     }
-                },
-                style: {
-                    // Custom CSS Injection for Function Plot to match dark theme
-                    // This library injects SVG, so we control colors via props or basic CSS
                 }
             });
 
-            // Styling adjustments for dark mode compatibility manually via D3 selection if needed
-            // But basic library support usually handles white background. 
-            // We need to invert specific strokes via CSS in global styles or here.
-
-        } catch (e) {
+        } catch (e: any) {
             console.error("Graph rendering failed", e);
+            setRenderError("Could not render function. Check syntax.");
         }
-    }, [functions, height, mode]);
+    };
+
+    useEffect(() => {
+        // Initial Draw
+        const timer = setTimeout(drawGraph, 100);
+
+        // Resize Observer to handle layout changes
+        const resizeObserver = new ResizeObserver(() => {
+            requestAnimationFrame(drawGraph);
+        });
+
+        if (rootRef.current) {
+            resizeObserver.observe(rootRef.current);
+        }
+
+        return () => {
+            clearTimeout(timer);
+            resizeObserver.disconnect();
+        };
+    }, [functions, height, mode, key]);
 
     return (
-        <div className={`w-full overflow-hidden rounded-lg bg-[#050505] border border-white/10 relative ${className}`}>
-            <div id={graphId.current} ref={rootRef} className="interactive-graph-container" />
-            <div className="absolute top-2 right-2 text-[10px] text-gray-500 font-mono bg-black/50 px-2 py-1 rounded backdrop-blur-sm pointer-events-none">
-                Interactive: Pan & Zoom
+        <div ref={rootRef} className={`w-full overflow-hidden rounded-lg bg-[#050505] border border-white/10 relative ${className}`}>
+            
+            {renderError ? (
+                <div className="flex items-center justify-center h-full text-xs text-red-400 p-4 bg-red-900/10 font-mono">
+                    {renderError}
+                </div>
+            ) : (
+                <div id={graphId.current} ref={containerRef} className="interactive-graph-container" />
+            )}
+
+            {/* Controls Overlay */}
+            <div className="absolute top-2 right-2 flex gap-2 pointer-events-none">
+                <div className="text-[10px] text-gray-500 font-mono bg-black/50 px-2 py-1 rounded backdrop-blur-sm">
+                    Zoom & Pan
+                </div>
+                <button 
+                    onClick={() => setKey(k => k + 1)} // Force Reset
+                    className="pointer-events-auto p-1 rounded bg-black/50 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                    title="Reset View"
+                >
+                    <RefreshCw size={12} />
+                </button>
             </div>
             
             {/* Scoped Styles for this graph instance to force dark mode SVG props */}

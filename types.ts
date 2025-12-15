@@ -13,6 +13,7 @@ export interface MathSolution {
   finalAnswer: string;
   markscheme?: string; // Optional, loaded on demand
   graphFunctions?: string[]; // Array of math expressions for plotting (e.g. "x^2")
+  geometrySvg?: string; // Raw SVG string for geometry/trigonometry figures
 }
 
 export interface ChatMessage {
@@ -76,6 +77,7 @@ export interface ExamQuestion {
   calculatorAllowed: boolean;
   steps?: string[]; // Simplified steps for the exam view
   graphFunctions?: string[]; // For plotting
+  geometrySvg?: string; // SVG for geometry
 }
 
 export interface ExamSection {
@@ -109,6 +111,7 @@ export interface DrillQuestion {
   hint: string;
   calculatorAllowed: boolean;
   graphFunctions?: string[]; // For plotting
+  geometrySvg?: string; // SVG for geometry
 }
 
 // --- CONCEPT TYPES ---
@@ -132,6 +135,7 @@ export interface ConceptExample {
     finalAnswer: string;
     explanation: string; // Brief theoretical context
     graphFunctions?: string[];
+    geometrySvg?: string;
 }
 
 export interface ConceptBlock {

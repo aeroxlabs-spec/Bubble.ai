@@ -225,6 +225,15 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                             />
                                         </div>
                                     )}
+                                    
+                                    {/* Fallback Geometry SVG if no graph functions but SVG provided by AI */}
+                                    {!q.graphFunctions && q.geometrySvg && (
+                                        <div className="mt-8 flex justify-center">
+                                            <div className="bg-black/40 border border-white/10 rounded-lg p-4 max-w-[400px] w-full flex items-center justify-center">
+                                                <div dangerouslySetInnerHTML={{ __html: q.geometrySvg }} className="w-full" />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="bg-[#0a0a0a] border-t border-white/5 p-4 flex flex-col gap-2">

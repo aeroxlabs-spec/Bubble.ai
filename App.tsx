@@ -1434,10 +1434,17 @@ const handleOpenChatWithPrompt = (prompt: string) => {
                                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                                 <div className="flex items-center gap-3 mb-3"><span className="bg-blue-500/10 text-blue-400 text-[10px] font-bold px-2 py-1 rounded border border-blue-500/20 uppercase tracking-widest">Exercise</span></div>
                                 <div className="text-gray-200 text-lg leading-relaxed font-medium"><MarkdownRenderer content={activeSolution.exerciseStatement} /></div>
-                                {/* Interactive Graph Integration */}
+                                {/* Visuals Integration */}
                                 {activeSolution.graphFunctions && activeSolution.graphFunctions.length > 0 && (
                                     <div className="mt-6">
                                         <InteractiveGraph functions={activeSolution.graphFunctions} mode="SOLVER" />
+                                    </div>
+                                )}
+                                {activeSolution.geometrySvg && (
+                                    <div className="mt-6 flex justify-center">
+                                        <div className="p-4 bg-black/40 border border-white/10 rounded-lg max-w-[400px] w-full flex items-center justify-center">
+                                            <div dangerouslySetInnerHTML={{ __html: activeSolution.geometrySvg }} className="w-full" />
+                                        </div>
                                     </div>
                                 )}
                             </div>
