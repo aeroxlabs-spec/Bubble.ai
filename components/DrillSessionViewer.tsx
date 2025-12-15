@@ -4,6 +4,7 @@ import { DrillQuestion } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
 import StepCard from './StepCard';
 import InteractiveGraph from './InteractiveGraph';
+import GeometryBoard from './GeometryBoard';
 import { Calculator, Zap, ArrowRight, ArrowLeft, CheckCircle2, BookOpen, Lightbulb, Copy, Check, Loader2 } from 'lucide-react';
 
 interface DrillSessionViewerProps {
@@ -263,10 +264,10 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({
                         </div>
                     )}
                     {/* Geometry Visual Fallback */}
-                    {!question.graphFunctions && question.geometrySvg && (
+                    {!question.graphFunctions && question.geometryConfig && (
                         <div className="mt-6 flex justify-center">
-                            <div className="p-4 bg-black/40 border border-white/10 rounded-lg max-w-[400px] w-full flex items-center justify-center">
-                                <div dangerouslySetInnerHTML={{ __html: question.geometrySvg }} className="w-full" />
+                            <div className="max-w-[500px] w-full">
+                                <GeometryBoard config={question.geometryConfig} mode="DRILL" />
                             </div>
                         </div>
                     )}

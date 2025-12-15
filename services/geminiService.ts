@@ -336,6 +336,32 @@ const mathStepSchema: Schema = {
     required: ["section", "title", "explanation", "keyEquation"]
 };
 
+const geometryConfigSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+        xmin: { type: Type.NUMBER },
+        xmax: { type: Type.NUMBER },
+        ymin: { type: Type.NUMBER },
+        ymax: { type: Type.NUMBER },
+        objects: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    type: { type: Type.STRING, enum: ["point", "line", "segment", "vector", "circle", "angle", "polygon"] },
+                    id: { type: Type.STRING },
+                    label: { type: Type.STRING },
+                    coords: { type: Type.ARRAY, items: { type: Type.NUMBER } },
+                    parents: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    radius: { type: Type.NUMBER }
+                },
+                required: ["type", "id"]
+            }
+        }
+    },
+    required: ["xmin", "xmax", "ymin", "ymax", "objects"]
+};
+
 const mathSolutionSchema: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -360,10 +386,7 @@ const mathSolutionSchema: Schema = {
         items: { type: Type.STRING },
         description: "If the solution involves functions that can be graphed, list them in JS syntax (e.g. 'x^2', 'Math.sin(x)'). If not relevant, return empty."
     },
-    geometrySvg: {
-        type: Type.STRING,
-        description: "If the problem involves geometry/trigonometry, provide a raw SVG string (<svg viewBox='0 0 300 300'>...</svg>) representing the figure. Keep it simple, stroked in white/gray for dark mode. If not relevant, return empty."
-    }
+    geometryConfig: geometryConfigSchema
   },
   required: ["exerciseStatement", "problemSummary", "steps", "finalAnswer"],
 };
@@ -394,16 +417,12 @@ const examPaperSchema: Schema = {
                 shortAnswer: { type: Type.STRING },
                 hint: { type: Type.STRING },
                 calculatorAllowed: { type: Type.BOOLEAN },
-                graphSvg: { type: Type.STRING },
                 graphFunctions: {
                     type: Type.ARRAY,
                     items: { type: Type.STRING },
                     description: "JS Math functions for plotting (e.g. 'x^3 - 2*x')."
                 },
-                geometrySvg: {
-                    type: Type.STRING,
-                    description: "SVG string for geometry/trig figures. Use white strokes for dark mode."
-                }
+                geometryConfig: geometryConfigSchema
               },
               required: ["id", "number", "marks", "questionText", "markscheme", "shortAnswer", "calculatorAllowed", "steps"]
             }
@@ -430,10 +449,7 @@ const drillQuestionSchema: Schema = {
         items: { type: Type.STRING },
         description: "JS Math syntax for interactive graphing if relevant."
     },
-    geometrySvg: {
-        type: Type.STRING,
-        description: "SVG string for geometry figures if relevant."
-    }
+    geometryConfig: geometryConfigSchema
   },
   required: ["topic", "difficultyLevel", "questionText", "shortAnswer", "hint", "calculatorAllowed"]
 };
@@ -480,7 +496,7 @@ const conceptExplanationSchema: Schema = {
                     finalAnswer: { type: Type.STRING },
                     explanation: { type: Type.STRING },
                     graphFunctions: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    geometrySvg: { type: Type.STRING }
+                    geometryConfig: geometryConfigSchema
                 },
                 required: ["difficulty", "question", "hint", "solutionSteps", "finalAnswer", "explanation"]
             }
@@ -501,7 +517,7 @@ const exampleReloadSchema: Schema = {
             finalAnswer: { type: Type.STRING },
             explanation: { type: Type.STRING },
             graphFunctions: { type: Type.ARRAY, items: { type: Type.STRING } },
-            geometrySvg: { type: Type.STRING }
+            geometryConfig: geometryConfigSchema
         },
         required: ["difficulty", "question", "hint", "solutionSteps", "finalAnswer", "explanation"]
     }
@@ -519,9 +535,8 @@ const questionValidationSchema: Schema = {
         shortAnswer: { type: Type.STRING },
         hint: { type: Type.STRING },
         calculatorAllowed: { type: Type.BOOLEAN },
-        graphSvg: { type: Type.STRING },
         graphFunctions: { type: Type.ARRAY, items: { type: Type.STRING } },
-        geometrySvg: { type: Type.STRING }
+        geometryConfig: geometryConfigSchema
     },
     required: ["id", "number", "marks", "questionText", "markscheme", "shortAnswer", "calculatorAllowed", "steps"]
 };
@@ -591,7 +606,7 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
         2. Break down solutions into clear, logical steps.
         3. If a Markscheme is requested, it MUST be a Markdown Table.
         4. If the problem involves functions, provide 'graphFunctions' (e.g. ["x^2", "Math.sin(x)"]). 
-        5. If the problem requires a geometric figure (triangle, circle, trig unit circle), provide a valid, simple 'geometrySvg' string.
+        5. If the problem requires a geometric figure (triangle, circle, vector), provide a 'geometryConfig' object with JSXGraph definitions.
         6. Do NOT use non-standard HTML tags like <ln>, </ln>, <step>. Use standard Markdown.
         `;
 
@@ -649,7 +664,8 @@ export const generateSimilarProblem = async (originalContext: string): Promise<D
                 Requirements:
                 1. Change numbers/functions but keep concept identical.
                 2. Return a DrillQuestion object.
-                3. Include 'graphFunctions' or 'geometrySvg' if relevant.
+                3. Include 'graphFunctions' or 'geometryConfig' if relevant.
+                4. ALL numbers and variables MUST be wrapped in LaTeX ($...$).
             `;
 
             const response = await client.models.generateContent({
@@ -683,7 +699,7 @@ const reviewAndRefineQuestion = async (originalQ: any): Promise<any> => {
         const log = logRequest('gemini-2.5-flash', 'GENERATE', 'EXAM'); 
         try {
             const client = ensureClientReady();
-            const prompt = `Review question logic and LaTeX syntax. Ensure valid 'graphFunctions' or 'geometrySvg' if visual needed. INPUT: ${JSON.stringify(originalQ)}`;
+            const prompt = `Review question logic and LaTeX syntax. Ensure valid 'graphFunctions' or 'geometryConfig' if visual needed. INPUT: ${JSON.stringify(originalQ)}`;
             
             const response = await client.models.generateContent({
                 model: "gemini-2.5-flash",
@@ -726,7 +742,10 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
           Create an IB Math Exam.
           SETTINGS: Difficulty ${settings.difficulty}, Duration ${settings.durationMinutes} min, Topics ${settings.topics.join(', ') || "General"}
           Provide 'graphFunctions' for any question that benefits from a visual graph.
-          Provide 'geometrySvg' for any question involving geometry/trig figures.
+          Provide 'geometryConfig' for any question involving geometry/trig figures.
+          
+          PRE-FLIGHT CHECK:
+          - Ensure ALL math, numbers (e.g. 5, 2.5), and variables (x, y) are wrapped in LaTeX: $5$, $2.5$, $x$.
         `;
         parts.push({ text: prompt });
 
@@ -783,7 +802,17 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
                 }
             });
 
-            const prompt = `Generate Drill Question #${questionNumber}. Difficulty ${prevDifficulty}/10. Topics: ${settings.topics.join(', ')}. Include graphFunctions or geometrySvg if visual is needed.`;
+            const prompt = `
+                Generate Drill Question #${questionNumber}. 
+                Difficulty ${prevDifficulty}/10. 
+                Topics: ${settings.topics.join(', ')}. 
+                Include 'graphFunctions' or 'geometryConfig' if visual is needed.
+                
+                STRICT FORMATTING RULE:
+                - EVERY number and variable MUST be in LaTeX.
+                - BAD: "Solve for x when y = 5"
+                - GOOD: "Solve for $x$ when $y = 5$"
+            `;
             parts.push({ text: prompt });
 
             const response = await client.models.generateContent({
@@ -887,7 +916,7 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
             1. CONTENT: Be methodological, theoretical, and concise. Avoid flowery metaphors.
             2. FORMATTING: Use LaTeX ($...$) for ALL math.
             3. EXAMPLES: Provide exactly 3 examples (BASIC, EXAM, HARD).
-            4. VISUALS: Provide 'graphFunctions' or 'geometrySvg' if helpful.
+            4. VISUALS: Provide 'graphFunctions' or 'geometryConfig' if helpful.
             
             STRUCTURE:
             1. Introduction: Short, concise definition.
@@ -960,7 +989,7 @@ export const reloadConceptExamples = async (currentExplanation: ConceptExplanati
                 Generate 3 NEW IB Math examples for the topic: "${currentExplanation.topicTitle}".
                 Levels: 1 Basic, 1 Exam-Style, 1 Hard (7-level).
                 Previous Examples Context (Do NOT repeat): ${currentExplanation.examples.map(e => e.question).join(' | ')}
-                Include graphFunctions or geometrySvg where applicable.
+                Include graphFunctions or geometryConfig where applicable.
                 
                 Format: JSON Array of 3 Example Objects.
             `;

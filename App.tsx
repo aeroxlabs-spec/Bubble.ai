@@ -22,7 +22,8 @@ import HelpModal from './components/HelpModal';
 import AdminFeedbackModal from './components/AdminFeedbackModal';
 import InfoModal, { InfoPageType } from './components/InfoModal';
 import Footer from './components/Footer';
-import InteractiveGraph from './components/InteractiveGraph'; // Import new graph component
+import InteractiveGraph from './components/InteractiveGraph'; 
+import GeometryBoard from './components/GeometryBoard'; // Import new geometry component
 import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator, Zap, LogOut, User as UserIcon, Check, AlertCircle, Key, Coins, MessageSquare, ShieldAlert, HelpCircle, Activity, LayoutDashboard, RefreshCw, Sparkles } from 'lucide-react';
 
 // Cost Configuration
@@ -1440,10 +1441,10 @@ const handleOpenChatWithPrompt = (prompt: string) => {
                                         <InteractiveGraph functions={activeSolution.graphFunctions} mode="SOLVER" />
                                     </div>
                                 )}
-                                {activeSolution.geometrySvg && (
+                                {activeSolution.geometryConfig && (
                                     <div className="mt-6 flex justify-center">
-                                        <div className="p-4 bg-black/40 border border-white/10 rounded-lg max-w-[400px] w-full flex items-center justify-center">
-                                            <div dangerouslySetInnerHTML={{ __html: activeSolution.geometrySvg }} className="w-full" />
+                                        <div className="max-w-[500px] w-full">
+                                            <GeometryBoard config={activeSolution.geometryConfig} mode="SOLVER" />
                                         </div>
                                     </div>
                                 )}

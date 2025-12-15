@@ -6,6 +6,7 @@ import StepCard from './StepCard'; // Re-use StepCard for exercises
 import { breakdownConceptBlock } from '../services/geminiService';
 import { BookOpen, GraduationCap, Variable, ListOrdered, Plus, X, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react';
 import InteractiveGraph from './InteractiveGraph';
+import GeometryBoard from './GeometryBoard';
 
 interface ConceptViewerProps {
     concept: ConceptExplanation;
@@ -228,11 +229,11 @@ const ConceptExerciseCard: React.FC<ConceptExerciseCardProps> = ({ example, inde
                                 </div>
                             </div>
                         )}
-                        {/* Geometry SVG */}
-                        {example.geometrySvg && (
+                        {/* Geometry SVG Fallback/Board */}
+                        {example.geometryConfig && (
                             <div className="mt-6 mb-4 flex justify-center">
-                                <div className="p-4 bg-black/40 border border-white/10 rounded-lg max-w-[400px] w-full flex items-center justify-center">
-                                    <div dangerouslySetInnerHTML={{ __html: example.geometrySvg }} className="w-full" />
+                                <div className="max-w-[500px] w-full">
+                                    <GeometryBoard config={example.geometryConfig} mode="CONCEPT" />
                                 </div>
                             </div>
                         )}

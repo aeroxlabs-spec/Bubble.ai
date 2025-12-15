@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { ExamPaper } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
 import InteractiveGraph from './InteractiveGraph';
+import GeometryBoard from './GeometryBoard';
 import { Clock, Download, CheckCircle2, Calculator, Lightbulb, ListStart, Copy, Check, Layers } from 'lucide-react';
 
 interface ExamViewerProps {
@@ -226,11 +227,11 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                         </div>
                                     )}
                                     
-                                    {/* Fallback Geometry SVG if no graph functions but SVG provided by AI */}
-                                    {!q.graphFunctions && q.geometrySvg && (
+                                    {/* Fallback Geometry Visual if no graph functions but GeometryConfig provided by AI */}
+                                    {!q.graphFunctions && q.geometryConfig && (
                                         <div className="mt-8 flex justify-center">
-                                            <div className="bg-black/40 border border-white/10 rounded-lg p-4 max-w-[400px] w-full flex items-center justify-center">
-                                                <div dangerouslySetInnerHTML={{ __html: q.geometrySvg }} className="w-full" />
+                                            <div className="max-w-[500px] w-full">
+                                                <GeometryBoard config={q.geometryConfig} mode="EXAM" />
                                             </div>
                                         </div>
                                     )}

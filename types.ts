@@ -6,6 +6,26 @@ export interface MathStep {
   keyEquation: string;
 }
 
+export type GeometryObjectType = "point" | "line" | "segment" | "vector" | "circle" | "angle" | "polygon";
+
+export interface GeometryObject {
+    type: GeometryObjectType;
+    id: string;
+    label?: string;
+    coords?: number[]; // [x, y] for points, or end coordinates
+    parents?: string[]; // IDs of parent elements (e.g. for lines, segments)
+    radius?: number; // For circles
+    color?: string;
+}
+
+export interface GeometryConfig {
+    xmin: number;
+    xmax: number;
+    ymin: number;
+    ymax: number;
+    objects: GeometryObject[];
+}
+
 export interface MathSolution {
   exerciseStatement: string;
   problemSummary: string;
@@ -13,7 +33,7 @@ export interface MathSolution {
   finalAnswer: string;
   markscheme?: string; // Optional, loaded on demand
   graphFunctions?: string[]; // Array of math expressions for plotting (e.g. "x^2")
-  geometrySvg?: string; // Raw SVG string for geometry/trigonometry figures
+  geometryConfig?: GeometryConfig; // Structured config for JSXGraph
 }
 
 export interface ChatMessage {
@@ -77,7 +97,7 @@ export interface ExamQuestion {
   calculatorAllowed: boolean;
   steps?: string[]; // Simplified steps for the exam view
   graphFunctions?: string[]; // For plotting
-  geometrySvg?: string; // SVG for geometry
+  geometryConfig?: GeometryConfig;
 }
 
 export interface ExamSection {
@@ -111,7 +131,7 @@ export interface DrillQuestion {
   hint: string;
   calculatorAllowed: boolean;
   graphFunctions?: string[]; // For plotting
-  geometrySvg?: string; // SVG for geometry
+  geometryConfig?: GeometryConfig;
 }
 
 // --- CONCEPT TYPES ---
@@ -135,7 +155,7 @@ export interface ConceptExample {
     finalAnswer: string;
     explanation: string; // Brief theoretical context
     graphFunctions?: string[];
-    geometrySvg?: string;
+    geometryConfig?: GeometryConfig;
 }
 
 export interface ConceptBlock {
