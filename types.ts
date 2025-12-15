@@ -12,6 +12,7 @@ export interface MathSolution {
   steps: MathStep[];
   finalAnswer: string;
   markscheme?: string; // Optional, loaded on demand
+  graphFunctions?: string[]; // Array of math expressions for plotting (e.g. "x^2")
 }
 
 export interface ChatMessage {
@@ -74,7 +75,7 @@ export interface ExamQuestion {
   hint?: string;
   calculatorAllowed: boolean;
   steps?: string[]; // Simplified steps for the exam view
-  graphSvg?: string;
+  graphFunctions?: string[]; // For plotting
 }
 
 export interface ExamSection {
@@ -107,6 +108,7 @@ export interface DrillQuestion {
   steps?: MathStep[]; // Optional, generated on demand
   hint: string;
   calculatorAllowed: boolean;
+  graphFunctions?: string[]; // For plotting
 }
 
 // --- CONCEPT TYPES ---
@@ -129,6 +131,7 @@ export interface ConceptExample {
     solutionSteps: MathStep[]; // Reusing MathStep for consistency
     finalAnswer: string;
     explanation: string; // Brief theoretical context
+    graphFunctions?: string[];
 }
 
 export interface ConceptBlock {

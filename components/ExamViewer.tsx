@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { ExamPaper } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
+import InteractiveGraph from './InteractiveGraph';
 import { Clock, Download, CheckCircle2, Calculator, Lightbulb, ListStart, Copy, Check, Layers } from 'lucide-react';
 
 interface ExamViewerProps {
@@ -210,7 +211,14 @@ const ExamViewer: React.FC<ExamViewerProps> = ({ exam }) => {
                                 <div className="p-5 sm:p-8">
                                     <QuestionBodyRenderer text={q.questionText} />
                                     
-                                    {q.graphSvg && (
+                                    {/* Prioritize interactive graph */}
+                                    {q.graphFunctions && q.graphFunctions.length > 0 ? (
+                                        <div className="mt-8 flex justify-center">
+                                            <div className="max-w-[500px] w-full">
+                                                <InteractiveGraph functions={q.graphFunctions} mode="EXAM" />
+                                            </div>
+                                        </div>
+                                    ) : q.graphSvg && (
                                         <div className="mt-8 flex justify-center">
                                             <div className="bg-black border border-white/10 rounded-lg p-4 max-w-[500px] w-full shadow-inner" 
                                                  dangerouslySetInnerHTML={{ __html: q.graphSvg }} 

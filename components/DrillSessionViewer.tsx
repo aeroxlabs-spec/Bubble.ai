@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { DrillQuestion } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
 import StepCard from './StepCard';
+import InteractiveGraph from './InteractiveGraph';
 import { Calculator, Zap, ArrowRight, ArrowLeft, CheckCircle2, BookOpen, Lightbulb, Copy, Check, Loader2 } from 'lucide-react';
 
 interface DrillSessionViewerProps {
@@ -252,6 +254,14 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({
 
                 <div className="p-5 sm:p-8 min-h-[150px]">
                     <QuestionBodyRenderer text={question.questionText} />
+                    {/* Interactive Graph Integration */}
+                    {question.graphFunctions && question.graphFunctions.length > 0 && (
+                        <div className="mt-6 flex justify-center">
+                            <div className="max-w-[500px] w-full">
+                                <InteractiveGraph functions={question.graphFunctions} mode="DRILL" />
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="bg-[#0a0a0a] border-t border-white/5 p-4 flex flex-col gap-3">

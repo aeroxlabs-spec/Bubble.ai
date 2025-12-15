@@ -341,7 +341,7 @@ const mathSolutionSchema: Schema = {
   properties: {
     exerciseStatement: {
       type: Type.STRING,
-      description: "The full text of the exercise. CRITICAL: Use LaTeX ($...$) for EVERY number, variable, and expression. Example: write '$3$' not '3', write '$x$' not 'x'. Do NOT output plain text math.",
+      description: "The full text of the exercise. Use LaTeX ($...$).",
     },
     problemSummary: {
       type: Type.STRING,
@@ -353,8 +353,13 @@ const mathSolutionSchema: Schema = {
     },
     finalAnswer: {
       type: Type.STRING,
-      description: "Final result. CRITICAL: 1. Use Markdown list format. 2. Separate parts (a), (b) with double newlines (\\n\\n). 3. Use LaTeX ($...$) for ALL math. 4. NO marks ([4]).",
+      description: "Final result. Use Markdown list format. Use LaTeX.",
     },
+    graphFunctions: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+        description: "If the solution involves functions that can be graphed, list them in JS syntax (e.g. 'x^2', 'sin(x)'). If not relevant, return empty."
+    }
   },
   required: ["exerciseStatement", "problemSummary", "steps", "finalAnswer"],
 };
@@ -379,26 +384,18 @@ const examPaperSchema: Schema = {
                 id: { type: Type.STRING },
                 number: { type: Type.STRING },
                 marks: { type: Type.INTEGER },
-                questionText: { 
-                    type: Type.STRING, 
-                    description: "Question text. CRITICAL: Use LaTeX ($...$) for EVERY number and variable. Separate parts with \\n\\n. Marks at end like **[4]**." 
-                },
-                steps: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
-                    description: "Simplified solution steps in LaTeX ($...$)."
-                },
-                markscheme: { 
-                    type: Type.STRING, 
-                    description: "STRICT Markdown Table: | Step | Working | Explanation | Marks |. Rows separated by newline. Marks (M1, A1) in last column. Use LaTeX ($...$) for all math." 
-                },
-                shortAnswer: { 
-                    type: Type.STRING, 
-                    description: "Final Answer in LaTeX. CRITICAL: Separate parts with \\n\\n. Example: '(a) $x=1$ \\n\\n (b) $y=2$'. Use LaTeX ($...$) for all math." 
-                },
+                questionText: { type: Type.STRING },
+                steps: { type: Type.ARRAY, items: { type: Type.STRING } },
+                markscheme: { type: Type.STRING },
+                shortAnswer: { type: Type.STRING },
                 hint: { type: Type.STRING },
                 calculatorAllowed: { type: Type.BOOLEAN },
-                graphSvg: { type: Type.STRING }
+                graphSvg: { type: Type.STRING },
+                graphFunctions: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "JS Math functions for plotting (e.g. 'x^3 - 2*x')."
+                }
               },
               required: ["id", "number", "marks", "questionText", "markscheme", "shortAnswer", "calculatorAllowed", "steps"]
             }
@@ -416,16 +413,15 @@ const drillQuestionSchema: Schema = {
   properties: {
     topic: { type: Type.STRING },
     difficultyLevel: { type: Type.NUMBER },
-    questionText: { 
-        type: Type.STRING, 
-        description: "Question text. STRICT RULES: 1. Use LaTeX ($...$) for ALL numbers/math. 2. Separate parts with \\n\\n. 3. NO marks shown." 
-    },
-    shortAnswer: { 
-        type: Type.STRING, 
-        description: "Answer. STRICT RULES: 1. Use LaTeX ($...$) for ALL math. 2. Separate parts with \\n\\n. 3. Format: '(a) $x=...$ \\n\\n (b) $y=...$'." 
-    },
+    questionText: { type: Type.STRING },
+    shortAnswer: { type: Type.STRING },
     hint: { type: Type.STRING },
-    calculatorAllowed: { type: Type.BOOLEAN }
+    calculatorAllowed: { type: Type.BOOLEAN },
+    graphFunctions: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+        description: "JS Math syntax for interactive graphing if relevant."
+    }
   },
   required: ["topic", "difficultyLevel", "questionText", "shortAnswer", "hint", "calculatorAllowed"]
 };
@@ -446,43 +442,32 @@ const conceptExplanationSchema: Schema = {
     type: Type.OBJECT,
     properties: {
         topicTitle: { type: Type.STRING },
-        introduction: { 
-            type: Type.STRING,
-            description: "A short, concise definition or single-paragraph intro. Use LaTeX for math."
-        },
+        introduction: { type: Type.STRING },
         conceptBlocks: {
             type: Type.ARRAY,
             items: {
                 type: Type.OBJECT,
                 properties: {
-                    title: { type: Type.STRING, description: "Block title (e.g. 'Derivation', 'Key Idea')" },
-                    content: { type: Type.STRING, description: "Explanation text. Mixed LaTeX. Highlight key terms with **bold**. NO metaphors." },
-                    keyEquation: { type: Type.STRING, description: "Optional LaTeX formula to highlight in this block." }
+                    title: { type: Type.STRING },
+                    content: { type: Type.STRING },
+                    keyEquation: { type: Type.STRING }
                 },
                 required: ["title", "content"]
-            },
-            description: "Break the theory into logical, bite-sized blocks."
+            }
         },
-        coreFormulas: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-            description: "List of core LaTeX equations related to this concept."
-        },
+        coreFormulas: { type: Type.ARRAY, items: { type: Type.STRING } },
         examples: {
             type: Type.ARRAY,
             items: {
                 type: Type.OBJECT,
                 properties: {
                     difficulty: { type: Type.STRING, enum: ['BASIC', 'EXAM', 'HARD'] },
-                    question: { type: Type.STRING, description: "The problem statement with LaTeX." },
-                    hint: { type: Type.STRING, description: "A nudge in the right direction." },
-                    solutionSteps: {
-                        type: Type.ARRAY,
-                        items: mathStepSchema,
-                        description: "Step-by-step solution."
-                    },
+                    question: { type: Type.STRING },
+                    hint: { type: Type.STRING },
+                    solutionSteps: { type: Type.ARRAY, items: mathStepSchema },
                     finalAnswer: { type: Type.STRING },
-                    explanation: { type: Type.STRING, description: "Brief context on why this method was used." }
+                    explanation: { type: Type.STRING },
+                    graphFunctions: { type: Type.ARRAY, items: { type: Type.STRING } }
                 },
                 required: ["difficulty", "question", "hint", "solutionSteps", "finalAnswer", "explanation"]
             }
@@ -501,7 +486,8 @@ const exampleReloadSchema: Schema = {
             hint: { type: Type.STRING },
             solutionSteps: { type: Type.ARRAY, items: mathStepSchema },
             finalAnswer: { type: Type.STRING },
-            explanation: { type: Type.STRING }
+            explanation: { type: Type.STRING },
+            graphFunctions: { type: Type.ARRAY, items: { type: Type.STRING } }
         },
         required: ["difficulty", "question", "hint", "solutionSteps", "finalAnswer", "explanation"]
     }
@@ -519,7 +505,8 @@ const questionValidationSchema: Schema = {
         shortAnswer: { type: Type.STRING },
         hint: { type: Type.STRING },
         calculatorAllowed: { type: Type.BOOLEAN },
-        graphSvg: { type: Type.STRING }
+        graphSvg: { type: Type.STRING },
+        graphFunctions: { type: Type.ARRAY, items: { type: Type.STRING } }
     },
     required: ["id", "number", "marks", "questionText", "markscheme", "shortAnswer", "calculatorAllowed", "steps"]
 };
@@ -586,12 +573,10 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
         You are an expert IB Math tutor. 
         CRITICAL FORMATTING RULES:
         1. ALL math, numbers, variables must be wrapped in LaTeX delimiters ($...$).
-           - BAD: x = 3, sin(x), 45 degrees
-           - GOOD: $x = 3$, $\\sin(x)$, $45^\\circ$
         2. Do NOT output plain text math.
         3. Break down solutions into clear, logical steps.
-        4. If a Markscheme is requested or implied, it MUST be a Markdown Table:
-           | Step | Working | Explanation | Marks |
+        4. If a Markscheme is requested or implied, it MUST be a Markdown Table: | Step | Working | Explanation | Marks |.
+        5. If the problem involves functions (e.g. finding roots, integration area, graph sketching), provide the functions in JS Math format in 'graphFunctions' (e.g. ["x^2", "Math.sin(x)"]). If not relevant, leave empty.
         `;
 
         const parts = isImage 
@@ -632,6 +617,48 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
         throw new Error(mappedMsg);
       }
   });
+};
+
+// NEW FUNCTION FOR SIMILAR PROBLEM GENERATION
+export const generateSimilarProblem = async (originalContext: string): Promise<DrillQuestion> => {
+    return retryOperation(async () => {
+        const startTime = Date.now();
+        const log = logRequest('gemini-2.5-flash', 'GENERATE', 'DRILL');
+        try {
+            const client = ensureClientReady();
+            const prompt = `
+                Based on the following solved problem, generate a SIMILAR practice question to reinforce the method.
+                Original Context: ${originalContext.substring(0, 1000)}...
+                
+                Requirements:
+                1. Change the numbers/functions but keep the core concept identical.
+                2. Difficulty should be similar.
+                3. Return a DrillQuestion object.
+            `;
+
+            const response = await client.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: { parts: [{ text: prompt }] },
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: drillQuestionSchema,
+                    temperature: 0.8
+                }
+            });
+
+            const text = response.text;
+            if (!text) throw new Error("Empty response");
+            const q = JSON.parse(text) as DrillQuestion;
+            q.number = 1; // Temporary number
+            q.steps = [];
+            
+            updateLogStatus(log.id, 'SUCCESS', startTime);
+            return q;
+        } catch (e: any) {
+            updateLogStatus(log.id, 'ERROR', startTime, e.message);
+            throw e;
+        }
+    });
 };
 
 const reviewAndRefineQuestion = async (originalQ: any): Promise<any> => {
@@ -682,6 +709,7 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
         const prompt = `
           Create an IB Math Exam.
           SETTINGS: Difficulty ${settings.difficulty}, Duration ${settings.durationMinutes} min, Topics ${settings.topics.join(', ') || "General"}
+          Provide 'graphFunctions' for any question that benefits from a visual graph (e.g. geometry, calculus).
         `;
         parts.push({ text: prompt });
 
@@ -700,13 +728,11 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
         const draftPaper = JSON.parse(text) as ExamPaper;
 
         // Use Promise.allSettled to prevent partial failures from crashing the whole exam generation
-        // Concurrency is handled by the browser/runtime
         const refinedSections = await Promise.all(draftPaper.sections.map(async (section) => {
             const results = await Promise.allSettled(section.questions.map(q => reviewAndRefineQuestion(q)));
             
             const refinedQuestions = results.map((result, idx) => {
                 if (result.status === 'fulfilled') return result.value;
-                // Log failure but fallback to original
                 console.error(`Question ${idx} refinement failed: ${result.reason}`);
                 return section.questions[idx]; 
             });
@@ -740,7 +766,7 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
                 }
             });
 
-            const prompt = `Generate Drill Question #${questionNumber}. Difficulty ${prevDifficulty}/10. Topics: ${settings.topics.join(', ')}`;
+            const prompt = `Generate Drill Question #${questionNumber}. Difficulty ${prevDifficulty}/10. Topics: ${settings.topics.join(', ')}. Include graphFunctions if visual is needed.`;
             parts.push({ text: prompt });
 
             const response = await client.models.generateContent({
@@ -841,17 +867,17 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
             Depth: ${settings.depth}
             
             CRITICAL RULES:
-            1. CONTENT: Be methodological, theoretical, and concise. Avoid flowery metaphors or long "novel-like" text. 
+            1. CONTENT: Be methodological, theoretical, and concise. Avoid flowery metaphors.
             2. FORMATTING: Use LaTeX ($...$) for ALL math.
-            3. KEYWORDS: Highlight key mathematical terms using **bold** markdown (e.g. **derivative**, **chain rule**).
-            4. EXAMPLES: Provide exactly 3 examples: one 'BASIC', one 'EXAM', and one 'HARD'.
-            5. BREAKDOWN: Divide the main theoretical explanation into logical 'conceptBlocks' rather than one long text.
+            3. KEYWORDS: Highlight key mathematical terms using **bold**.
+            4. EXAMPLES: Provide exactly 3 examples (BASIC, EXAM, HARD).
+            5. GRAPHING: For examples that benefit from visualization (functions, calculus), provide 'graphFunctions' string array.
             
             STRUCTURE:
-            1. Introduction: Short, concise definition (1 paragraph).
+            1. Introduction: Short, concise definition.
             2. ConceptBlocks: Array of logical steps/parts of the theory.
             3. Core Formulas: List of key equations.
-            4. Examples: 3 IB style questions (Basic, Exam, Hard) with solution steps.
+            4. Examples: 3 IB style questions with solution steps and optional graphs.
             `;
             parts.push({ text: prompt });
 
@@ -918,6 +944,7 @@ export const reloadConceptExamples = async (currentExplanation: ConceptExplanati
                 Generate 3 NEW IB Math examples for the topic: "${currentExplanation.topicTitle}".
                 Levels: 1 Basic, 1 Exam-Style, 1 Hard (7-level).
                 Previous Examples Context (Do NOT repeat): ${currentExplanation.examples.map(e => e.question).join(' | ')}
+                Include graphFunctions where applicable.
                 
                 Format: JSON Array of 3 Example Objects.
             `;
