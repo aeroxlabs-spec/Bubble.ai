@@ -125,7 +125,10 @@ export const authService = {
             });
             
             if (result.error) {
-                console.warn("Bubble DB Warning [getGeminiKey]:", result.error.message);
+                // Ignore "zero rows" errors, only warn on actual DB errors
+                if (result.error.code !== 'PGRST116') {
+                    console.warn("Bubble DB Warning [getGeminiKey]:", result.error.message);
+                }
                 return null;
             }
             
@@ -150,9 +153,7 @@ export const authService = {
                  return { success: false, error: "User mismatch. Security block." };
             }
 
-            // Strict Schema Upsert
-            // Table: user_api_keys (user_id, provider, encrypted_key, is_valid, last_error)
-            // Constraint: user_api_keys_user_id_provider_key
+            // Upsert: Try to insert, if conflict on (user_id, provider), update.
             const { error: upsertError } = await withRetry(async () => {
                 return await supabase
                     .from('user_api_keys')
@@ -162,7 +163,7 @@ export const authService = {
                         encrypted_key: key, 
                         is_valid: true,
                         last_error: null
-                    }, { 
+                    }, {
                         onConflict: 'user_id,provider' 
                     });
             });
@@ -172,20 +173,6 @@ export const authService = {
                 return { success: false, error: `DB Save Error: ${upsertError.message}` };
             }
 
-            // VERIFICATION STEP: Immediately read back to confirm persistence
-            const { data: verifyData, error: verifyError } = await supabase
-                .from('user_api_keys')
-                .select('encrypted_key')
-                .eq('user_id', sessionUserId)
-                .eq('provider', 'gemini')
-                .maybeSingle();
-
-            if (verifyError || !verifyData || verifyData.encrypted_key !== key) {
-                console.error("Bubble DB Verification Failed:", verifyError?.message);
-                return { success: false, error: "Saved, but verification failed. Key may not persist." };
-            }
-
-            console.log("Bubble: API Key fully synced and verified.");
             return { success: true };
         } catch (e: any) {
             console.error("Bubble DB Critical Error:", e.message);

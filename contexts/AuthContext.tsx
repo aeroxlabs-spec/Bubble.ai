@@ -56,66 +56,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('bubble_credits', credits.toString());
     }, [credits]);
 
-    // Core Sync Logic
+    // Core Sync Logic - Separated to avoid blocking
     const syncKeys = async (userId: string) => {
         try {
+            // 1. Try fetch from Cloud
             const dbKey = await authService.getGeminiKey(userId);
             const localKey = localStorage.getItem('bubble_user_api_key');
 
             if (dbKey) {
-                // Scenario 1: Key exists in DB. This is the source of truth.
+                // Scenario A: Cloud has key. Use it.
                 setUserApiKey(dbKey);
                 localStorage.setItem('bubble_user_api_key', dbKey);
                 setIsCloudSynced(true);
             } else if (localKey && localKey.length > 10) {
-                // Scenario 2: Key exists Locally but NOT in DB.
-                // Action: Repair by pushing local key to DB.
-                console.log("Bubble: Cloud key missing. Auto-repairing from local storage...");
+                // Scenario B: Cloud empty, Local has key. Push Local -> Cloud.
+                console.log("Bubble: Auto-repairing cloud key...");
                 const result = await authService.saveGeminiKey(userId, localKey);
+                
+                setUserApiKey(localKey);
                 if (result.success) {
-                    setUserApiKey(localKey);
                     setIsCloudSynced(true);
                 } else {
-                    // Save failed, keep local but mark unsynced
-                    console.warn("Auto-repair failed:", result.error);
-                    setUserApiKey(localKey);
+                    console.warn("Auto-repair failed, keeping local only:", result.error);
                     setIsCloudSynced(false);
                 }
             } else {
-                // Scenario 3: No key anywhere.
+                // Scenario C: No key.
                 setUserApiKey("");
                 localStorage.removeItem('bubble_user_api_key');
                 setIsCloudSynced(false);
             }
         } catch (error) {
-            console.error("Key Sync Failed:", error);
-            // Fallback to local if DB fails entirely
+            console.error("Key Sync Error:", error);
+            // Fallback to local
             const localKey = localStorage.getItem('bubble_user_api_key');
             if (localKey) setUserApiKey(localKey);
             setIsCloudSynced(false);
         }
     };
 
-    // Initial check
+    // Initial Auth Check
     useEffect(() => {
+        let mounted = true;
+
         const initAuth = async () => {
             try {
-                const currentUser = await authService.getCurrentUser();
-                setUser(currentUser);
+                // Fast session check
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    console.warn("Auth Session Error:", error.message);
+                    throw error;
+                }
 
-                if (currentUser && !currentUser.id.startsWith('guest-')) {
-                    await syncKeys(currentUser.id);
+                if (session?.user) {
+                    const mappedUser: User = {
+                        id: session.user.id,
+                        name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || "User",
+                        email: session.user.email || "",
+                        avatarUrl: session.user.user_metadata?.avatar_url,
+                        hasOnboarded: session.user.user_metadata?.hasOnboarded || false
+                    };
+                    if (mounted) setUser(mappedUser);
+                    
+                    // Run sync
+                    await syncKeys(session.user.id);
                 } else {
-                    localStorage.removeItem('bubble_user_api_key');
-                    setUserApiKey("");
-                    setIsCloudSynced(false);
+                    if (mounted) {
+                        setUser(null);
+                        setUserApiKey("");
+                        localStorage.removeItem('bubble_user_api_key');
+                    }
                 }
             } catch (error) {
-                console.error("Auth init failed", error);
+                console.error("Initialization Failed:", error);
+                if (mounted) setUser(null);
             } finally {
-                setLoading(false);
+                if (mounted) setLoading(false); // CRITICAL: Ensure app unblocks
             }
         };
+
         initAuth();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -128,6 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     hasOnboarded: session.user.user_metadata?.hasOnboarded || false
                 };
                 setUser(mappedUser);
+                setLoading(true); // Temporarily load while syncing
                 await syncKeys(session.user.id);
                 setLoading(false);
             } else if (event === 'SIGNED_OUT') {
@@ -140,6 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         return () => {
+            mounted = false;
             subscription.unsubscribe();
         };
     }, []);
@@ -198,8 +220,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const result = await authService.saveGeminiKey(user.id, cleanedKey);
                 
                 if (!result.success) {
-                    // Even if DB fails, save locally so user can continue working
-                    // The syncKeys logic on next load will attempt to repair it
                     console.warn("Saving locally only due to DB error:", result.error);
                     setIsCloudSynced(false);
                 } else {
