@@ -16,7 +16,7 @@ export const AuthScreens: React.FC = () => {
             </div>
 
             {/* Header */}
-            <nav className="relative z-10 flex items-center justify-between px-4 py-3 sm:px-8 sm:py-6 max-w-7xl mx-auto w-full">
+            <nav className="relative z-10 flex items-center justify-between px-4 py-4 sm:px-8 sm:py-6 max-w-7xl mx-auto w-full">
                 <div className="flex items-center gap-2">
                      <span className="text-xl sm:text-2xl font-bold tracking-tighter text-white">Bubble.ib</span>
                 </div>
@@ -46,8 +46,7 @@ export const AuthScreens: React.FC = () => {
                 )}
             </nav>
 
-            {/* Main Container - Explicit flex-col to ensure justify-start works vertically */}
-            <div className={`flex-1 flex flex-col items-center z-10 px-4 w-full ${view === 'LANDING' ? 'justify-start sm:justify-center' : 'justify-center'}`}>
+            <div className="flex-1 flex items-center justify-center z-10 px-4">
                 {view === 'LANDING' && <LandingPage onViewChange={setView} />}
                 {view === 'LOGIN' && <AuthForm mode="LOGIN" onSwitch={() => setView('SIGNUP')} />}
                 {view === 'SIGNUP' && <AuthForm mode="SIGNUP" onSwitch={() => setView('LOGIN')} />}
@@ -59,29 +58,25 @@ export const AuthScreens: React.FC = () => {
 const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') => void }) => {
     
     return (
-        <div className="max-w-7xl mx-auto flex flex-col items-center text-center space-y-2 sm:space-y-12 py-0 sm:py-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative w-full h-full justify-start sm:justify-center min-h-[80vh] sm:min-h-0 pt-10 sm:pt-8">
+        <div className="max-w-7xl mx-auto flex flex-col items-center text-center space-y-4 sm:space-y-12 py-2 sm:py-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative w-full h-full justify-center min-h-[85vh] sm:min-h-0">
             
-            {/* Hero Section - Optimized for compact Mobile */}
-            {/* Increased space-y to 4 for slightly more gap between elements without moving top element */}
-            <div className="space-y-4 sm:space-y-8 max-w-4xl relative z-20 flex flex-col items-center px-4 w-full mb-2 sm:mb-0">
+            {/* Hero Section */}
+            <div className="space-y-4 sm:space-y-8 max-w-4xl relative z-20 flex flex-col items-center px-4 w-full">
                 
-                {/* Mobile: Larger font (text-5xl) and relaxed max-width to ensure 2-line flow. */}
-                <h1 className="text-5xl sm:text-4xl md:text-7xl font-bold tracking-tighter leading-[0.9] sm:leading-[1.1] mb-0 sm:mb-2 max-w-sm sm:max-w-none">
+                <h1 className="text-3xl sm:text-4xl md:text-7xl font-bold tracking-tighter leading-[1.0] sm:leading-[1.1] mb-0 sm:mb-2">
                     Master IB Math <br />
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-yellow-400 pb-1 sm:pb-2 inline-block">
                         with Intelligence.
                     </span>
                 </h1>
                 
-                {/* Subtitle slightly smaller (text-[11px]) on mobile to force 2 lines */}
-                <div className="text-[11px] sm:text-lg md:text-xl text-gray-400 w-full mx-auto leading-tight relative flex flex-col items-center max-w-[360px] sm:max-w-xl">
+                <div className="text-xs sm:text-lg md:text-xl text-gray-400 w-full mx-auto leading-relaxed relative flex flex-col items-center max-w-[280px] sm:max-w-xl">
                     <p>
                         Step-by-step solutions, custom exam papers, adaptive drills, and deep concept mastery.
                     </p>
                 </div>
 
-                <div className="pt-2 sm:pt-4 flex flex-col items-center gap-4">
-                    {/* Smaller Button on Mobile */}
+                <div className="pt-1 sm:pt-4 flex flex-col items-center gap-4">
                     <button 
                         onClick={() => onViewChange('SIGNUP')}
                         className="group relative px-6 py-2.5 sm:px-10 sm:py-4 rounded-full font-bold text-xs sm:text-base bg-transparent border border-white/30 text-white hover:bg-white/5 hover:border-white/60 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] flex items-center gap-2"
@@ -91,16 +86,15 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
                 </div>
             </div>
 
-            {/* Feature Grid - 2x2 on Mobile, 4x1 on Desktop - Minimized Vertical Spacing */}
-            {/* Increased top padding (pt-12) to move blocks down */}
-            <div className="w-full relative z-10 pt-12 sm:pt-20">
+            {/* Feature Grid - 2x2 on Mobile, 4x1 on Desktop */}
+            <div className="w-full relative z-10 pt-4 sm:pt-20">
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 max-w-6xl mx-auto w-full">
                     <div className="w-full">
                         <FeatureCard 
                             icon={<Pen size={20} className="text-blue-400" />}
                             title="Smart Solver"
                             desc="Detailed breakdowns."
-                            extraInfo="Upload problems. Get full logic & official marking codes."
+                            extraInfo="Analyze problems."
                             color="border-blue-500/20 hover:border-blue-500/40"
                             gradient="from-blue-500/5"
                         />
@@ -110,7 +104,7 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
                             icon={<GraduationCap size={20} className="text-purple-400" />}
                             title="Exam Creator"
                             desc="Mock papers."
-                            extraInfo="Generate full mock exams tailored to your specific notes."
+                            extraInfo="Create full exams."
                             color="border-purple-500/20 hover:border-purple-500/40"
                             gradient="from-purple-500/5"
                         />
@@ -120,7 +114,7 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
                             icon={<Zap size={20} className="text-yellow-400" />}
                             title="Adaptive Drill"
                             desc="Skill practice."
-                            extraInfo="Practice questions that evolve and adapt to your skill."
+                            extraInfo="Test your skills."
                             color="border-yellow-500/20 hover:border-yellow-500/40"
                             gradient="from-yellow-500/5"
                         />
@@ -130,7 +124,7 @@ const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') =
                             icon={<Lightbulb size={20} className="text-green-400" />}
                             title="Concept Explainer"
                             desc="Master theory."
-                            extraInfo="Master abstract concepts with rigorous proof breakdowns."
+                            extraInfo="Deepen knowledge."
                             color="border-green-500/20 hover:border-green-500/40"
                             gradient="from-green-500/5"
                         />
@@ -190,7 +184,7 @@ const FeatureCard = ({ icon, title, desc, color, gradient, extraInfo }: any) => 
 
     return (
         <div 
-            className="group relative w-full h-full min-h-[100px] sm:min-h-[160px]"
+            className="group relative w-full h-full min-h-[90px] sm:min-h-[160px]"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             onClick={handleClick}
@@ -215,25 +209,24 @@ const FeatureCard = ({ icon, title, desc, color, gradient, extraInfo }: any) => 
              </div>
 
              {/* Card Content */}
-             <div className={`relative z-10 h-full p-3 sm:p-5 rounded-xl bg-[#0a0a0a] border ${color} transition-all duration-300 group-hover:scale-[1.02] shadow-lg flex flex-col justify-between cursor-pointer`}>
+             <div className={`relative z-10 h-full p-3 sm:p-5 rounded-xl bg-[#0a0a0a] border ${color} transition-all duration-300 group-hover:scale-[1.02] shadow-lg flex flex-col justify-between sm:justify-start cursor-pointer`}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${gradient} to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl`} />
                 
-                {/* Top Section: Icon & Title - Slightly increased gap for mobile (gap-2) */}
-                <div className="relative z-10 w-full text-left flex flex-col items-start gap-2">
-                    <div className="p-0 sm:p-2.5 sm:bg-[#151515] rounded-lg inline-block sm:shadow-inner sm:border sm:border-white/5 w-fit">
+                {/* Top Section: Icon & Title */}
+                <div className="relative z-10 space-y-1 sm:space-y-2 w-full text-left flex flex-col items-start">
+                    <div className="p-0 sm:p-2.5 sm:bg-[#151515] rounded-lg inline-block sm:shadow-inner sm:border sm:border-white/5 w-fit mb-1">
                         {React.cloneElement(icon as React.ReactElement, { size: undefined, className: `${(icon as React.ReactElement).props.className} w-4 h-4 sm:w-5 sm:h-5` })}
                     </div>
                     <div>
-                        <h3 className="font-bold text-xs sm:text-base text-white tracking-tight leading-none">{title}</h3>
-                        <p className="text-[10px] sm:text-xs text-gray-400 leading-tight font-medium hidden sm:block mt-1">{desc}</p>
+                        <h3 className="font-bold text-xs sm:text-base text-white mb-0 sm:mb-0.5 tracking-tight">{title}</h3>
+                        <p className="text-[10px] sm:text-xs text-gray-400 leading-tight font-medium hidden sm:block">{desc}</p>
                     </div>
                 </div>
 
                 {/* Bottom Section: Typing Text (Visible on Mobile) */}
-                {/* Explicit height for 2 lines and break-words to ensure wrapping */}
-                <div className={`relative z-10 text-[9px] sm:text-[10px] font-mono text-blue-300 mt-1 sm:mt-auto leading-tight min-h-[2.4em] sm:min-h-[2rem] transition-opacity duration-200 block break-words whitespace-normal ${typedText ? 'opacity-100' : 'opacity-100 sm:opacity-0'}`}>
+                <div className={`relative z-10 text-[9px] sm:text-[10px] font-mono text-blue-300 mt-1 sm:mt-auto pt-0 sm:pt-2 h-[1rem] sm:min-h-[2rem] transition-opacity duration-200 flex items-center ${typedText ? 'opacity-100' : 'opacity-100 sm:opacity-0'}`}>
                     {typedText || (!isHovered && <span className="opacity-0">.</span>)}
-                    {typedText && <span className="inline-block w-1 h-2 sm:w-1.5 sm:h-2.5 bg-blue-400 ml-1 animate-pulse align-text-bottom" />}
+                    {typedText && <span className="inline-block w-1 h-2 sm:w-1.5 sm:h-2.5 bg-blue-400 ml-1 animate-pulse" />}
                 </div>
              </div>
         </div>

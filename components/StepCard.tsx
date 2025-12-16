@@ -15,7 +15,7 @@ interface StepCardProps {
   onPrev?: () => void;
   isFirst?: boolean;
   isLast?: boolean;
-  mode?: 'SOLVER' | 'DRILL';
+  mode?: 'SOLVER' | 'DRILL' | 'CONCEPT';
   nextLabel?: string;
   prevLabel?: string;
 }
@@ -69,6 +69,17 @@ const StepCard: React.FC<StepCardProps> = ({
           nextBtn: 'border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 hover:border-yellow-500/50 hover:text-yellow-300 shadow-[0_0_15px_rgba(234,179,8,0.05)] hover:shadow-[0_0_20px_rgba(234,179,8,0.15)]',
           breakdownTitle: 'text-yellow-400',
           breakdownNumber: 'text-yellow-400 border-yellow-500/10 bg-yellow-500/5 shadow-[0_0_10px_rgba(234,179,8,0.1)]',
+      },
+      CONCEPT: {
+          activeBg: 'bg-[#121212]',
+          activeBorder: 'border-green-500/30',
+          activeShadow: 'shadow-green-900/5',
+          numberActive: 'bg-green-900/20 text-green-400 border-green-500/20 shadow-[0_0_10px_rgba(34,197,94,0.1)]',
+          breakdownActive: 'bg-green-500/10 border-green-500/20 text-green-400',
+          breakdownHover: 'hover:text-green-400 hover:bg-green-500/5',
+          nextBtn: 'border-green-500/30 text-green-400 hover:bg-green-500/10 hover:border-green-500/50 hover:text-green-300 shadow-[0_0_15px_rgba(34,197,94,0.05)] hover:shadow-[0_0_20px_rgba(34,197,94,0.15)]',
+          breakdownTitle: 'text-green-400',
+          breakdownNumber: 'text-green-400 border-green-500/10 bg-green-500/5 shadow-[0_0_10px_rgba(34,197,94,0.1)]',
       }
   }[mode];
 
@@ -368,7 +379,8 @@ const StepCard: React.FC<StepCardProps> = ({
 
                 {!isActive && (
                     <div className={`flex items-center text-[10px] text-gray-600 mt-2 transition-colors font-bold uppercase tracking-wide pl-1 ${
-                        mode === 'DRILL' ? 'group-hover:text-yellow-400' : 'group-hover:text-blue-400'
+                        mode === 'DRILL' ? 'group-hover:text-yellow-400' : 
+                        mode === 'CONCEPT' ? 'group-hover:text-green-400' : 'group-hover:text-blue-400'
                     }`}>
                         <span>Show details</span>
                         <ArrowRight size={10} className="ml-1" />

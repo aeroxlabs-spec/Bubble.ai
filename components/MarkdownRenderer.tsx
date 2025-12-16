@@ -1,10 +1,9 @@
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
-import rehypeRaw from 'rehype-raw';
 
 interface MarkdownRendererProps {
   content: string;
@@ -74,49 +73,19 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
 
   const colors = themeColors[mode] || themeColors.SOLVER;
 
-  // Robust Normalization: Handles the "messy code" issue (e.g. </li, </ln, <br> mismatches)
-  const normalizedContent = useMemo(() => {
-      if (!content) return "";
-      let cleaned = content;
-
-      // 1. Fix common LLM-generated line break tags and malformed breaks
-      cleaned = cleaned.replace(/<\/ln>/gi, '\n');
-      cleaned = cleaned.replace(/<ln>/gi, '\n');
-      cleaned = cleaned.replace(/<\/br>/gi, '<br />'); 
-      cleaned = cleaned.replace(/<br>/gi, '<br />');
-      
-      // 2. Aggressively fix truncated list tags (often occurs at end of generation)
-      cleaned = cleaned.replace(/<\/li\s*$/gim, '</li>');
-      cleaned = cleaned.replace(/<\/li\s*\n/gim, '</li>\n');
-      cleaned = cleaned.replace(/<\/li[^>]*>/gi, '</li>'); // Fix </li without bracket if stuck
-      
-      // 3. Fix truncated math delimiters (rare but possible)
-      // Ensure space around $ if it's potentially stuck to a word, unless it's currency
-      // (This is risky, simplified for now to just standard cleanup)
-
-      return cleaned;
-  }, [content]);
-
   return (
     <div className={`prose max-w-none ${isDark ? 'prose-invert' : 'prose-light'} ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkMath, remarkGfm]}
-        // rehypeRaw allows rendering of HTML tags (<ul>, <li>, <br>) mixed in markdown
-        rehypePlugins={[[rehypeRaw], [rehypeKatex, { throwOnError: false, strict: false, errorColor: '#cc0000' }]]}
+        rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false, errorColor: '#cc0000' }]]}
         components={{
             p: ({node, ...props}) => <p className={`mb-2 leading-relaxed ${isDark ? 'text-gray-300' : 'text-black'}`} {...props} />,
             h1: ({node, ...props}) => <h1 className={`text-base font-bold mb-2 ${isDark ? colors.header : 'text-black'}`} {...props} />,
             h2: ({node, ...props}) => <h2 className={`text-sm font-bold mb-2 ${isDark ? colors.header : 'text-black'}`} {...props} />,
+            ul: ({node, ...props}) => <ul className={`list-disc pl-5 mb-2 ${isDark ? 'text-gray-300' : 'text-black'}`} {...props} />,
+            ol: ({node, ...props}) => <ol className={`list-decimal pl-5 mb-2 ${isDark ? 'text-gray-300' : 'text-black'}`} {...props} />,
+            li: ({node, ...props}) => <li className={`pl-1 mb-1 marker:text-gray-500 ${isDark ? 'text-gray-300' : 'text-black'}`} {...props} />,
             
-            // Lists: Handle both Markdown (-) and HTML (<ul>) formats via same components
-            // Added explicit marker classes to ensure visibility
-            ul: ({node, ...props}) => <ul className={`list-disc pl-5 mb-2 ${isDark ? 'text-gray-300' : 'text-black'} marker:${isDark ? 'text-gray-500' : 'text-gray-600'}`} {...props} />,
-            ol: ({node, ...props}) => <ol className={`list-decimal pl-5 mb-2 ${isDark ? 'text-gray-300' : 'text-black'} marker:${isDark ? 'text-gray-500' : 'text-gray-600'}`} {...props} />,
-            li: ({node, ...props}) => <li className={`pl-1 mb-1 ${isDark ? 'text-gray-300' : 'text-black'}`} {...props} />,
-            
-            // Breaks
-            br: ({node, ...props}) => <br {...props} />,
-
             // Code blocks
             code: ({node, className, children, ...props}) => {
                 const isMath = className?.includes('math');
@@ -134,11 +103,10 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
                 )
             },
             
-            // Error handling: If span has katex-error, return null (hide it or show clean error)
+            // Error handling: If span has katex-error, return null (hide it)
             span: ({node, className, children, ...props}) => {
                 if (className?.includes('katex-error') || className?.includes('error')) {
-                    // console.warn("Katex Error:", children);
-                    return <span className="text-red-400 font-mono text-xs" title="Math rendering error">?</span>;
+                    return null;
                 }
                 return <span className={className} {...props}>{children}</span>
             },
@@ -171,7 +139,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
             ),
         }}
       >
-        {normalizedContent}
+        {content}
       </ReactMarkdown>
     </div>
   );

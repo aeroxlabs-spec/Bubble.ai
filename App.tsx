@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty, ConceptSettings, ConceptExplanation } from './types';
-import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution, getDailyUsage, generateDrillBatch, generateConceptExplanation, reloadConceptExamples, generateSimilarProblem } from './services/geminiService';
+import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution, getDailyUsage, generateDrillBatch, generateConceptExplanation, reloadConceptExamples } from './services/geminiService';
 import { supabase, withTimeout } from './services/supabaseClient';
 import { useAuth } from './contexts/AuthContext';
 import { AuthScreens } from './components/AuthScreens';
@@ -22,9 +22,7 @@ import HelpModal from './components/HelpModal';
 import AdminFeedbackModal from './components/AdminFeedbackModal';
 import InfoModal, { InfoPageType } from './components/InfoModal';
 import Footer from './components/Footer';
-import InteractiveGraph from './components/InteractiveGraph'; 
-import GeometryBoard from './components/GeometryBoard'; // Import new geometry component
-import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator, Zap, LogOut, User as UserIcon, Check, AlertCircle, Key, Coins, MessageSquare, ShieldAlert, HelpCircle, Activity, LayoutDashboard, RefreshCw, Sparkles } from 'lucide-react';
+import { Pen, X, ArrowRight, Maximize2, Loader2, BookOpen, ChevronDown, FileText, Download, ScrollText, Layers, Sigma, Divide, Minus, Lightbulb, Percent, Hash, GraduationCap, Calculator, Zap, LogOut, User as UserIcon, Check, AlertCircle, Key, Coins, MessageSquare, ShieldAlert, HelpCircle, Activity, LayoutDashboard, RefreshCw } from 'lucide-react';
 
 // Cost Configuration
 const COSTS = {
@@ -32,8 +30,7 @@ const COSTS = {
     EXAM_GENERATION: 25,
     DRILL_SESSION: 10,
     CONCEPT_EXPLANATION: 15,
-    CONCEPT_RELOAD: 1,
-    SIMILAR_PROBLEM: 2
+    CONCEPT_RELOAD: 1
 };
 
 const MagneticPencil = ({ onClick, isOpen, mode }: { onClick: () => void, isOpen: boolean, mode: AppMode }) => {
@@ -386,11 +383,6 @@ const App: React.FC = () => {
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
   const [isMarkschemeOpen, setIsMarkschemeOpen] = useState(true);
 
-  // Similar Problem State
-  const [similarProblem, setSimilarProblem] = useState<DrillQuestion | null>(null);
-  const [loadingSimilar, setLoadingSimilar] = useState(false);
-  const [showSimilarModal, setShowSimilarModal] = useState(false);
-
   // Soft Limit Warning State
   const [limitWarning, setLimitWarning] = useState<string | null>(null);
 
@@ -417,8 +409,6 @@ const App: React.FC = () => {
     setLoadingDrillSolution(false);
     setLimitWarning(null); // Clear warnings on reset
     setChatPrompt('');
-    setSimilarProblem(null);
-    setShowSimilarModal(false);
   };
 
   useEffect(() => {
@@ -429,7 +419,7 @@ const App: React.FC = () => {
 
   // Keyboard Navigation for Steps in Solver Mode
   useEffect(() => {
-      if (appState === AppState.SOLVED && appMode === 'SOLVER' && solutions[activeTab] && activeView === 'steps' && !showSimilarModal) {
+      if (appState === AppState.SOLVED && appMode === 'SOLVER' && solutions[activeTab] && activeView === 'steps') {
           const handleKeyDown = (e: KeyboardEvent) => {
               // Only trigger if not typing in an input
               if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
@@ -447,7 +437,7 @@ const App: React.FC = () => {
           window.addEventListener('keydown', handleKeyDown);
           return () => window.removeEventListener('keydown', handleKeyDown);
       }
-  }, [appState, appMode, solutions, activeTab, activeView, showSimilarModal]);
+  }, [appState, appMode, solutions, activeTab, activeView]);
 
 
   // Warm-up effect: Ping Supabase on mount to prevent cold start delays
@@ -587,39 +577,6 @@ const App: React.FC = () => {
     }, cost);
 }
 
-const handleGenerateSimilarProblem = async () => {
-    if (!activeSolution) return;
-    
-    setLoadingSimilar(true);
-    await checkKeyAndProceed(async () => {
-        try {
-            const context = `${activeSolution.exerciseStatement}\nSolution Summary: ${activeSolution.problemSummary}`;
-            const question = await generateSimilarProblem(context);
-            setSimilarProblem(question);
-            setShowSimilarModal(true);
-        } catch (e: any) {
-            console.error(e);
-            setErrorMsg("Failed to generate similar problem.");
-        } finally {
-            setLoadingSimilar(false);
-        }
-    }, COSTS.SIMILAR_PROBLEM);
-}
-
-// Handler for Similar Problem Modal - Solution Generation
-const handleGenerateSimilarSolution = async () => {
-    if (!similarProblem) return;
-    setLoadingDrillSolution(true);
-    try {
-        const steps = await generateDrillSolution(similarProblem);
-        setSimilarProblem({ ...similarProblem, steps });
-    } catch (e) {
-        console.error("Failed to solve similar problem", e);
-    } finally {
-        setLoadingDrillSolution(false);
-    }
-}
-
 const handleExamConfigSubmit = async (settings: ExamSettings) => {
     await checkKeyAndProceed(async () => {
         setShowConfig(false);
@@ -715,53 +672,32 @@ const handleReloadConceptExamples = async () => {
 const handleNextDrillQuestion = async () => {
     if (!drillSettings) return;
     const nextIndex = currentDrillIndex + 1;
-    
-    // Check if we need to pre-fetch more questions
     if (drillQuestions.length > 0 && currentDrillIndex >= drillQuestions.length - 2 && !loadingDrill) {
          const lastQ = drillQuestions[drillQuestions.length - 1];
          setLoadingDrill(true);
-         
-         // Fetch next batch
+         // Use improved batch function in background
          generateDrillBatch(lastQ.number + 1, lastQ.difficultyLevel, 3, drillSettings, uploads)
            .then(newQs => {
-               if (newQs.length > 0) {
-                   setDrillQuestions(prev => [...prev, ...newQs]);
-               } else {
-                   console.warn("No new questions generated in batch");
-               }
+               setDrillQuestions(prev => [...prev, ...newQs]);
                setLoadingDrill(false);
            })
            .catch(e => {
                console.error("Background fetch failed", e);
                setLoadingDrill(false);
-               // Don't advance if we are at the end and fetch failed
-               if (currentDrillIndex >= drillQuestions.length - 1) {
-                   setErrorMsg("Could not load more questions. Please try again.");
-               }
            });
     }
 
-    // Safe transition logic
     if (nextIndex < drillQuestions.length) {
         setCurrentDrillIndex(nextIndex);
     } else {
-        // If we are at the end and loading, wait. If not loading and no next Q, trigger load or stop.
         if (!loadingDrill) {
             setLoadingDrill(true);
             const lastQ = drillQuestions[drillQuestions.length - 1];
             generateDrillBatch(lastQ.number + 1, lastQ.difficultyLevel, 3, drillSettings, uploads)
                .then(newQs => {
+                   setDrillQuestions(prev => [...prev, ...newQs]);
                    setLoadingDrill(false);
-                   if (newQs.length > 0) {
-                        setDrillQuestions(prev => [...prev, ...newQs]);
-                        setCurrentDrillIndex(prev => prev + 1);
-                   } else {
-                        setErrorMsg("Failed to generate new question.");
-                   }
-               })
-               .catch(e => {
-                   setLoadingDrill(false);
-                   setErrorMsg("Failed to load next question.");
+                   setCurrentDrillIndex(prev => prev + 1);
                });
         }
     }
@@ -931,38 +867,6 @@ const handleOpenChatWithPrompt = (prompt: string) => {
         page={infoPage} 
         onClose={() => setInfoPage(null)} 
       />
-
-      {/* Similar Problem Modal */}
-      {showSimilarModal && similarProblem && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-in fade-in duration-300">
-              <div className="w-full max-w-3xl bg-[#0e0e0e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden relative flex flex-col max-h-[90vh]">
-                  <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500" />
-                  
-                  <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-white/5 pt-6">
-                      <div className="flex items-center gap-3">
-                          <Sparkles size={20} className="text-yellow-400" />
-                          <div>
-                              <h2 className="text-lg font-bold text-white tracking-tight">Practice Problem</h2>
-                              <p className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">Reinforcement Drill</p>
-                          </div>
-                      </div>
-                      <button onClick={() => setShowSimilarModal(false)} className="text-gray-500 hover:text-white transition-colors">
-                          <X size={18} />
-                      </button>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto p-0">
-                      <DrillSessionViewer 
-                          question={similarProblem} 
-                          isLoading={false}
-                          onNext={() => setShowSimilarModal(false)} // Treat next as close/finish
-                          onGenerateSolution={handleGenerateSimilarSolution}
-                          isGeneratingSolution={loadingDrillSolution}
-                      />
-                  </div>
-              </div>
-          </div>
-      )}
 
       {/* Limit Warning Toast */}
       {limitWarning && (
@@ -1407,18 +1311,6 @@ const handleOpenChatWithPrompt = (prompt: string) => {
                                                 <div className="text-white font-medium text-base leading-relaxed"><MarkdownRenderer content={activeSolution.finalAnswer} /></div>
                                             </div>
                                         </div>
-                                        
-                                        {/* New Generate Similar Button */}
-                                        <div className="pt-6 border-t border-white/5">
-                                            <button 
-                                                onClick={handleGenerateSimilarProblem}
-                                                disabled={loadingSimilar}
-                                                className="w-full bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 font-bold text-xs uppercase tracking-wider py-3 rounded-lg transition-all flex items-center justify-center gap-2"
-                                            >
-                                                {loadingSimilar ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                                                Generate Similar Practice Question
-                                            </button>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1456,19 +1348,6 @@ const handleOpenChatWithPrompt = (prompt: string) => {
                                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                                 <div className="flex items-center gap-3 mb-3"><span className="bg-blue-500/10 text-blue-400 text-[10px] font-bold px-2 py-1 rounded border border-blue-500/20 uppercase tracking-widest">Exercise</span></div>
                                 <div className="text-gray-200 text-lg leading-relaxed font-medium"><MarkdownRenderer content={activeSolution.exerciseStatement} /></div>
-                                {/* Visuals Integration */}
-                                {activeSolution.graphFunctions && activeSolution.graphFunctions.length > 0 && (
-                                    <div className="mt-6">
-                                        <InteractiveGraph functions={activeSolution.graphFunctions} mode="SOLVER" />
-                                    </div>
-                                )}
-                                {activeSolution.geometryConfig && (
-                                    <div className="mt-6 flex justify-center">
-                                        <div className="max-w-[500px] w-full">
-                                            <GeometryBoard config={activeSolution.geometryConfig} mode="SOLVER" />
-                                        </div>
-                                    </div>
-                                )}
                             </div>
 
                             {activeView === 'steps' ? (

@@ -47,10 +47,9 @@ const DrillConfigPanel: React.FC<DrillConfigPanelProps> = ({ onStart, onCancel }
 
     return (
         <div className="w-full max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Frosted translucent background */}
-            <div className="bg-[#121212]/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="bg-[#121212] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
                 {/* Header */}
-                <div className="pt-10 pb-5 px-5 border-b border-white/5 bg-[#181818]/80 flex items-center justify-between">
+                <div className="pt-10 pb-5 px-5 border-b border-white/5 bg-[#181818] flex items-center justify-between">
                     <div>
                         <h2 className="text-lg font-bold text-white tracking-tight">Practice Drills</h2>
                         <p className="text-[11px] text-gray-500 mt-0.5">Rapid-fire adaptive questions.</p>
@@ -78,7 +77,7 @@ const DrillConfigPanel: React.FC<DrillConfigPanelProps> = ({ onStart, onCancel }
                                     className={`py-2 px-1 rounded-lg text-[11px] font-bold transition-all border ${
                                         difficulty === level 
                                         ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400' 
-                                        : 'bg-[#0a0a0a]/50 border-white/5 text-gray-500 hover:border-white/20 hover:text-gray-300'
+                                        : 'bg-[#0a0a0a] border-white/5 text-gray-500 hover:border-white/20 hover:text-gray-300'
                                     }`}
                                 >
                                     {level}
@@ -125,7 +124,7 @@ const DrillConfigPanel: React.FC<DrillConfigPanelProps> = ({ onStart, onCancel }
                             })}
                             
                             {/* Add Custom Topic Input */}
-                            <div className="flex items-center bg-[#0a0a0a]/50 border border-white/5 rounded-full px-2 py-0.5 focus-within:border-white/20 transition-colors">
+                            <div className="flex items-center bg-[#0a0a0a] border border-white/5 rounded-full px-2 py-0.5 focus-within:border-white/20 transition-colors">
                                 <input 
                                     type="text" 
                                     value={customTopic}
@@ -142,14 +141,14 @@ const DrillConfigPanel: React.FC<DrillConfigPanelProps> = ({ onStart, onCancel }
                     </div>
 
                      {/* Calculator Toggle */}
-                     <div className="flex items-center justify-between bg-[#0a0a0a]/50 p-3 rounded-lg border border-white/5">
+                     <div className="flex items-center justify-between bg-[#0a0a0a] p-3 rounded-lg border border-white/5">
                         <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-md bg-[#151515]/50 flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-md bg-[#151515] flex items-center justify-center">
                                 <Calculator size={14} className="text-gray-400" />
                             </div>
                             <div className="text-xs font-medium text-gray-300">Calculator Allowed?</div>
                         </div>
-                        <div className="flex bg-[#151515]/50 p-0.5 rounded-lg border border-white/5">
+                        <div className="flex bg-[#151515] p-0.5 rounded-lg border border-white/5">
                             {(['YES', 'MIXED', 'NO'] as ExamCalculatorOption[]).map((opt) => (
                                 <button
                                     key={opt}
@@ -168,7 +167,7 @@ const DrillConfigPanel: React.FC<DrillConfigPanelProps> = ({ onStart, onCancel }
                 </div>
 
                 {/* Footer */}
-                <div className="p-5 border-t border-white/5 bg-[#181818]/80 flex items-center justify-end gap-3">
+                <div className="p-5 border-t border-white/5 bg-[#181818] flex items-center justify-end gap-3">
                     <button 
                         onClick={onCancel}
                         className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-white transition-colors"

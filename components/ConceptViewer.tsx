@@ -4,9 +4,7 @@ import { ConceptExplanation, ConceptBlock, ConceptExample, ExampleDifficulty } f
 import MarkdownRenderer from './MarkdownRenderer';
 import StepCard from './StepCard'; // Re-use StepCard for exercises
 import { breakdownConceptBlock } from '../services/geminiService';
-import { BookOpen, GraduationCap, Variable, ListOrdered, Plus, X, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react';
-import InteractiveGraph from './InteractiveGraph';
-import GeometryBoard from './GeometryBoard';
+import { BookOpen, GraduationCap, Variable, ListOrdered, Plus, X, RefreshCw, Loader2, CheckCircle2, Copy } from 'lucide-react';
 
 interface ConceptViewerProps {
     concept: ConceptExplanation;
@@ -68,8 +66,17 @@ const ConceptViewer: React.FC<ConceptViewerProps> = ({ concept, onChatAction, on
                     </div>
                     <div className="grid gap-3 bg-black/20 rounded-xl p-4">
                         {concept.coreFormulas.map((formula, idx) => (
-                            <div key={idx} className="flex justify-center">
-                                <MarkdownRenderer content={`$$ ${formula} $$`} mode="CONCEPT" />
+                            <div key={idx} className="flex justify-between items-center group/formula">
+                                <div className="flex justify-center flex-1">
+                                    <MarkdownRenderer content={`$$ ${formula} $$`} mode="CONCEPT" />
+                                </div>
+                                <button 
+                                    onClick={() => navigator.clipboard.writeText(formula)}
+                                    className="opacity-0 group-hover/formula:opacity-100 text-gray-500 hover:text-white p-1 transition-opacity"
+                                    title="Copy LaTeX"
+                                >
+                                    <Copy size={12} />
+                                </button>
                             </div>
                         ))}
                     </div>
@@ -221,23 +228,6 @@ const ConceptExerciseCard: React.FC<ConceptExerciseCardProps> = ({ example, inde
 
                 {showSolution && (
                     <div className="mt-6 space-y-4 animate-in slide-in-from-top-4 fade-in">
-                        {/* Interactive Graph Integration */}
-                        {example.graphFunctions && example.graphFunctions.length > 0 && (
-                            <div className="mt-6 mb-4 flex justify-center">
-                                <div className="max-w-[500px] w-full">
-                                    <InteractiveGraph functions={example.graphFunctions} mode="CONCEPT" />
-                                </div>
-                            </div>
-                        )}
-                        {/* Geometry SVG Fallback/Board */}
-                        {example.geometryConfig && (
-                            <div className="mt-6 mb-4 flex justify-center">
-                                <div className="max-w-[500px] w-full">
-                                    <GeometryBoard config={example.geometryConfig} mode="CONCEPT" />
-                                </div>
-                            </div>
-                        )}
-
                         {/* Brief Logic */}
                         <div className="flex gap-2 items-start bg-green-900/10 p-3 rounded border border-green-500/20 mb-4">
                             <CheckCircle2 size={12} className="text-green-400 flex-shrink-0 mt-0.5" />
@@ -259,7 +249,7 @@ const ConceptExerciseCard: React.FC<ConceptExerciseCardProps> = ({ example, inde
                                 onPrev={() => setActiveStep(idx > 0 ? idx - 1 : idx)}
                                 isFirst={idx === 0}
                                 isLast={idx === example.solutionSteps.length - 1}
-                                mode="DRILL" // Use Drill styling for steps
+                                mode="CONCEPT" // Use Concept styling for steps
                             />
                         ))}
 

@@ -1,11 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { DrillQuestion } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
 import StepCard from './StepCard';
-import InteractiveGraph from './InteractiveGraph';
-import GeometryBoard from './GeometryBoard';
-import { Calculator, Zap, ArrowRight, ArrowLeft, CheckCircle2, BookOpen, Lightbulb, Copy, Check, Loader2, RefreshCw } from 'lucide-react';
+import { Calculator, Zap, ArrowRight, ArrowLeft, CheckCircle2, BookOpen, Lightbulb, Copy, Check, Loader2 } from 'lucide-react';
 
 interface DrillSessionViewerProps {
     question: DrillQuestion | null;
@@ -176,7 +173,7 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({
         );
     };
 
-    if (isLoading && !question) {
+    if (!question && isLoading) {
         return (
              <div className="max-w-3xl mx-auto space-y-6 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex items-center justify-between px-2 opacity-50">
@@ -198,21 +195,7 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({
         );
     }
 
-    if (!question) {
-        return (
-            <div className="max-w-3xl mx-auto space-y-6 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex flex-col items-center justify-center h-[300px] bg-[#121212] border border-red-500/20 rounded-2xl border-dashed">
-                    <p className="text-gray-400 text-sm mb-4">Could not load current question.</p>
-                    <button 
-                        onClick={onNext}
-                        className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-2"
-                    >
-                        <RefreshCw size={14} /> Skip to Next
-                    </button>
-                </div>
-            </div>
-        );
-    }
+    if (!question) return null;
 
     return (
         <div className="max-w-3xl mx-auto space-y-6 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -269,22 +252,6 @@ const DrillSessionViewer: React.FC<DrillSessionViewerProps> = ({
 
                 <div className="p-5 sm:p-8 min-h-[150px]">
                     <QuestionBodyRenderer text={question.questionText} />
-                    {/* Interactive Graph Integration */}
-                    {question.graphFunctions && question.graphFunctions.length > 0 && (
-                        <div className="mt-6 flex justify-center">
-                            <div className="max-w-[500px] w-full">
-                                <InteractiveGraph functions={question.graphFunctions} mode="DRILL" />
-                            </div>
-                        </div>
-                    )}
-                    {/* Geometry Visual Fallback */}
-                    {!question.graphFunctions && question.geometryConfig && (
-                        <div className="mt-6 flex justify-center">
-                            <div className="max-w-[500px] w-full">
-                                <GeometryBoard config={question.geometryConfig} mode="DRILL" />
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 <div className="bg-[#0a0a0a] border-t border-white/5 p-4 flex flex-col gap-3">

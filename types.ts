@@ -6,34 +6,12 @@ export interface MathStep {
   keyEquation: string;
 }
 
-export type GeometryObjectType = "point" | "line" | "segment" | "vector" | "circle" | "angle" | "polygon";
-
-export interface GeometryObject {
-    type: GeometryObjectType;
-    id: string;
-    label?: string;
-    coords?: number[]; // [x, y] for points, or end coordinates
-    parents?: string[]; // IDs of parent elements (e.g. for lines, segments)
-    radius?: number; // For circles
-    color?: string;
-}
-
-export interface GeometryConfig {
-    xmin: number;
-    xmax: number;
-    ymin: number;
-    ymax: number;
-    objects: GeometryObject[];
-}
-
 export interface MathSolution {
   exerciseStatement: string;
   problemSummary: string;
   steps: MathStep[];
   finalAnswer: string;
   markscheme?: string; // Optional, loaded on demand
-  graphFunctions?: string[]; // Array of math expressions for plotting (e.g. "x^2")
-  geometryConfig?: GeometryConfig; // Structured config for JSXGraph
 }
 
 export interface ChatMessage {
@@ -96,8 +74,7 @@ export interface ExamQuestion {
   hint?: string;
   calculatorAllowed: boolean;
   steps?: string[]; // Simplified steps for the exam view
-  graphFunctions?: string[]; // For plotting
-  geometryConfig?: GeometryConfig;
+  graphSvg?: string;
 }
 
 export interface ExamSection {
@@ -130,8 +107,6 @@ export interface DrillQuestion {
   steps?: MathStep[]; // Optional, generated on demand
   hint: string;
   calculatorAllowed: boolean;
-  graphFunctions?: string[]; // For plotting
-  geometryConfig?: GeometryConfig;
 }
 
 // --- CONCEPT TYPES ---
@@ -154,8 +129,6 @@ export interface ConceptExample {
     solutionSteps: MathStep[]; // Reusing MathStep for consistency
     finalAnswer: string;
     explanation: string; // Brief theoretical context
-    graphFunctions?: string[];
-    geometryConfig?: GeometryConfig;
 }
 
 export interface ConceptBlock {

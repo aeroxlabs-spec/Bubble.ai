@@ -309,7 +309,6 @@ const mapGenAIError = (error: any): string => {
     const msg = error.message || "";
     const status = error.status || 0;
 
-    if (msg.includes("Validation Failed")) return "Generated content was malformed. Retrying automatically...";
     if (msg.includes("Request timed out")) return "Request Timeout. The server took too long to respond.";
     if (msg.includes("API Key Missing")) return msg;
     if (msg.includes("400") || status === 400) return "Invalid Request (400). The image format might be unsupported or the prompt is too large.";
@@ -322,23 +321,6 @@ const mapGenAIError = (error: any): string => {
     if (msg.includes("fetch failed") || msg.includes("NetworkError")) return "Network Error. Please check your internet connection.";
     
     return `AI Error: ${msg.substring(0, 100)}...`;
-};
-
-// --- AUTOMATIC RESPONSE VALIDATOR ---
-// This ensures we catch bad math syntax or hallucinated formats BEFORE showing to user
-const validateResponse = (data: any, type: 'SOLUTION' | 'DRILL' | 'EXAM' | 'CONCEPT'): void => {
-    const str = JSON.stringify(data);
-    
-    // 1. Check for LaTeX syntax errors
-    // Look for unclosed $, or weird patterns like `[Math Processing Error]`
-    if (str.includes("[Math Processing Error]") || str.includes("katex-error")) {
-        throw new Error("Validation Failed: Detected LaTeX rendering error in output.");
-    }
-
-    // 2. Check for empty critical fields
-    if (type === 'DRILL') {
-        if (!data.questionText || data.questionText.length < 5) throw new Error("Validation Failed: Empty Question Text");
-    }
 };
 
 // --- SCHEMAS ---
@@ -354,38 +336,12 @@ const mathStepSchema: Schema = {
     required: ["section", "title", "explanation", "keyEquation"]
 };
 
-const geometryConfigSchema: Schema = {
-    type: Type.OBJECT,
-    properties: {
-        xmin: { type: Type.NUMBER },
-        xmax: { type: Type.NUMBER },
-        ymin: { type: Type.NUMBER },
-        ymax: { type: Type.NUMBER },
-        objects: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    type: { type: Type.STRING, enum: ["point", "line", "segment", "vector", "circle", "angle", "polygon"] },
-                    id: { type: Type.STRING },
-                    label: { type: Type.STRING },
-                    coords: { type: Type.ARRAY, items: { type: Type.NUMBER } },
-                    parents: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    radius: { type: Type.NUMBER }
-                },
-                required: ["type", "id"]
-            }
-        }
-    },
-    required: ["xmin", "xmax", "ymin", "ymax", "objects"]
-};
-
 const mathSolutionSchema: Schema = {
   type: Type.OBJECT,
   properties: {
     exerciseStatement: {
       type: Type.STRING,
-      description: "The full text of the exercise. Use LaTeX ($...$).",
+      description: "The full text of the exercise. CRITICAL: Use LaTeX ($...$) for EVERY number, variable, and expression. Example: write '$3$' not '3', write '$x$' not 'x'. Do NOT output plain text math.",
     },
     problemSummary: {
       type: Type.STRING,
@@ -397,14 +353,8 @@ const mathSolutionSchema: Schema = {
     },
     finalAnswer: {
       type: Type.STRING,
-      description: "Final result. Use Markdown list format. Use LaTeX.",
+      description: "Final result. CRITICAL: 1. Use Markdown list format. 2. Separate parts (a), (b) with double newlines (\\n\\n). 3. Use LaTeX ($...$) for ALL math. 4. NO marks ([4]).",
     },
-    graphFunctions: {
-        type: Type.ARRAY,
-        items: { type: Type.STRING },
-        description: "If the solution involves functions that can be graphed, list them in JS syntax (e.g. 'x^2', 'Math.sin(x)'). If not relevant, return empty."
-    },
-    geometryConfig: geometryConfigSchema
   },
   required: ["exerciseStatement", "problemSummary", "steps", "finalAnswer"],
 };
@@ -429,18 +379,26 @@ const examPaperSchema: Schema = {
                 id: { type: Type.STRING },
                 number: { type: Type.STRING },
                 marks: { type: Type.INTEGER },
-                questionText: { type: Type.STRING },
-                steps: { type: Type.ARRAY, items: { type: Type.STRING } },
-                markscheme: { type: Type.STRING },
-                shortAnswer: { type: Type.STRING },
-                hint: { type: Type.STRING },
-                calculatorAllowed: { type: Type.BOOLEAN },
-                graphFunctions: {
+                questionText: { 
+                    type: Type.STRING, 
+                    description: "Question text. CRITICAL: Use LaTeX ($...$) for EVERY number and variable. Separate parts with \\n\\n. Marks at end like **[4]**." 
+                },
+                steps: {
                     type: Type.ARRAY,
                     items: { type: Type.STRING },
-                    description: "JS Math functions for plotting (e.g. 'x^3 - 2*x')."
+                    description: "Simplified solution steps in LaTeX ($...$)."
                 },
-                geometryConfig: geometryConfigSchema
+                markscheme: { 
+                    type: Type.STRING, 
+                    description: "STRICT Markdown Table: | Step | Working | Explanation | Marks |. Rows separated by newline. Marks (M1, A1) in last column. Use LaTeX ($...$) for all math." 
+                },
+                shortAnswer: { 
+                    type: Type.STRING, 
+                    description: "Final Answer in LaTeX. CRITICAL: Separate parts with \\n\\n. Example: '(a) $x=1$ \\n\\n (b) $y=2$'. Use LaTeX ($...$) for all math." 
+                },
+                hint: { type: Type.STRING },
+                calculatorAllowed: { type: Type.BOOLEAN },
+                graphSvg: { type: Type.STRING }
               },
               required: ["id", "number", "marks", "questionText", "markscheme", "shortAnswer", "calculatorAllowed", "steps"]
             }
@@ -458,16 +416,16 @@ const drillQuestionSchema: Schema = {
   properties: {
     topic: { type: Type.STRING },
     difficultyLevel: { type: Type.NUMBER },
-    questionText: { type: Type.STRING },
-    shortAnswer: { type: Type.STRING },
-    hint: { type: Type.STRING },
-    calculatorAllowed: { type: Type.BOOLEAN },
-    graphFunctions: {
-        type: Type.ARRAY,
-        items: { type: Type.STRING },
-        description: "JS Math syntax for interactive graphing if relevant."
+    questionText: { 
+        type: Type.STRING, 
+        description: "Question text. STRICT RULES: 1. Use LaTeX ($...$) for ALL numbers/math. 2. Separate parts with \\n\\n. 3. NO marks shown." 
     },
-    geometryConfig: geometryConfigSchema
+    shortAnswer: { 
+        type: Type.STRING, 
+        description: "Answer. STRICT RULES: 1. Use LaTeX ($...$) for ALL math. 2. Separate parts with \\n\\n. 3. Format: '(a) $x=...$ \\n\\n (b) $y=...$'." 
+    },
+    hint: { type: Type.STRING },
+    calculatorAllowed: { type: Type.BOOLEAN }
   },
   required: ["topic", "difficultyLevel", "questionText", "shortAnswer", "hint", "calculatorAllowed"]
 };
@@ -488,33 +446,43 @@ const conceptExplanationSchema: Schema = {
     type: Type.OBJECT,
     properties: {
         topicTitle: { type: Type.STRING },
-        introduction: { type: Type.STRING },
+        introduction: { 
+            type: Type.STRING,
+            description: "A formal definition and its context in the IB syllabus. Use LaTeX for math."
+        },
         conceptBlocks: {
             type: Type.ARRAY,
             items: {
                 type: Type.OBJECT,
                 properties: {
-                    title: { type: Type.STRING },
-                    content: { type: Type.STRING },
-                    keyEquation: { type: Type.STRING }
+                    title: { type: Type.STRING, description: "Block title (e.g. 'Key Derivation', 'Common Pitfalls', 'Exam Tip')" },
+                    content: { type: Type.STRING, description: "Explanation text. Mixed LaTeX. Highlight key terms with **bold**." },
+                    keyEquation: { type: Type.STRING, description: "Optional LaTeX formula to highlight in this block." }
                 },
                 required: ["title", "content"]
-            }
+            },
+            description: "Break the theory into logical, bite-sized blocks."
         },
-        coreFormulas: { type: Type.ARRAY, items: { type: Type.STRING } },
+        coreFormulas: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "List of essential LaTeX equations (syllabus required)."
+        },
         examples: {
             type: Type.ARRAY,
             items: {
                 type: Type.OBJECT,
                 properties: {
                     difficulty: { type: Type.STRING, enum: ['BASIC', 'EXAM', 'HARD'] },
-                    question: { type: Type.STRING },
-                    hint: { type: Type.STRING },
-                    solutionSteps: { type: Type.ARRAY, items: mathStepSchema },
+                    question: { type: Type.STRING, description: "The problem statement with LaTeX." },
+                    hint: { type: Type.STRING, description: "A nudge in the right direction." },
+                    solutionSteps: {
+                        type: Type.ARRAY,
+                        items: mathStepSchema,
+                        description: "Step-by-step solution."
+                    },
                     finalAnswer: { type: Type.STRING },
-                    explanation: { type: Type.STRING },
-                    graphFunctions: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    geometryConfig: geometryConfigSchema
+                    explanation: { type: Type.STRING, description: "Brief context on why this method was used." }
                 },
                 required: ["difficulty", "question", "hint", "solutionSteps", "finalAnswer", "explanation"]
             }
@@ -533,9 +501,7 @@ const exampleReloadSchema: Schema = {
             hint: { type: Type.STRING },
             solutionSteps: { type: Type.ARRAY, items: mathStepSchema },
             finalAnswer: { type: Type.STRING },
-            explanation: { type: Type.STRING },
-            graphFunctions: { type: Type.ARRAY, items: { type: Type.STRING } },
-            geometryConfig: geometryConfigSchema
+            explanation: { type: Type.STRING }
         },
         required: ["difficulty", "question", "hint", "solutionSteps", "finalAnswer", "explanation"]
     }
@@ -553,8 +519,7 @@ const questionValidationSchema: Schema = {
         shortAnswer: { type: Type.STRING },
         hint: { type: Type.STRING },
         calculatorAllowed: { type: Type.BOOLEAN },
-        graphFunctions: { type: Type.ARRAY, items: { type: Type.STRING } },
-        geometryConfig: geometryConfigSchema
+        graphSvg: { type: Type.STRING }
     },
     required: ["id", "number", "marks", "questionText", "markscheme", "shortAnswer", "calculatorAllowed", "steps"]
 };
@@ -578,11 +543,9 @@ const retryOperation = async <T>(operation: () => Promise<T>, retries = 3, delay
             error.status >= 500 || 
             error.message?.includes('429') || 
             error.message?.includes('quota');
-        
-        const isValidationFail = error.message?.includes("Validation Failed");
 
-        if (retries > 0 && (isNetworkError || isServerOrQuota || isValidationFail)) {
-            console.warn(`Operation failed (${error.message}). Retrying... (${retries} left)`);
+        if (retries > 0 && (isNetworkError || isServerOrQuota)) {
+            console.warn(`Operation failed. Retrying... (${retries} left)`);
             await delay(delayMs);
             return retryOperation(operation, retries - 1, delayMs * 2);
         }
@@ -622,15 +585,13 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
         const systemPrompt = `
         You are an expert IB Math tutor. 
         CRITICAL FORMATTING RULES:
-        1. ALL math, numbers, variables must be wrapped in LaTeX delimiters ($...$). Do NOT output plain text math like 'x^2' without $ signs.
-        2. Break down solutions into clear, logical steps.
-        3. If a Markscheme is requested, it MUST be a Markdown Table.
-        
-        VISUALIZATION RULES (BALANCE):
-        4. If the problem is specifically about Geometry, Vectors, or Trigonometry, provide a 'geometryConfig' object in roughly 50% of cases to visualize the problem.
-        5. For the other 50% of cases (especially algebraic vectors/trig), DO NOT provide geometryConfig. Force the student to rely on algebraic understanding.
-        6. For Functions, provide 'graphFunctions' (e.g. ["x^2", "Math.sin(x)"]) where helpful.
-        7. Do NOT use non-standard HTML tags like <ln>, </ln>, <step>. Use standard Markdown.
+        1. ALL math, numbers, variables must be wrapped in LaTeX delimiters ($...$).
+           - BAD: x = 3, sin(x), 45 degrees
+           - GOOD: $x = 3$, $\\sin(x)$, $45^\\circ$
+        2. Do NOT output plain text math.
+        3. Break down solutions into clear, logical steps.
+        4. If a Markscheme is requested or implied, it MUST be a Markdown Table:
+           | Step | Working | Explanation | Marks |
         `;
 
         const parts = isImage 
@@ -663,11 +624,8 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
         const text = response.text;
         if (!text) throw new Error("Empty response from AI service.");
         
-        const data = JSON.parse(text);
-        validateResponse(data, 'SOLUTION');
-
         updateLogStatus(log.id, 'SUCCESS', startTime);
-        return data as MathSolution;
+        return JSON.parse(text) as MathSolution;
       } catch (error: any) {
         const mappedMsg = mapGenAIError(error);
         updateLogStatus(log.id, 'ERROR', startTime, mappedMsg);
@@ -676,59 +634,13 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
   });
 };
 
-// NEW FUNCTION FOR SIMILAR PROBLEM GENERATION
-export const generateSimilarProblem = async (originalContext: string): Promise<DrillQuestion> => {
-    return retryOperation(async () => {
-        const startTime = Date.now();
-        const log = logRequest('gemini-2.5-flash', 'GENERATE', 'DRILL');
-        try {
-            const client = ensureClientReady();
-            const prompt = `
-                Based on the following solved problem, generate a SIMILAR practice question to reinforce the method.
-                Original Context: ${originalContext.substring(0, 1000)}...
-                
-                Requirements:
-                1. Change numbers/functions but keep concept identical.
-                2. Return a DrillQuestion object.
-                3. BALANCED VISUALS: If topic is Vectors/Trig/Geometry, ensure a 50/50 chance of including a 'geometryConfig'. Do not make every question visual.
-                4. ALL numbers and variables MUST be wrapped in LaTeX ($...$).
-            `;
-
-            const response = await client.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: { parts: [{ text: prompt }] },
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: drillQuestionSchema,
-                    temperature: 0.8
-                }
-            });
-
-            const text = response.text;
-            if (!text) throw new Error("Empty response");
-            
-            const q = JSON.parse(text) as DrillQuestion;
-            validateResponse(q, 'DRILL');
-
-            q.number = 1; // Temporary number
-            q.steps = [];
-            
-            updateLogStatus(log.id, 'SUCCESS', startTime);
-            return q;
-        } catch (e: any) {
-            updateLogStatus(log.id, 'ERROR', startTime, e.message);
-            throw e;
-        }
-    });
-};
-
 const reviewAndRefineQuestion = async (originalQ: any): Promise<any> => {
     return retryOperation(async () => {
         const startTime = Date.now();
         const log = logRequest('gemini-2.5-flash', 'GENERATE', 'EXAM'); 
         try {
             const client = ensureClientReady();
-            const prompt = `Review question logic and LaTeX syntax. Ensure valid 'graphFunctions' or 'geometryConfig' if visual needed. INPUT: ${JSON.stringify(originalQ)}`;
+            const prompt = `Review question logic and LaTeX syntax. INPUT: ${JSON.stringify(originalQ)}`;
             
             const response = await client.models.generateContent({
                 model: "gemini-2.5-flash",
@@ -743,10 +655,7 @@ const reviewAndRefineQuestion = async (originalQ: any): Promise<any> => {
             const text = response.text;
             updateLogStatus(log.id, 'SUCCESS', startTime);
             if (!text) return originalQ; 
-            
-            const parsed = JSON.parse(text);
-            validateResponse(parsed, 'DRILL'); // Use Drill validator as it's similar question structure
-            return parsed;
+            return JSON.parse(text);
         } catch (e: any) {
             updateLogStatus(log.id, 'ERROR', startTime, e.message);
             throw e;
@@ -773,17 +682,6 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
         const prompt = `
           Create an IB Math Exam.
           SETTINGS: Difficulty ${settings.difficulty}, Duration ${settings.durationMinutes} min, Topics ${settings.topics.join(', ') || "General"}
-          
-          VISUAL RULES (STRICT BALANCE):
-          - For Vectors, Geometry, and Trigonometry questions:
-            * 50% MUST include a 'geometryConfig' for visualization.
-            * 50% MUST NOT include any visualization (pure algebra/text).
-          - For Functions:
-            * 50% should include 'graphFunctions'.
-            * 50% should be analytical only.
-          
-          PRE-FLIGHT CHECK:
-          - Ensure ALL math, numbers (e.g. 5, 2.5), and variables (x, y) are wrapped in LaTeX: $5$, $2.5$, $x$.
         `;
         parts.push({ text: prompt });
 
@@ -802,11 +700,13 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
         const draftPaper = JSON.parse(text) as ExamPaper;
 
         // Use Promise.allSettled to prevent partial failures from crashing the whole exam generation
+        // Concurrency is handled by the browser/runtime
         const refinedSections = await Promise.all(draftPaper.sections.map(async (section) => {
             const results = await Promise.allSettled(section.questions.map(q => reviewAndRefineQuestion(q)));
             
             const refinedQuestions = results.map((result, idx) => {
                 if (result.status === 'fulfilled') return result.value;
+                // Log failure but fallback to original
                 console.error(`Question ${idx} refinement failed: ${result.reason}`);
                 return section.questions[idx]; 
             });
@@ -824,7 +724,7 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
   });
 };
 
-export const generateDrillQuestion = async (settings: DrillSettings, inputs: UserInput[], questionNumber: number, prevDifficulty: number, specificTopic?: string): Promise<DrillQuestion> => {
+export const generateDrillQuestion = async (settings: DrillSettings, inputs: UserInput[], questionNumber: number, prevDifficulty: number): Promise<DrillQuestion> => {
     return retryOperation(async () => {
         const startTime = Date.now();
         const log = logRequest('gemini-2.5-flash', 'GENERATE', 'DRILL');
@@ -840,27 +740,7 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
                 }
             });
 
-            const topicToUse = specificTopic || settings.topics.join(', ');
-
-            // Randomly decide if this question should be visual to enforce balance
-            // This forces the LLM to adhere to our 50/50 rule over a session
-            const forceVisual = Math.random() > 0.5;
-
-            const prompt = `
-                Generate Drill Question #${questionNumber}. 
-                Difficulty ${prevDifficulty}/10. 
-                Topic: ${topicToUse}. 
-                
-                VISUAL REQUIREMENT:
-                ${forceVisual 
-                    ? "- This question MUST have a visual representation (graphFunctions or geometryConfig)." 
-                    : "- This question MUST be purely textual/algebraic (NO geometryConfig or graphFunctions)."}
-                
-                STRICT FORMATTING RULE:
-                - EVERY number and variable MUST be in LaTeX.
-                - BAD: "Solve for x when y = 5"
-                - GOOD: "Solve for $x$ when $y = 5$"
-            `;
+            const prompt = `Generate Drill Question #${questionNumber}. Difficulty ${prevDifficulty}/10. Topics: ${settings.topics.join(', ')}`;
             parts.push({ text: prompt });
 
             const response = await client.models.generateContent({
@@ -876,8 +756,6 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
             const text = response.text;
             if (!text) throw new Error("AI returned empty content.");
             const q = JSON.parse(text) as DrillQuestion;
-            validateResponse(q, 'DRILL');
-
             q.number = questionNumber;
             q.difficultyLevel = prevDifficulty;
             q.steps = []; 
@@ -896,14 +774,8 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
 export const generateDrillBatch = async (startNum: number, prevDiff: number, count: number, settings: DrillSettings, inputs: UserInput[]): Promise<DrillQuestion[]> => {
     const promises = [];
     let currentDiff = prevDiff;
-    const topics = settings.topics.length > 0 ? settings.topics : ["General Math"]; // Fallback
-
     for (let i = 0; i < count; i++) {
-        // Rotate through selected topics to ensure mix
-        const topicIndex = (startNum + i) % topics.length;
-        const topic = topics[topicIndex];
-        
-        promises.push(generateDrillQuestion(settings, inputs, startNum + i, currentDiff, topic));
+        promises.push(generateDrillQuestion(settings, inputs, startNum + i, currentDiff));
         currentDiff = Math.min(10, currentDiff + 0.5); 
     }
     
@@ -963,22 +835,25 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
             });
 
             const prompt = `
-            Act as an expert IB Math Tutor.
-            Explain the concept: "${settings.topic}".
-            Target Level: ${settings.level}
-            Depth: ${settings.depth}
+            Act as an elite IB Math Analysis and Approaches (AA) HL Examiner and Tutor.
+            Task: Provide a high-precision, syllabus-aligned explanation for: "${settings.topic}".
             
-            CRITICAL RULES:
-            1. CONTENT: Be methodological, theoretical, and concise. Avoid flowery metaphors.
-            2. FORMATTING: Use LaTeX ($...$) for ALL math.
-            3. EXAMPLES: Provide exactly 3 examples (BASIC, EXAM, HARD).
-            4. VISUALS: Ensure at least one example has a relevant visual aid (graph or geometryConfig).
+            Settings:
+            - Level: ${settings.level}
+            - Depth: ${settings.depth}
             
-            STRUCTURE:
-            1. Introduction: Short, concise definition.
-            2. ConceptBlocks: Array of logical steps/parts of the theory.
-            3. Core Formulas: List of key equations.
-            4. Examples: 3 IB style questions with solution steps and optional visuals.
+            STRICT GUIDELINES:
+            1. PRECISION: Use exact IB notation. Define variables clearly. 
+            2. STRUCTURE:
+               - Introduction: Formal definition and its significance in the IB syllabus.
+               - Concept Blocks: Break down the theory logically. ONE block MUST cover "Common Pitfalls" or "Exam Tips" if applicable.
+               - Core Formulas: Only the essential formulas given in the formula booklet or required derivations.
+               - Examples: 
+                 * BASIC: Concept check.
+                 * EXAM: Past-paper style (medium).
+                 * HARD: Complex problem involving synthesis (Level 7).
+            3. FORMATTING: LaTeX ($...$) for ALL math. Bold for terms.
+            4. TONE: Academic, rigorous, yet accessible.
             `;
             parts.push({ text: prompt });
 
@@ -994,12 +869,8 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
 
             const text = response.text;
             if (!text) throw new Error("Empty AI response");
-            
-            const data = JSON.parse(text) as ConceptExplanation;
-            validateResponse(data, 'CONCEPT');
-
             updateLogStatus(log.id, 'SUCCESS', startTime);
-            return data;
+            return JSON.parse(text) as ConceptExplanation;
         } catch (e: any) {
             const mappedMsg = mapGenAIError(e);
             updateLogStatus(log.id, 'ERROR', startTime, mappedMsg);
@@ -1049,7 +920,6 @@ export const reloadConceptExamples = async (currentExplanation: ConceptExplanati
                 Generate 3 NEW IB Math examples for the topic: "${currentExplanation.topicTitle}".
                 Levels: 1 Basic, 1 Exam-Style, 1 Hard (7-level).
                 Previous Examples Context (Do NOT repeat): ${currentExplanation.examples.map(e => e.question).join(' | ')}
-                Include graphFunctions or geometryConfig where applicable.
                 
                 Format: JSON Array of 3 Example Objects.
             `;
@@ -1066,13 +936,8 @@ export const reloadConceptExamples = async (currentExplanation: ConceptExplanati
 
             const text = response.text;
             if (!text) throw new Error("Empty response");
-            
-            const data = JSON.parse(text) as ConceptExample[];
-            // Basic validation
-            if (!Array.isArray(data) || data.length === 0) throw new Error("Validation Failed: Empty Example Array");
-
             updateLogStatus(log.id, 'SUCCESS', startTime);
-            return data;
+            return JSON.parse(text) as ConceptExample[];
         } catch (e: any) {
             updateLogStatus(log.id, 'ERROR', startTime, e.message);
             throw e;

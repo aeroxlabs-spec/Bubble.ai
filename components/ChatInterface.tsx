@@ -135,15 +135,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
 
     if (mode === 'CONCEPT' && concept) {
         baseContext = `
-            Concept Context:
-            Topic: ${concept.topicTitle}
-            Core Content: ${concept.content}
-            Introduction: ${concept.introduction}
-            Conclusion: ${concept.conclusion}
+            Active Concept Session:
+            Topic: "${concept.topicTitle}"
+            --
+            Definition: ${concept.introduction}
+            --
+            Theory Blocks: ${JSON.stringify(concept.conceptBlocks.map(b => b.title + ': ' + b.content))}
+            --
+            Key Formulas: ${concept.coreFormulas?.join(', ')}
         `;
-        focusInstruction = `\nROLE: You are an expert IB Math Tutor explaining a specific concept. User: ${userName}.
-        CONTEXT: The user is learning about "${concept.topicTitle}".
-        GOAL: Clarify any doubts, provide deeper examples, or break down complex parts of the explanation provided.`;
+        focusInstruction = `\nROLE: You are an elite IB Math AA HL Examiner.
+        TASK: Clarify the concept "${concept.topicTitle}" with extreme precision.
+        GUIDELINES:
+        1. Correct any notation errors if the user makes them.
+        2. Link concepts to specific IB syllabus topics (e.g., Topic 3: Geometry and Trigonometry).
+        3. Provide "Exam Tips" or warn about "Common Pitfalls" (e.g., domain restrictions, calculator settings) when relevant.
+        4. Be concise but rigorous.`;
 
     } else if (mode === 'DRILL' && drillQuestion) {
         baseContext = `
