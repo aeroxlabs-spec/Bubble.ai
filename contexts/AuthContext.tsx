@@ -18,7 +18,7 @@ interface AuthContextType {
     finishOnboarding: () => Promise<void>;
     hasValidKey: boolean;
     credits: number;
-    useCredits: () => boolean; // Returns true if using credit system (not custom key)
+    useCredits: () => boolean; 
     decrementCredits: (amount?: number) => void;
     isCloudSynced: boolean;
 }
@@ -34,7 +34,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [userApiKey, setUserApiKey] = useState<string>("");
     const [isCloudSynced, setIsCloudSynced] = useState(false);
     
-    // Credit System State
     const [credits, setCredits] = useState<number>(() => {
         if (typeof window !== 'undefined') {
             const stored = localStorage.getItem('bubble_credits');
@@ -43,26 +42,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return INITIAL_CREDITS;
     });
 
-    // Update session key whenever userKey or credits change
     useEffect(() => {
-        // If user has a custom key, use it
         if (userApiKey && userApiKey.length > 10) {
             setSessionKey(userApiKey);
-        } 
-        // If no custom key but credits remain, use default key
-        else if (credits > 0) {
+        } else if (credits > 0) {
             setSessionKey(DEFAULT_API_KEY);
-        } 
-        // No custom key and no credits -> No key (will trigger prompt)
-        else {
+        } else {
             setSessionKey(null);
         }
     }, [userApiKey, credits]);
 
-    // Persist credits
     useEffect(() => {
         localStorage.setItem('bubble_credits', credits.toString());
     }, [credits]);
+
+    // Core Sync Logic
+    const syncKeys = async (userId: string) => {
+        try {
+            const dbKey = await authService.getGeminiKey(userId);
+            const localKey = localStorage.getItem('bubble_user_api_key');
+
+            if (dbKey) {
+                // Scenario 1: Key exists in DB. This is the source of truth.
+                setUserApiKey(dbKey);
+                localStorage.setItem('bubble_user_api_key', dbKey);
+                setIsCloudSynced(true);
+            } else if (localKey && localKey.length > 10) {
+                // Scenario 2: Key exists Locally but NOT in DB.
+                // Action: Repair by pushing local key to DB.
+                console.log("Bubble: Cloud key missing. Auto-repairing from local storage...");
+                const result = await authService.saveGeminiKey(userId, localKey);
+                if (result.success) {
+                    setUserApiKey(localKey);
+                    setIsCloudSynced(true);
+                } else {
+                    // Save failed, keep local but mark unsynced
+                    setUserApiKey(localKey);
+                    setIsCloudSynced(false);
+                }
+            } else {
+                // Scenario 3: No key anywhere.
+                setUserApiKey("");
+                localStorage.removeItem('bubble_user_api_key');
+                setIsCloudSynced(false);
+            }
+        } catch (error) {
+            console.error("Key Sync Failed:", error);
+            // Fallback to local if DB fails entirely
+            const localKey = localStorage.getItem('bubble_user_api_key');
+            if (localKey) setUserApiKey(localKey);
+            setIsCloudSynced(false);
+        }
+    };
 
     // Initial check
     useEffect(() => {
@@ -71,27 +102,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const currentUser = await authService.getCurrentUser();
                 setUser(currentUser);
 
-                if (currentUser) {
-                    const dbKey = await authService.getGeminiKey(currentUser.id);
-                    if (dbKey) {
-                        // Key found in DB - Use it
-                        setUserApiKey(dbKey);
-                        localStorage.setItem('bubble_user_api_key', dbKey);
-                        setIsCloudSynced(true);
-                    } else {
-                        // No key in DB, check local storage
-                        const localKey = localStorage.getItem('bubble_user_api_key');
-                        if (localKey) {
-                             // Sync local key to DB (Migration)
-                             await authService.saveGeminiKey(currentUser.id, localKey);
-                             setUserApiKey(localKey);
-                             setIsCloudSynced(true);
-                        } else {
-                            setUserApiKey("");
-                            localStorage.removeItem('bubble_user_api_key');
-                            setIsCloudSynced(false);
-                        }
-                    }
+                if (currentUser && !currentUser.id.startsWith('guest-')) {
+                    await syncKeys(currentUser.id);
                 } else {
                     localStorage.removeItem('bubble_user_api_key');
                     setUserApiKey("");
@@ -115,21 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     hasOnboarded: session.user.user_metadata?.hasOnboarded || false
                 };
                 setUser(mappedUser);
-                
-                const dbKey = await authService.getGeminiKey(session.user.id);
-                if (dbKey) {
-                    setUserApiKey(dbKey);
-                    localStorage.setItem('bubble_user_api_key', dbKey);
-                    setIsCloudSynced(true);
-                } else {
-                    const localKey = localStorage.getItem('bubble_user_api_key');
-                    if (localKey) {
-                        await authService.saveGeminiKey(session.user.id, localKey);
-                        setUserApiKey(localKey);
-                        setIsCloudSynced(true);
-                    }
-                }
-
+                await syncKeys(session.user.id);
                 setLoading(false);
             } else if (event === 'SIGNED_OUT') {
                 setUser(null);
@@ -193,18 +191,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsCloudSynced(false);
         } else {
             // SAVE KEY SCENARIO
+            const cleanedKey = key.trim();
             if (!user.id.startsWith('guest-')) {
-                const result = await authService.saveGeminiKey(user.id, key);
+                // Try to save to DB with retry logic
+                const result = await authService.saveGeminiKey(user.id, cleanedKey);
+                
                 if (!result.success) {
-                    // Propagate specific DB error to the UI
-                    throw new Error(result.error);
+                    // Even if DB fails, save locally so user can continue working
+                    // The syncKeys logic on next load will attempt to repair it
+                    console.warn("Saving locally only due to DB error:", result.error);
+                    setIsCloudSynced(false);
+                } else {
+                    setIsCloudSynced(true);
                 }
-                setIsCloudSynced(true);
             } else {
                 setIsCloudSynced(false);
             }
-            localStorage.setItem('bubble_user_api_key', key);
-            setUserApiKey(key);
+            localStorage.setItem('bubble_user_api_key', cleanedKey);
+            setUserApiKey(cleanedKey);
         }
     };
 
@@ -217,9 +221,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const useCredits = () => {
-        // If we have a custom key, we are NOT using credits
         if (userApiKey && userApiKey.length > 10) return false;
-        // If no custom key, we ARE using credits (even if 0, technically)
         return true;
     }
 

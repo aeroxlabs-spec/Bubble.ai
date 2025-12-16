@@ -20,9 +20,6 @@ export const supabase = createClient(PROJECT_URL, ANON_KEY, {
 
 /**
  * Wraps a promise with a timeout to prevent infinite hanging.
- * @param promise The async operation to wrap
- * @param timeoutMs Timeout in milliseconds (default 15000ms)
- * @param errorMsg Custom error message
  */
 export const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number = 15000, errorMsg = "Request timed out"): Promise<T> => {
     let timeoutHandle: any;
@@ -37,5 +34,30 @@ export const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number = 15
     } catch (error) {
         clearTimeout(timeoutHandle);
         throw error;
+    }
+};
+
+/**
+ * Retries an async operation with exponential backoff.
+ * Essential for Supabase connectivity issues or cold starts.
+ */
+export const withRetry = async <T>(
+    operation: () => Promise<T>, 
+    retries: number = 3, 
+    baseDelay: number = 1000
+): Promise<T> => {
+    try {
+        return await operation();
+    } catch (error: any) {
+        if (retries <= 0) throw error;
+        
+        // Don't retry on Auth/Permission errors (401, 403) as they won't fix themselves
+        if (error.status === 401 || error.status === 403 || error.code === 'PGRST301') {
+            throw error;
+        }
+
+        console.warn(`Supabase op failed, retrying... (${retries} left). Error: ${error.message}`);
+        await new Promise(resolve => setTimeout(resolve, baseDelay));
+        return withRetry(operation, retries - 1, baseDelay * 2);
     }
 };

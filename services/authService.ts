@@ -1,6 +1,6 @@
 
 import { User } from '../types';
-import { supabase, withTimeout } from './supabaseClient';
+import { supabase, withTimeout, withRetry } from './supabaseClient';
 
 export const authService = {
     async login(email: string, password: string, captchaToken?: string): Promise<User> {
@@ -63,10 +63,8 @@ export const authService = {
     },
 
     async loginWithGoogle(): Promise<void> {
-        // Ensure the redirect URL is clean (no trailing slash) to prevent "invalid path" errors
         const redirectUrl = window.location.origin.replace(/\/$/, '');
         
-        // OAuth initiates a redirect, so we don't strictly need a timeout here, but good practice to catch immediate failures
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
@@ -88,7 +86,6 @@ export const authService = {
 
     async getCurrentUser(): Promise<User | null> {
         try {
-            // Short timeout for session check to prevent blocking app load
             const { data: { session } } = await withTimeout(supabase.auth.getSession(), 5000) as any;
             if (!session?.user) return null;
 
@@ -118,32 +115,33 @@ export const authService = {
 
     async getGeminiKey(userId: string): Promise<string | null> {
         try {
-            const { data, error } = await withTimeout(
-                supabase
-                .from('user_api_keys')
-                .select('encrypted_key')
-                .eq('user_id', userId)
-                .eq('provider', 'gemini')
-                .maybeSingle(),
-                8000
-            ) as any;
+            // Using withRetry to handle cold starts or network blips
+            const result = await withRetry(async () => {
+                return await supabase
+                    .from('user_api_keys')
+                    .select('encrypted_key')
+                    .eq('user_id', userId)
+                    .eq('provider', 'gemini')
+                    .maybeSingle();
+            });
             
-            if (error) {
-                console.warn("Bubble DB Warning [getGeminiKey]:", error.message);
+            if (result.error) {
+                console.warn("Bubble DB Warning [getGeminiKey]:", result.error.message);
                 return null;
             }
-            if (data) {
-                return data.encrypted_key;
+            
+            if (result.data) {
+                return result.data.encrypted_key;
             }
             return null;
         } catch (e) {
-            console.warn("Failed to fetch key due to timeout");
+            console.warn("Failed to fetch key from DB after retries:", e);
             return null;
         }
     },
 
     async saveGeminiKey(userId: string, key: string): Promise<{ success: boolean; error?: string }> {
-        console.log("Bubble: Saving API Key to Cloud...");
+        console.log("Bubble: Syncing API Key to Cloud...");
         try {
             const { data: { session } } = await supabase.auth.getSession();
             
@@ -151,32 +149,36 @@ export const authService = {
                 return { success: false, error: "No active session found. Please reload." };
             }
             
+            // Ensure we are saving for the currently authenticated user
             const sessionUserId = session.user.id;
+            if (userId !== sessionUserId) {
+                 return { success: false, error: "User ID mismatch during save." };
+            }
 
-            // Use UPSERT logic with the unique constraint on (user_id, provider)
-            const { error } = await withTimeout(
-                supabase
-                .from('user_api_keys')
-                .upsert({ 
-                    user_id: sessionUserId, 
-                    provider: 'gemini', 
-                    encrypted_key: key, 
-                    is_valid: true,
-                    last_error: "" 
-                }, { onConflict: 'user_id, provider' }),
-                15000
-            ) as any;
+            // Using UPSERT with the unique constraint (user_id, provider)
+            // Retry logic wrapped here to ensure robustness
+            const { error } = await withRetry(async () => {
+                return await supabase
+                    .from('user_api_keys')
+                    .upsert({ 
+                        user_id: sessionUserId, 
+                        provider: 'gemini', 
+                        encrypted_key: key, 
+                        is_valid: true,
+                        last_error: null 
+                    }, { onConflict: 'user_id, provider' });
+            });
             
             if (error) {
                 console.error("Bubble DB Error [Upsert]:", error.message, error.details);
                 return { success: false, error: `Database Error: ${error.message}` };
             }
 
-            console.log("Bubble: API Key saved successfully.");
+            console.log("Bubble: API Key synced successfully.");
             return { success: true };
         } catch (e: any) {
             console.error("Bubble DB Critical Error:", e.message);
-            return { success: false, error: `Unexpected Error: ${e.message}` };
+            return { success: false, error: `Sync Error: ${e.message}` };
         }
     },
 
@@ -185,14 +187,13 @@ export const authService = {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) return;
 
-            const { error } = await withTimeout(
-                supabase
-                .from('user_api_keys')
-                .delete()
-                .eq('user_id', session.user.id)
-                .eq('provider', 'gemini'),
-                10000
-            ) as any;
+            const { error } = await withRetry(async () => {
+                return await supabase
+                    .from('user_api_keys')
+                    .delete()
+                    .eq('user_id', session.user.id)
+                    .eq('provider', 'gemini');
+            });
             
             if (error) console.error("Bubble DB Error [Remove]:", error.message);
         } catch (e: any) {
