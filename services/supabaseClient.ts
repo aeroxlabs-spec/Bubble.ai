@@ -1,7 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Credentials provided for the Bubble project
+// Configuration strictly using the provided Project ID
 const PROJECT_URL = "https://wnrppwuxcaewvylrdpyd.supabase.co";
 const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InducnBwd3V4Y2Fld3Z5bHJkcHlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMTk0NTUsImV4cCI6MjA4MDY5NTQ1NX0.IUiU12Oti_pxunSJR1NR_nGgg22d9ymq0m6HSZOBCzA";
 
@@ -51,8 +51,8 @@ export const withRetry = async <T>(
     } catch (error: any) {
         if (retries <= 0) throw error;
         
-        // Don't retry on Auth/Permission errors (401, 403) as they won't fix themselves
-        if (error.status === 401 || error.status === 403 || error.code === 'PGRST301') {
+        // Don't retry on Auth/Permission errors (401, 403) or specific Postgrest errors that won't resolve with time
+        if (error.status === 401 || error.status === 403 || error.code === 'PGRST301' || error.code === '23505') {
             throw error;
         }
 

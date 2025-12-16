@@ -77,6 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     setIsCloudSynced(true);
                 } else {
                     // Save failed, keep local but mark unsynced
+                    console.warn("Auto-repair failed:", result.error);
                     setUserApiKey(localKey);
                     setIsCloudSynced(false);
                 }

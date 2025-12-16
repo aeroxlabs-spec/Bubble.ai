@@ -115,7 +115,6 @@ export const authService = {
 
     async getGeminiKey(userId: string): Promise<string | null> {
         try {
-            // Using withRetry to handle cold starts or network blips
             const result = await withRetry(async () => {
                 return await supabase
                     .from('user_api_keys')
@@ -130,12 +129,9 @@ export const authService = {
                 return null;
             }
             
-            if (result.data) {
-                return result.data.encrypted_key;
-            }
-            return null;
+            return result.data ? result.data.encrypted_key : null;
         } catch (e) {
-            console.warn("Failed to fetch key from DB after retries:", e);
+            console.warn("Failed to fetch key from DB:", e);
             return null;
         }
     },
@@ -146,18 +142,18 @@ export const authService = {
             const { data: { session } } = await supabase.auth.getSession();
             
             if (!session) {
-                return { success: false, error: "No active session found. Please reload." };
+                return { success: false, error: "No active session. Please reload." };
             }
             
-            // Ensure we are saving for the currently authenticated user
             const sessionUserId = session.user.id;
             if (userId !== sessionUserId) {
-                 return { success: false, error: "User ID mismatch during save." };
+                 return { success: false, error: "User mismatch. Security block." };
             }
 
-            // Using UPSERT with the unique constraint (user_id, provider)
-            // Retry logic wrapped here to ensure robustness
-            const { error } = await withRetry(async () => {
+            // Strict Schema Upsert
+            // Table: user_api_keys (user_id, provider, encrypted_key, is_valid, last_error)
+            // Constraint: user_api_keys_user_id_provider_key
+            const { error: upsertError } = await withRetry(async () => {
                 return await supabase
                     .from('user_api_keys')
                     .upsert({ 
@@ -165,20 +161,35 @@ export const authService = {
                         provider: 'gemini', 
                         encrypted_key: key, 
                         is_valid: true,
-                        last_error: null 
-                    }, { onConflict: 'user_id, provider' });
+                        last_error: null
+                    }, { 
+                        onConflict: 'user_id,provider' 
+                    });
             });
             
-            if (error) {
-                console.error("Bubble DB Error [Upsert]:", error.message, error.details);
-                return { success: false, error: `Database Error: ${error.message}` };
+            if (upsertError) {
+                console.error("Bubble DB Upsert Failed:", upsertError.message);
+                return { success: false, error: `DB Save Error: ${upsertError.message}` };
             }
 
-            console.log("Bubble: API Key synced successfully.");
+            // VERIFICATION STEP: Immediately read back to confirm persistence
+            const { data: verifyData, error: verifyError } = await supabase
+                .from('user_api_keys')
+                .select('encrypted_key')
+                .eq('user_id', sessionUserId)
+                .eq('provider', 'gemini')
+                .maybeSingle();
+
+            if (verifyError || !verifyData || verifyData.encrypted_key !== key) {
+                console.error("Bubble DB Verification Failed:", verifyError?.message);
+                return { success: false, error: "Saved, but verification failed. Key may not persist." };
+            }
+
+            console.log("Bubble: API Key fully synced and verified.");
             return { success: true };
         } catch (e: any) {
             console.error("Bubble DB Critical Error:", e.message);
-            return { success: false, error: `Sync Error: ${e.message}` };
+            return { success: false, error: `Sync Exception: ${e.message}` };
         }
     },
 

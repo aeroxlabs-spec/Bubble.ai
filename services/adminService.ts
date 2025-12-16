@@ -13,10 +13,11 @@ export const adminService = {
         metadata?: FeedbackMetadata 
     }): Promise<void> {
         
-        // Prepare payload to strictly match DB schema
+        // Strict Payload Construction for feedback_v2
+        // Columns: user_id, type, title, body, metadata, resolved
         const payload = {
             user_id: data.userId,
-            type: data.type,
+            type: data.type, // Must match enum check constraint: 'general', 'bug', 'feature', 'help'
             title: data.title || null,
             body: data.body,
             metadata: data.metadata || {}, // Ensure valid JSON object
