@@ -306,21 +306,55 @@ const ensureClientReady = () => {
 
 // --- ERROR MAPPING UTILITY ---
 const mapGenAIError = (error: any): string => {
-    const msg = error.message || "";
+    const msg = (error.message || "").toLowerCase();
     const status = error.status || 0;
 
-    if (msg.includes("Request timed out")) return "Request Timeout. The server took too long to respond.";
-    if (msg.includes("API Key Missing")) return msg;
-    if (msg.includes("400") || status === 400) return "Invalid Request (400). The image format might be unsupported or the prompt is too large.";
-    if (msg.includes("401") || status === 401) return "Unauthorized (401). Your API Key is invalid. Please update it in Settings.";
-    if (msg.includes("403") || status === 403) return "Permission Denied (403). Your API Key might be expired, or your billing project is inactive.";
-    if (msg.includes("404") || status === 404) return "Model Not Found (404). Gemini 2.5 Flash may not be available in your region yet.";
-    if (msg.includes("429") || status === 429) return "Rate Limit Exceeded (429). You are sending requests too fast. Please wait a moment.";
-    if (msg.includes("500") || status === 500) return "Google Server Error (500). The AI service is currently down. Try again later.";
-    if (msg.includes("503") || status === 503) return "Service Overloaded (503). Google's servers are busy.";
-    if (msg.includes("fetch failed") || msg.includes("NetworkError")) return "Network Error. Please check your internet connection.";
-    
-    return `AI Error: ${msg.substring(0, 100)}...`;
+    // 1. Safety & Content Policy (The "Silent" Blocker)
+    if (msg.includes("candidate was blocked") || msg.includes("safety") || msg.includes("finishreason")) {
+        return "Safety Filter Triggered. The AI refused to answer this specific prompt. Please try rephrasing or using a different image.";
+    }
+
+    // 2. Location & Region
+    if (msg.includes("location is not supported") || msg.includes("region_not_supported") || (status === 400 && msg.includes("location"))) {
+        return "Region Not Supported. Google Gemini is not currently available in your location (Error 400). A VPN might help.";
+    }
+
+    // 3. Auth & Permissions (The "Key" Issues)
+    if (status === 401 || msg.includes("401") || msg.includes("unauthenticated") || msg.includes("invalid api key")) {
+        return "Invalid API Key (401). The key is incorrect, revoked, or formatted wrong. Please check your settings.";
+    }
+
+    if (status === 403 || msg.includes("403") || msg.includes("permission denied")) {
+        // New keys often throw 403 for the first 5 mins
+        return "Access Denied (403). If this key is new, please wait 5 minutes for it to activate. Otherwise, ensure the 'Generative Language API' is enabled in Google Cloud Console.";
+    }
+
+    // 4. Quota vs Rate Limit (429)
+    if (status === 429 || msg.includes("429") || msg.includes("resource_exhausted")) {
+        if (msg.includes("quota")) {
+            return "Daily Quota Exceeded. You have hit the daily free tier limit for this API key. Please use a different key or wait 24 hours.";
+        }
+        // Default 429 is usually rate limit (RPM)
+        return "Traffic Limit Reached. You are sending requests too quickly. Please wait 30 seconds and try again.";
+    }
+
+    // 5. Server Side
+    if (status >= 500 || msg.includes("internal server error")) {
+        return "Google AI Service Error (5xx). The AI service is temporarily down. Please try again in a few minutes.";
+    }
+
+    // 6. Parsing & Format
+    if (msg.includes("json") || msg.includes("syntaxerror")) {
+        return "Data Processing Error. The AI returned an invalid format. Please try again.";
+    }
+
+    // 7. Network
+    if (msg.includes("fetch failed") || msg.includes("network") || msg.includes("failed to fetch") || msg.includes("timed out")) {
+        return "Network Connection Failed. Please check your internet connection and try again.";
+    }
+
+    // Fallback
+    return `Error: ${error.message?.substring(0, 150) || "Unknown error occurred"}`;
 };
 
 // --- SCHEMAS ---
@@ -531,25 +565,31 @@ const retryOperation = async <T>(operation: () => Promise<T>, retries = 3, delay
         // Wrap the operation call in withTimeout to ensure we don't hang indefinitely waiting for Gemini
         return await withTimeout(operation(), 60000); // 60s timeout for AI generation
     } catch (error: any) {
+        // If error is 429, we might retry with backoff. 
+        // If error is 403 (Permission/Auth), retrying usually doesn't help unless it's propagation.
+        
+        const msg = (error.message || "").toLowerCase();
+        const status = error.status || 0;
+
         const isNetworkError = 
-            error.message?.includes('xhr error') || 
-            error.message?.includes('fetch failed') ||
-            error.message?.includes('network') ||
-            error.message?.includes('timed out') ||
+            msg.includes('xhr error') || 
+            msg.includes('fetch failed') ||
+            msg.includes('network') ||
+            msg.includes('timed out') ||
             error.code === 6;
             
         const isServerOrQuota = 
-            error.status === 429 || 
-            error.status >= 500 || 
-            error.message?.includes('429') || 
-            error.message?.includes('quota');
+            status === 429 || 
+            status >= 500 || 
+            msg.includes('429') || 
+            msg.includes('overloaded'); // Quota errors (403) typically don't resolve with immediate retry
 
         if (retries > 0 && (isNetworkError || isServerOrQuota)) {
-            console.warn(`Operation failed. Retrying... (${retries} left)`);
+            console.warn(`Operation failed (${status}). Retrying... (${retries} left)`);
             await delay(delayMs);
             return retryOperation(operation, retries - 1, delayMs * 2);
         }
-        // Throw mapped error immediately on final fail
+        // Throw mapped error immediately on final fail or non-retriable error
         throw new Error(mapGenAIError(error));
     }
 };
@@ -621,12 +661,18 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
           },
         });
     
+        // Safety Check: Sometimes the model blocks without throwing an error code, just empty response with finishReason
+        if (response.candidates?.[0]?.finishReason && response.candidates[0].finishReason !== 'STOP') {
+             throw new Error(`Candidate was blocked due to ${response.candidates[0].finishReason}`);
+        }
+
         const text = response.text;
         if (!text) throw new Error("Empty response from AI service.");
         
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return JSON.parse(text) as MathSolution;
       } catch (error: any) {
+        // Map error here if it wasn't caught by retryOperation wrapper (e.g. if we threw it manually above)
         const mappedMsg = mapGenAIError(error);
         updateLogStatus(log.id, 'ERROR', startTime, mappedMsg);
         throw new Error(mappedMsg);
@@ -651,6 +697,10 @@ const reviewAndRefineQuestion = async (originalQ: any): Promise<any> => {
                     temperature: 0.3
                 }
             });
+
+            if (response.candidates?.[0]?.finishReason && response.candidates[0].finishReason !== 'STOP') {
+                 throw new Error(`Candidate blocked: ${response.candidates[0].finishReason}`);
+            }
 
             const text = response.text;
             updateLogStatus(log.id, 'SUCCESS', startTime);
@@ -695,18 +745,20 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
             },
         });
 
+        if (response.candidates?.[0]?.finishReason && response.candidates[0].finishReason !== 'STOP') {
+             throw new Error(`Exam generation blocked: ${response.candidates[0].finishReason}`);
+        }
+
         const text = response.text;
         if (!text) throw new Error("AI returned empty content.");
         const draftPaper = JSON.parse(text) as ExamPaper;
 
         // Use Promise.allSettled to prevent partial failures from crashing the whole exam generation
-        // Concurrency is handled by the browser/runtime
         const refinedSections = await Promise.all(draftPaper.sections.map(async (section) => {
             const results = await Promise.allSettled(section.questions.map(q => reviewAndRefineQuestion(q)));
             
             const refinedQuestions = results.map((result, idx) => {
                 if (result.status === 'fulfilled') return result.value;
-                // Log failure but fallback to original
                 console.error(`Question ${idx} refinement failed: ${result.reason}`);
                 return section.questions[idx]; 
             });
@@ -752,6 +804,10 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
                     temperature: 0.8 
                 },
             });
+
+            if (response.candidates?.[0]?.finishReason && response.candidates[0].finishReason !== 'STOP') {
+                 throw new Error(`Drill question blocked: ${response.candidates[0].finishReason}`);
+            }
 
             const text = response.text;
             if (!text) throw new Error("AI returned empty content.");
@@ -804,6 +860,10 @@ export const generateDrillSolution = async (question: DrillQuestion): Promise<Ma
                     temperature: 0.5 
                 }
             });
+
+            if (response.candidates?.[0]?.finishReason && response.candidates[0].finishReason !== 'STOP') {
+                 throw new Error(`Solution blocked: ${response.candidates[0].finishReason}`);
+            }
 
             const text = response.text;
             if (!text) throw new Error("Failed to generate solution");
@@ -866,6 +926,10 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
                     temperature: 0.4 
                 }
             });
+
+            if (response.candidates?.[0]?.finishReason && response.candidates[0].finishReason !== 'STOP') {
+                 throw new Error(`Concept blocked: ${response.candidates[0].finishReason}`);
+            }
 
             const text = response.text;
             if (!text) throw new Error("Empty AI response");
@@ -933,6 +997,10 @@ export const reloadConceptExamples = async (currentExplanation: ConceptExplanati
                     temperature: 0.7
                 }
             });
+
+            if (response.candidates?.[0]?.finishReason && response.candidates[0].finishReason !== 'STOP') {
+                 throw new Error(`Example reload blocked: ${response.candidates[0].finishReason}`);
+            }
 
             const text = response.text;
             if (!text) throw new Error("Empty response");

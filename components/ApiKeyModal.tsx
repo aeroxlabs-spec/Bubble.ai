@@ -90,6 +90,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
         } catch (e: any) {
             console.error("Key verification failed", e);
             setStatus('INVALID');
+            // e.message comes from mapGenAIError now, so it should be precise
             setErrorMsg(e.message || "Connection failed. Please check key.");
         }
     };
@@ -261,6 +262,9 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
                                             <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Validation Error</span>
                                         </div>
                                         <p className="text-red-400 text-xs font-mono break-words leading-relaxed">{errorMsg}</p>
+                                        {errorMsg.includes("Access Denied") && (
+                                            <p className="text-gray-400 text-xs mt-2 italic">Tip: If this is a newly created key, it may take 2-5 minutes to propagate through Google's systems.</p>
+                                        )}
                                     </div>
                                 )}
                                 
