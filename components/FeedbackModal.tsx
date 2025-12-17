@@ -81,7 +81,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, user }) 
                                 className="text-green-400 mb-3 animate-bounce" 
                             />
                             <p className="text-white font-bold text-sm">Request Sent</p>
-                            <p className="text-xs text-gray-400 mt-1">Thanks for helping us improve Bubble.ib.</p>
+                            <p className="text-xs text-gray-400 mt-1">Thanks for helping us improve BubbleIB.</p>
                         </div>
                     </div>
                 ) : (

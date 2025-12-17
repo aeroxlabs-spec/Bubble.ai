@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { X, Info, Mail, Zap, GraduationCap, Pen, Lightbulb } from 'lucide-react';
 
@@ -21,7 +22,7 @@ const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose, page }) => {
                         <div className="space-y-2">
                             <h3 className="text-lg font-bold text-white">Our Educational Mission</h3>
                             <p className="text-gray-400 text-sm leading-relaxed">
-                                Bubble.ib is a purely educational initiative built with a single objective: 
+                                BubbleIB is a purely educational initiative built with a single objective: 
                                 to provide the most adapted <strong>AI tutoring for IB Math Analysis and Approaches (AA) HL</strong> completely for free. 
                             </p>
                             <p className="text-gray-400 text-sm leading-relaxed">
@@ -130,7 +131,7 @@ const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose, page }) => {
 
     const getTitle = () => {
         switch (page) {
-            case 'ABOUT': return "About Bubble.ib";
+            case 'ABOUT': return "About BubbleIB";
             case 'SERVICES': return "Our Tools & Services";
             case 'CONTACT': return "Contact Us";
             default: return "";

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty, ConceptSettings, ConceptExplanation } from './types';
 import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution, getDailyUsage, generateDrillBatch, generateConceptExplanation, reloadConceptExamples } from './services/geminiService';
@@ -895,7 +896,7 @@ const handleOpenChatWithPrompt = (prompt: string) => {
           <div className="flex items-center gap-6">
              <div className="group flex items-center gap-2 focus:outline-none pointer-events-none select-none">
                 <span className="font-sans font-bold text-xl sm:text-2xl tracking-tighter text-white">
-                    Bubble.ib
+                    BubbleIB
                 </span>
              </div>
           </div>

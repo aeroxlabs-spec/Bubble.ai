@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText, Zap, GraduationCap, Minus, Lightbulb } from 'lucide-react';
 import { ChatMessage, MathSolution, DrillQuestion, AppMode, ConceptExplanation } from '../types';
@@ -299,7 +300,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                  mode === 'CONCEPT' ? <Lightbulb size={16} className="text-green-400" /> :
                  <Pen size={16} className="text-blue-400 flex-shrink-0" />}
              </div>
-             <span className="text-white font-sans font-bold text-lg tracking-tighter">Bubble.ib</span>
+             <span className="text-white font-sans font-bold text-lg tracking-tighter">BubbleIB</span>
           </div>
           
           {mode === 'CONCEPT' ? (

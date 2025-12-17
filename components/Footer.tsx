@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { InfoPageType } from './InfoModal';
 
@@ -12,9 +13,9 @@ const Footer: React.FC<FooterProps> = ({ onLinkClick }) => {
             <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
                 
                 <div className="text-center md:text-left">
-                    <h3 className="text-sm font-bold text-white tracking-tight mb-1">Bubble.ib</h3>
+                    <h3 className="text-sm font-bold text-white tracking-tight mb-1">BubbleIB</h3>
                     <p className="text-[10px] text-gray-600">
-                        &copy; {new Date().getFullYear()} Bubble.ib. All rights reserved.
+                        &copy; {new Date().getFullYear()} BubbleIB. All rights reserved.
                     </p>
                 </div>
 
