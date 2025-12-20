@@ -1,5 +1,5 @@
-import { GoogleGenAI, Type, Schema, GenerateContentResponse } from "@google/genai";
-import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty, ConceptSettings, ConceptExplanation, ConceptExample } from "../types";
+import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
+import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ConceptSettings, ConceptExplanation, ConceptExample } from "../types";
 import { supabase, withTimeout } from "./supabaseClient";
 import { authService } from "./authService";
 
@@ -7,7 +7,7 @@ import { authService } from "./authService";
  * Initialize the Google GenAI client once using the pre-configured environment variable.
  * The API key is obtained exclusively from process.env.API_KEY as required by the guidelines.
  */
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 
 let dailyRequestLimit = 50; 
 let dailyRequestCount = 0;
@@ -256,7 +256,7 @@ const mapGenAIError = (error: any): string => {
     return `Error: ${error.message?.substring(0, 150) || "Unknown error occurred"}`;
 };
 
-const visualMetadataSchema: Schema = {
+const visualMetadataSchema: any = {
     type: Type.OBJECT,
     properties: {
         type: { type: Type.STRING, enum: ['desmos', 'jsxgraph'] },
@@ -265,7 +265,7 @@ const visualMetadataSchema: Schema = {
     required: ["type", "data"]
 };
 
-const mathStepSchema: Schema = {
+const mathStepSchema: any = {
     type: Type.OBJECT,
     properties: {
         section: { type: Type.STRING },
@@ -277,7 +277,7 @@ const mathStepSchema: Schema = {
     required: ["section", "title", "explanation", "keyEquation"]
 };
 
-const mathSolutionSchema: Schema = {
+const mathSolutionSchema: any = {
   type: Type.OBJECT,
   properties: {
     exerciseStatement: {
@@ -301,7 +301,7 @@ const mathSolutionSchema: Schema = {
   required: ["exerciseStatement", "problemSummary", "steps", "finalAnswer"],
 };
 
-const examPaperSchema: Schema = {
+const examPaperSchema: any = {
   type: Type.OBJECT,
   properties: {
     title: { type: Type.STRING },
@@ -340,7 +340,7 @@ const examPaperSchema: Schema = {
   required: ["title", "totalMarks", "duration", "sections"]
 };
 
-const drillQuestionSchema: Schema = {
+const drillQuestionSchema: any = {
   type: Type.OBJECT,
   properties: {
     topic: { type: Type.STRING },
@@ -354,7 +354,7 @@ const drillQuestionSchema: Schema = {
   required: ["topic", "difficultyLevel", "questionText", "shortAnswer", "hint", "calculatorAllowed"]
 };
 
-const drillSolutionSchema: Schema = {
+const drillSolutionSchema: any = {
     type: Type.OBJECT,
     properties: {
         steps: {
@@ -365,7 +365,7 @@ const drillSolutionSchema: Schema = {
     required: ["steps"]
 };
 
-const conceptExplanationSchema: Schema = {
+const conceptExplanationSchema: any = {
     type: Type.OBJECT,
     properties: {
         topicTitle: { type: Type.STRING },
@@ -404,7 +404,7 @@ const conceptExplanationSchema: Schema = {
     required: ["topicTitle", "introduction", "conceptBlocks", "examples"]
 };
 
-const exampleReloadSchema: Schema = {
+const exampleReloadSchema: any = {
     type: Type.ARRAY,
     items: {
         type: Type.OBJECT,
@@ -419,23 +419,6 @@ const exampleReloadSchema: Schema = {
         },
         required: ["difficulty", "question", "hint", "solutionSteps", "finalAnswer", "explanation"]
     }
-};
-
-const questionValidationSchema: Schema = {
-    type: Type.OBJECT,
-    properties: {
-        id: { type: Type.STRING },
-        number: { type: Type.STRING },
-        marks: { type: Type.INTEGER },
-        questionText: { type: Type.STRING },
-        steps: { type: Type.ARRAY, items: { type: Type.STRING } },
-        markscheme: { type: Type.STRING },
-        shortAnswer: { type: Type.STRING },
-        hint: { type: Type.STRING },
-        calculatorAllowed: { type: Type.BOOLEAN },
-        visualMetadata: visualMetadataSchema
-    },
-    required: ["id", "number", "marks", "questionText", "markscheme", "shortAnswer", "calculatorAllowed", "steps"]
 };
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
