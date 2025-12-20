@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>BubbleIB — The Perfect AI Tool to Master IB Math</title>
     <meta name="description" content="Master IB Math Analysis and Approaches HL with BubbleIB. An intelligent AI tutor providing step-by-step solutions, custom exam paper generation, and adaptive practice drills powered by Google Gemini." />
+    <script>
+      // Crucial: Polyfill process for browser environment to prevent crash on mount
+      window.process = window.process || { env: { API_KEY: "" } };
+    </script>
     <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
@@ -114,7 +118,6 @@
           scrollbar-width: none;  
       }
 
-      /* JSXGraph Custom Styling to match dark mode */
       .jxgbox {
         background-color: transparent !important;
         border: none !important;
