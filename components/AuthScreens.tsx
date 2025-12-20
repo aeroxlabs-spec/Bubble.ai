@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Pen, Zap, GraduationCap, ArrowRight, AlertCircle, Sigma, Divide, Minus, Lightbulb, Percent, Hash, Ghost } from 'lucide-react';
@@ -380,3 +378,180 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
 
     const performAuth = async () => {
         try {
+            if (mode === 'LOGIN') {
+                await login(email, password, captchaToken || undefined);
+            } else {
+                await signup(name, email, password, captchaToken || undefined);
+            }
+        } catch (err: any) {
+            console.error("Auth error details:", err);
+            
+            // Check for specific Supabase sitekey mismatch error
+            if (err.message && (err.message.includes("sitekey-secret-mismatch") || err.message.includes("captcha protection"))) {
+                 setError("Configuration Error: The Site Key and Secret Key in Supabase do not match. Please update your Supabase Auth Protection settings.");
+            } else {
+                 setError(err.message || "Authentication failed");
+            }
+            
+            setIsLoading(false);
+            setIsAnimating(false);
+            if ((window as any).hcaptcha && widgetId.current !== null) {
+                 (window as any).hcaptcha.reset(widgetId.current);
+            }
+            setCaptchaToken(null);
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        if (!captchaToken) {
+            setError("Please complete the security check.");
+            return;
+        }
+
+        setError(null);
+        setIsLoading(true);
+        setIsAnimating(true);
+    };
+    
+    // Allow manual reset if user gets stuck in error state
+    const handleResetCaptcha = () => {
+        if ((window as any).hcaptcha && widgetId.current !== null) {
+             (window as any).hcaptcha.reset(widgetId.current);
+             setError(null);
+             setCaptchaToken(null);
+        }
+    };
+
+    return (
+        <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-300 relative px-4">
+            
+            <div className={`bg-[#121212] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden transition-all duration-500 ${isAnimating ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}`}>
+                {/* Updated notch to gradient as requested */}
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-yellow-500" />
+                
+                <div className="mb-6 sm:mb-8">
+                    <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
+                        {mode === 'LOGIN' ? 'Welcome back' : 'Create an account'}
+                    </h2>
+                    <p className="text-gray-500 text-xs sm:text-sm">
+                        {mode === 'LOGIN' ? 'Enter your credentials to access your workspace.' : 'Join BubbleIB to start mastering IB Math.'}
+                    </p>
+                </div>
+                
+                {/* Standardized Google Auth Button for Supabase */}
+                <button 
+                    onClick={handleGoogleLogin}
+                    disabled={isLoading}
+                    className="relative w-full h-[42px] mb-6 group bg-[#0a0a0a] border border-white/10 rounded-full flex items-center justify-center gap-2.5 transition-all hover:border-white/30 hover:bg-[#151515] disabled:opacity-50"
+                >
+                     <GoogleGLogo />
+                     <span className="text-xs sm:text-sm font-bold text-gray-300 group-hover:text-white font-sans">Continue with Google</span>
+                </button>
+                
+                <div className="flex items-center gap-4 mb-6">
+                    <div className="h-px bg-white/5 flex-1" />
+                    <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Or continue with email</span>
+                    <div className="h-px bg-white/5 flex-1" />
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+                    {mode === 'SIGNUP' && (
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Full Name</label>
+                            <input 
+                                type="text" 
+                                required 
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="w-full bg-[#0a0a0a] border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-colors bg-transparent border-white/10 shadow-inner"
+                                placeholder="John Doe"
+                            />
+                        </div>
+                    )}
+
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Email Address</label>
+                        <input 
+                            type="email" 
+                            required 
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full bg-[#0a0a0a] border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-colors bg-transparent border-white/10 shadow-inner"
+                            placeholder="you@example.com"
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Password</label>
+                        <input 
+                            type="password" 
+                            required 
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full bg-[#0a0a0a] border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-colors bg-transparent border-white/10 shadow-inner"
+                            placeholder="••••••••"
+                        />
+                    </div>
+
+                    {/* HCaptcha Container */}
+                    <div className="flex flex-col items-center justify-center pt-2 min-h-[78px]">
+                        <div ref={captchaRef} id="hcaptcha-container" />
+                        {error && error.includes("Captcha") && (
+                            <button 
+                                type="button" 
+                                onClick={handleResetCaptcha}
+                                className="mt-2 text-[10px] font-bold uppercase tracking-wider text-blue-400 hover:text-white transition-colors"
+                            >
+                                Retry Captcha
+                            </button>
+                        )}
+                    </div>
+
+                    {error && (
+                        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-900/10 border border-red-500/20 text-red-400 text-sm animate-in fade-in slide-in-from-top-2">
+                            <AlertCircle size={16} className="flex-shrink-0" />
+                            <span className="leading-snug">{error}</span>
+                        </div>
+                    )}
+
+                    <button 
+                        type="submit" 
+                        disabled={isLoading || !captchaToken}
+                        className="w-full bg-transparent border border-white/20 text-white font-bold py-2.5 rounded-full hover:bg-white/5 hover:border-white/50 hover:shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isLoading ? (
+                             <span className="text-xs font-mono animate-pulse">Initializing...</span>
+                        ) : (
+                             mode === 'LOGIN' ? 'Log In' : 'Sign Up'
+                        )}
+                    </button>
+                </form>
+
+                <div className="mt-6 text-center">
+                    <button 
+                        onClick={onSwitch}
+                        className="text-xs sm:text-sm text-gray-500 hover:text-white transition-colors"
+                        disabled={isLoading}
+                    >
+                        {mode === 'LOGIN' ? "Don't have an account? Sign Up" : "Already have an account? Log In"}
+                    </button>
+                </div>
+            </div>
+
+            {/* Success Animation Layer */}
+            {isAnimating && (
+                 <OrbitalAuthAnimation onComplete={performAuth} />
+            )}
+            
+            {!isAnimating && (
+                <div className="mt-8 text-center animate-in fade-in delay-200">
+                    <p className="text-[10px] text-gray-600">
+                        By continuing, you agree to our Terms of Service and Privacy Policy.
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+};

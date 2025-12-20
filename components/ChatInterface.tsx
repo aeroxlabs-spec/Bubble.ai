@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText, Zap, GraduationCap, Minus, Lightbulb } from 'lucide-react';
 import { ChatMessage, MathSolution, DrillQuestion, AppMode, ConceptExplanation } from '../types';

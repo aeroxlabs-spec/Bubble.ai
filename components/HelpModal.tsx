@@ -95,12 +95,12 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, user }) => {
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Common Questions</h3>
                         <div className="space-y-2">
                              <FAQItem 
-                                question="Is BubbleIB really free?" 
-                                answer="Yes. BubbleIB is a non-profit student initiative. You get 100 free credits to start. After that, you can use your own Gemini API key for unlimited free usage (within Google's free tier limits)." 
+                                question="Is Bubble.ib really free?" 
+                                answer="Yes. Bubble.ib is a non-profit student initiative. You get 100 free credits to start. After that, you can use your own Gemini API key for unlimited free usage (within Google's free tier limits)." 
                              />
                              <FAQItem 
                                 question="How do I get an API Key?" 
-                                answer="Go to Google AI Studio (aistudio.google.com), create a new project, and generate an API key. Then paste it into BubbleIB's settings." 
+                                answer="Go to Google AI Studio (aistudio.google.com), create a new project, and generate an API key. Then paste it into Bubble.ib's settings." 
                              />
                              <FAQItem 
                                 question="What is the difference between Solver and Drill?" 

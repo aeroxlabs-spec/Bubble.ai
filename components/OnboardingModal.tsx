@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowRight, ArrowLeft, GraduationCap, Zap, Hash, Check, ExternalLink, Loader2, Coins } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';

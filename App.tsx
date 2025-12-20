@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty, ConceptSettings, ConceptExplanation } from './types';
 import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution, getDailyUsage, generateDrillBatch, generateConceptExplanation, reloadConceptExamples } from './services/geminiService';
