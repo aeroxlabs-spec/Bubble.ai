@@ -1,8 +1,8 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { MathStep } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
-import { ArrowRight, Plus, Lightbulb, ListStart, ChevronLeft, ChevronRight, Copy, Check, X } from 'lucide-react';
+import VisualContainer from './VisualContainer';
+import { ArrowRight, Plus, Lightbulb, ListStart, ChevronLeft, ChevronRight, Copy, Check, X, Layers } from 'lucide-react';
 import { getStepHint, getStepBreakdown } from '../services/geminiService';
 
 interface StepCardProps {
@@ -27,26 +27,21 @@ const StepCard: React.FC<StepCardProps> = ({
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   
-  // Hint State
   const [hintContent, setHintContent] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);
   const [loadingHint, setLoadingHint] = useState(false);
 
-  // Breakdown State
   const [breakdownContent, setBreakdownContent] = useState<string[] | null>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
   const [visibleSubSteps, setVisibleSubSteps] = useState(0);
 
-  // Copy State
   const [copied, setCopied] = useState(false);
 
-  // Swipe Refs
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
   const minSwipeDistance = 50;
 
-  // Theme Configuration
   const theme = {
       SOLVER: {
           activeBg: 'bg-[#121212]',
@@ -143,17 +138,14 @@ const StepCard: React.FC<StepCardProps> = ({
         onClick();
         return; 
     }
-    
     if (showHint) {
         setShowHint(false);
         return;
     }
-
     if (hintContent) {
         setShowHint(true);
         return;
     }
-
     setLoadingHint(true);
     try {
         const result = await getStepHint(step, problemContext);
@@ -172,17 +164,14 @@ const StepCard: React.FC<StepCardProps> = ({
           onClick();
           return;
       }
-      
       if (showBreakdown) {
           setShowBreakdown(false);
           return;
       }
-
       if (breakdownContent) {
           setShowBreakdown(true);
           return;
       }
-
       setLoadingBreakdown(true);
       try {
           const result = await getStepBreakdown(step, problemContext);
@@ -217,7 +206,6 @@ const StepCard: React.FC<StepCardProps> = ({
     >
       <div className="p-4 sm:p-5">
         <div className="flex items-start gap-4">
-            {/* Step Number */}
             <div className={`flex flex-shrink-0 items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg text-xs font-mono font-bold transition-colors duration-300
                 ${isActive 
                     ? theme.numberActive
@@ -227,15 +215,12 @@ const StepCard: React.FC<StepCardProps> = ({
             </div>
             
             <div className="flex-1 min-w-0">
-                {/* Header Row */}
                 <div className="flex items-center justify-between mb-2 gap-4">
                      <div className={`font-medium text-sm truncate transition-colors duration-300 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-200'}`}>
                         <MarkdownRenderer content={step.title} className="inline-block [&>p]:mb-0 [&>p]:inline" mode={mode} />
                     </div>
                     
-                    {/* Action Buttons */}
                     <div className="flex items-center gap-2 flex-shrink-0">
-                         {/* Breakdown Button */}
                         <button
                             onClick={handleBreakdownClick}
                             disabled={loadingBreakdown}
@@ -260,7 +245,6 @@ const StepCard: React.FC<StepCardProps> = ({
                             </div>
                         </button>
 
-                        {/* Hint Button */}
                         <button
                             onClick={handleHintClick}
                             disabled={loadingHint}
@@ -287,34 +271,47 @@ const StepCard: React.FC<StepCardProps> = ({
                     </div>
                 </div>
 
-                {/* Content Area */}
-                <div className={`transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] overflow-hidden ${isActive ? 'max-h-[2500px] opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
-                    <div className="space-y-5">
+                <div className={`transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] overflow-hidden ${isActive ? 'max-h-[5000px] opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
+                    <div className="space-y-6">
                         
-                        <div className="text-gray-300 text-sm leading-relaxed">
-                            <MarkdownRenderer content={step.explanation} mode={mode} />
-                        </div>
-                        
-                        {showBreakdown && breakdownContent && (
-                            <div className="animate-in fade-in slide-in-from-top-2 duration-200 bg-[#0e0e0e] rounded-lg p-4 border border-white/5">
-                                 <div className="flex items-center gap-2 mb-3">
-                                     <ListStart size={14} className={theme.breakdownTitle} />
-                                     <span className={`text-[10px] font-bold uppercase tracking-widest ${theme.breakdownTitle}`}>Step Breakdown</span>
+                        {/* Locked Schema Grid for Text & Visuals */}
+                        <div className={`grid gap-6 ${step.visualMetadata ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
+                          <div className="space-y-5">
+                              <div className="text-gray-300 text-sm leading-relaxed">
+                                  <MarkdownRenderer content={step.explanation} mode={mode} />
+                              </div>
+                              
+                              {showBreakdown && breakdownContent && (
+                                  <div className="animate-in fade-in slide-in-from-top-2 duration-200 bg-[#0e0e0e] rounded-lg p-4 border border-white/5">
+                                      <div className="flex items-center gap-2 mb-3">
+                                          <ListStart size={14} className={theme.breakdownTitle} />
+                                          <span className={`text-[10px] font-bold uppercase tracking-widest ${theme.breakdownTitle}`}>Step Breakdown</span>
+                                      </div>
+                                      <div className="space-y-4">
+                                          {breakdownContent.slice(0, visibleSubSteps).map((subStep, i) => (
+                                              <div key={i} className="flex gap-4 text-xs text-gray-400 group/item animate-in fade-in slide-in-from-left-4 duration-500">
+                                                  <div className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-[10px] font-mono font-bold border mt-0.5 ${theme.breakdownNumber}`}>
+                                                      {i + 1}
+                                                  </div>
+                                                  <div className="leading-relaxed pt-0.5 w-full">
+                                                      <MarkdownRenderer content={subStep} className="text-gray-300" mode={mode} />
+                                                  </div>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  </div>
+                              )}
+                          </div>
+
+                          {step.visualMetadata && (
+                            <div className="flex flex-col gap-4">
+                                <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1 flex items-center gap-2">
+                                    <Layers size={12} /> Visual Representation
                                 </div>
-                                <div className="space-y-4">
-                                    {breakdownContent.slice(0, visibleSubSteps).map((subStep, i) => (
-                                        <div key={i} className="flex gap-4 text-xs text-gray-400 group/item animate-in fade-in slide-in-from-left-4 duration-500">
-                                            <div className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-[10px] font-mono font-bold border mt-0.5 ${theme.breakdownNumber}`}>
-                                                {i + 1}
-                                            </div>
-                                            <div className="leading-relaxed pt-0.5 w-full">
-                                                <MarkdownRenderer content={subStep} className="text-gray-300" mode={mode} />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                <VisualContainer metadata={step.visualMetadata} />
                             </div>
-                        )}
+                          )}
+                        </div>
 
                         <div className="group/math bg-[#050505] rounded-xl py-6 px-5 border border-white/10 font-mono text-lg overflow-x-auto relative shadow-inner flex flex-col justify-center min-h-[5rem] hover:border-white/20 transition-colors">
                             <button
@@ -328,7 +325,6 @@ const StepCard: React.FC<StepCardProps> = ({
                             >
                                 {copied ? <Check size={14} /> : <Copy size={14} />}
                             </button>
-
                             <div className="text-white w-full text-center">
                                 <div className="inline-block min-w-full text-center">
                                     <MarkdownRenderer content={`$$ ${step.keyEquation} $$`} mode={mode} />
@@ -360,7 +356,6 @@ const StepCard: React.FC<StepCardProps> = ({
                                 {prevLabel === 'Close' ? <X size={14}/> : <ChevronLeft size={14} />}
                                 {prevLabel || 'Previous'}
                             </button>
-
                             <button
                                 onClick={(e) => { e.stopPropagation(); onNext?.(); }}
                                 disabled={isLast && !nextLabel}

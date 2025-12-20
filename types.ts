@@ -1,9 +1,18 @@
+export interface VisualMetadata {
+  type: 'desmos' | 'jsxgraph';
+  /** 
+   * For desmos: a list of expressions separated by ';' or a JSON config.
+   * For jsxgraph: a safe stringified representation of construction instructions.
+   */
+  data: string;
+}
 
 export interface MathStep {
   section: string;
   title: string;
   explanation: string;
   keyEquation: string;
+  visualMetadata?: VisualMetadata;
 }
 
 export interface MathSolution {
@@ -11,7 +20,8 @@ export interface MathSolution {
   problemSummary: string;
   steps: MathStep[];
   finalAnswer: string;
-  markscheme?: string; // Optional, loaded on demand
+  markscheme?: string; 
+  visualMetadata?: VisualMetadata;
 }
 
 export interface ChatMessage {
@@ -32,13 +42,12 @@ export type InputType = 'image' | 'text' | 'pdf';
 export interface UserInput {
   id: string;
   type: InputType;
-  content: string; // Base64 for image/pdf, raw text for text
+  content: string; 
   mimeType: string;
-  preview?: string; // Data URL for image, or snippet for text
+  preview?: string; 
   fileName?: string;
 }
 
-// --- AUTH TYPES ---
 export interface User {
     id: string;
     name: string;
@@ -47,11 +56,7 @@ export interface User {
     hasOnboarded: boolean;
 }
 
-// --- MODES ---
-
 export type AppMode = 'SOLVER' | 'EXAM' | 'DRILL' | 'CONCEPT';
-
-// --- EXAM TYPES ---
 
 export type ExamDifficulty = 'STANDARD' | 'HARD' | 'HELL';
 
@@ -66,19 +71,20 @@ export interface ExamSettings {
 
 export interface ExamQuestion {
   id: string;
-  number: string; // "1", "2a", etc.
+  number: string; 
   marks: number;
   questionText: string;
-  markscheme: string; // LaTeX formatted
+  markscheme: string; 
   shortAnswer: string;
   hint?: string;
   calculatorAllowed: boolean;
-  steps?: string[]; // Simplified steps for the exam view
+  steps?: string[]; 
   graphSvg?: string;
+  visualMetadata?: VisualMetadata;
 }
 
 export interface ExamSection {
-  title: string; // "Section A", "Section B"
+  title: string; 
   questions: ExamQuestion[];
 }
 
@@ -88,8 +94,6 @@ export interface ExamPaper {
   duration: number;
   sections: ExamSection[];
 }
-
-// --- DRILL TYPES ---
 
 export interface DrillSettings {
   difficulty: ExamDifficulty;
@@ -101,15 +105,14 @@ export interface DrillQuestion {
   id: string;
   number: number;
   topic: string;
-  difficultyLevel: number; // 1-10
+  difficultyLevel: number; 
   questionText: string;
   shortAnswer: string;
-  steps?: MathStep[]; // Optional, generated on demand
+  steps?: MathStep[]; 
   hint: string;
   calculatorAllowed: boolean;
+  visualMetadata?: VisualMetadata;
 }
-
-// --- CONCEPT TYPES ---
 
 export type IBLevel = 'SL' | 'HL';
 export type ConceptDepth = 'SUMMARY' | 'DETAILED';
@@ -126,26 +129,26 @@ export interface ConceptExample {
     difficulty: ExampleDifficulty;
     question: string;
     hint: string;
-    solutionSteps: MathStep[]; // Reusing MathStep for consistency
+    solutionSteps: MathStep[]; 
     finalAnswer: string;
-    explanation: string; // Brief theoretical context
+    explanation: string; 
+    visualMetadata?: VisualMetadata;
 }
 
 export interface ConceptBlock {
-    title: string; // e.g., "The Logic", "Derivation"
-    content: string; // The explanation text
-    keyEquation?: string; // Optional emphasized formula
+    title: string; 
+    content: string; 
+    keyEquation?: string; 
+    visualMetadata?: VisualMetadata;
 }
 
 export interface ConceptExplanation {
     topicTitle: string;
-    introduction: string; // Short paragraph
-    conceptBlocks: ConceptBlock[]; // The body divided into ideas
-    coreFormulas?: string[]; // Optional formulas block
-    examples: ConceptExample[]; // Must be 3 (Basic, Exam, Hard)
+    introduction: string; 
+    conceptBlocks: ConceptBlock[]; 
+    coreFormulas?: string[]; 
+    examples: ConceptExample[]; 
 }
-
-// --- FEEDBACK TYPES (V2) ---
 
 export type FeedbackType = 'general' | 'bug' | 'feature' | 'help';
 

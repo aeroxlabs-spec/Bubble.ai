@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { ConceptExplanation, ConceptBlock, ConceptExample, ExampleDifficulty } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
-import StepCard from './StepCard'; // Re-use StepCard for exercises
+import StepCard from './StepCard';
+import VisualContainer from './VisualContainer';
 import { breakdownConceptBlock } from '../services/geminiService';
-import { BookOpen, GraduationCap, Variable, ListOrdered, Plus, X, RefreshCw, Loader2, CheckCircle2, Copy } from 'lucide-react';
+import { BookOpen, GraduationCap, Variable, ListOrdered, Plus, X, RefreshCw, Loader2, CheckCircle2, Copy, Layers } from 'lucide-react';
 
 interface ConceptViewerProps {
     concept: ConceptExplanation;
@@ -24,9 +24,8 @@ const ConceptViewer: React.FC<ConceptViewerProps> = ({ concept, onChatAction, on
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8 pb-32 animate-in fade-in duration-500">
+        <div className="max-w-5xl mx-auto space-y-8 pb-32 animate-in fade-in duration-500">
             
-            {/* Header */}
             <div className="text-center space-y-2 mb-8">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-900/20 border border-green-500/30 text-green-400 text-[10px] font-bold uppercase tracking-widest shadow-[0_0_10px_rgba(34,197,94,0.1)]">
                     <BookOpen size={12} /> Concept Explainer
@@ -36,7 +35,6 @@ const ConceptViewer: React.FC<ConceptViewerProps> = ({ concept, onChatAction, on
                 </h1>
             </div>
 
-            {/* 1. Introduction Card */}
             <div className="bg-[#121212] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-1 h-full bg-green-500/50" />
                 <h3 className="text-xs font-bold text-green-400 uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -47,7 +45,6 @@ const ConceptViewer: React.FC<ConceptViewerProps> = ({ concept, onChatAction, on
                 </div>
             </div>
 
-            {/* 2. Concept Blocks (Body) */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-2">
                     <BookOpen size={16} className="text-white" />
@@ -58,7 +55,6 @@ const ConceptViewer: React.FC<ConceptViewerProps> = ({ concept, onChatAction, on
                 ))}
             </div>
 
-            {/* 3. Formulas (Optional) */}
             {concept.coreFormulas && concept.coreFormulas.length > 0 && (
                 <div className="bg-[#0f0f0f] border border-white/10 rounded-2xl overflow-hidden p-6">
                     <div className="flex items-center gap-2 text-xs font-bold text-gray-300 uppercase tracking-wider mb-4">
@@ -83,7 +79,6 @@ const ConceptViewer: React.FC<ConceptViewerProps> = ({ concept, onChatAction, on
                 </div>
             )}
 
-            {/* 4. Exercises */}
             <div className="space-y-6 pt-4 border-t border-white/5">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -98,7 +93,6 @@ const ConceptViewer: React.FC<ConceptViewerProps> = ({ concept, onChatAction, on
                         <RefreshCw size={12} className={reloading ? "animate-spin" : ""} /> Reload (1 Credit)
                     </button>
                 </div>
-
                 <div className="grid gap-6">
                     {concept.examples.map((ex, idx) => (
                         <ConceptExerciseCard key={idx} example={ex} index={idx} />
@@ -119,36 +113,37 @@ const BlockCard: React.FC<BlockCardProps> = ({ block, topic }) => {
     const [loading, setLoading] = useState(false);
 
     const handleExpand = async () => {
-        if (breakdown) {
-            setBreakdown(null); // Close
-            return;
-        }
+        if (breakdown) { setBreakdown(null); return; }
         setLoading(true);
         try {
             const text = await breakdownConceptBlock(block.content, topic);
             setBreakdown(text);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
+        } catch (e) { console.error(e); } finally { setLoading(false); }
     };
 
     return (
-        <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-5 relative group transition-all hover:border-white/20">
+        <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6 relative group transition-all hover:border-white/20">
             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{block.title}</h4>
-            
-            <div className="text-sm text-gray-200 leading-relaxed mb-3">
-                <MarkdownRenderer content={block.content} mode="CONCEPT" />
-            </div>
-
-            {block.keyEquation && (
-                <div className="bg-black/40 border border-white/5 rounded-lg p-3 my-3 flex justify-center">
-                    <MarkdownRenderer content={`$$ ${block.keyEquation} $$`} mode="CONCEPT" />
+            <div className={`grid gap-8 ${block.visualMetadata ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
+                <div className="space-y-3">
+                    <div className="text-sm text-gray-200 leading-relaxed">
+                        <MarkdownRenderer content={block.content} mode="CONCEPT" />
+                    </div>
+                    {block.keyEquation && (
+                        <div className="bg-black/40 border border-white/5 rounded-lg p-3 my-3 flex justify-center">
+                            <MarkdownRenderer content={`$$ ${block.keyEquation} $$`} mode="CONCEPT" />
+                        </div>
+                    )}
                 </div>
-            )}
-
-            {/* Breakdown Toggle */}
+                {block.visualMetadata && (
+                    <div className="flex flex-col gap-4">
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                            <Layers size={12} /> Visualization
+                        </div>
+                        <VisualContainer metadata={block.visualMetadata} />
+                    </div>
+                )}
+            </div>
             <div className="relative">
                 <button 
                     onClick={handleExpand}
@@ -157,7 +152,6 @@ const BlockCard: React.FC<BlockCardProps> = ({ block, topic }) => {
                 >
                     {breakdown ? <X size={14} /> : <Plus size={14} className={loading ? "animate-pulse" : ""} />}
                 </button>
-
                 {breakdown && (
                     <div className="mt-4 pt-4 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="text-xs text-green-300 font-bold mb-2 uppercase tracking-wide">Detailed Breakdown</div>
@@ -180,7 +174,6 @@ const ConceptExerciseCard: React.FC<ConceptExerciseCardProps> = ({ example, inde
     const [activeStep, setActiveStep] = useState(0);
     const [showHint, setShowHint] = useState(false);
     const [showSolution, setShowSolution] = useState(false);
-
     const getDifficultyColor = (diff: ExampleDifficulty) => {
         switch (diff) {
             case 'BASIC': return 'text-green-400 border-green-500/30 bg-green-500/10';
@@ -189,7 +182,6 @@ const ConceptExerciseCard: React.FC<ConceptExerciseCardProps> = ({ example, inde
             default: return 'text-gray-400';
         }
     };
-
     return (
         <div className="bg-[#121212] border border-white/10 rounded-xl overflow-hidden shadow-lg">
             <div className="bg-[#181818] border-b border-white/5 px-4 py-3 flex items-center justify-between">
@@ -198,14 +190,21 @@ const ConceptExerciseCard: React.FC<ConceptExerciseCardProps> = ({ example, inde
                 </span>
                 <span className="text-[10px] font-mono text-gray-500">Ex {index + 1}</span>
             </div>
-
             <div className="p-5">
-                <div className="text-sm text-white font-medium mb-4">
-                    <MarkdownRenderer content={example.question} mode="CONCEPT" />
+                <div className={`grid gap-8 ${example.visualMetadata ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
+                    <div className="text-sm text-white font-medium">
+                        <MarkdownRenderer content={example.question} mode="CONCEPT" />
+                    </div>
+                    {example.visualMetadata && (
+                        <div className="flex flex-col gap-4">
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                                <Layers size={12} /> Illustration
+                            </div>
+                            <VisualContainer metadata={example.visualMetadata} />
+                        </div>
+                    )}
                 </div>
-
-                {/* Controls */}
-                <div className="flex gap-2 border-t border-white/5 pt-4">
+                <div className="flex gap-2 border-t border-white/5 pt-4 mt-6">
                     <button 
                         onClick={() => setShowHint(!showHint)}
                         className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${showHint ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-transparent text-gray-500 border-white/10 hover:text-white'}`}
@@ -219,24 +218,19 @@ const ConceptExerciseCard: React.FC<ConceptExerciseCardProps> = ({ example, inde
                         {showSolution ? 'Hide Solution' : 'Solve'}
                     </button>
                 </div>
-
                 {showHint && (
                     <div className="mt-3 p-3 bg-yellow-900/10 border border-yellow-500/20 rounded-lg text-xs text-gray-300 italic animate-in fade-in">
                         <MarkdownRenderer content={example.hint} mode="CONCEPT" />
                     </div>
                 )}
-
                 {showSolution && (
                     <div className="mt-6 space-y-4 animate-in slide-in-from-top-4 fade-in">
-                        {/* Brief Logic */}
                         <div className="flex gap-2 items-start bg-green-900/10 p-3 rounded border border-green-500/20 mb-4">
                             <CheckCircle2 size={12} className="text-green-400 flex-shrink-0 mt-0.5" />
                             <div className="text-[10px] text-green-200/80 leading-relaxed">
                                 <MarkdownRenderer content={example.explanation} mode="CONCEPT" />
                             </div>
                         </div>
-
-                        {/* Steps */}
                         {example.solutionSteps.map((step, idx) => (
                             <StepCard 
                                 key={idx}
@@ -249,11 +243,9 @@ const ConceptExerciseCard: React.FC<ConceptExerciseCardProps> = ({ example, inde
                                 onPrev={() => setActiveStep(idx > 0 ? idx - 1 : idx)}
                                 isFirst={idx === 0}
                                 isLast={idx === example.solutionSteps.length - 1}
-                                mode="CONCEPT" // Use Concept styling for steps
+                                mode="CONCEPT" 
                             />
                         ))}
-
-                        {/* Final Answer */}
                         <div className="bg-[#080808] p-4 rounded-lg border border-white/10 mt-4">
                             <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Final Answer</div>
                             <div className="text-sm text-white">
