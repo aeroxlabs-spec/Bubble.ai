@@ -6,8 +6,8 @@
     <title>BubbleIB — The Perfect AI Tool to Master IB Math</title>
     <meta name="description" content="Master IB Math Analysis and Approaches HL with BubbleIB. An intelligent AI tutor providing step-by-step solutions, custom exam paper generation, and adaptive practice drills powered by Google Gemini." />
     <script>
-      // Crucial: Polyfill process for browser environment to prevent crash on mount
-      window.process = window.process || { env: { API_KEY: "" } };
+      // Polyfill process for browser environments to prevent crashes in libraries that expect Node.js 'process'
+      window.process = { env: {} };
     </script>
     <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -118,6 +118,7 @@
           scrollbar-width: none;  
       }
 
+      /* JSXGraph Custom Styling to match dark mode */
       .jxgbox {
         background-color: transparent !important;
         border: none !important;
@@ -130,7 +131,6 @@
     "react/": "https://aistudiocdn.com/react@^19.2.1/",
     "react": "https://aistudiocdn.com/react@^19.2.1",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
-    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.1",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
     "react-markdown": "https://aistudiocdn.com/react-markdown@^10.1.0",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",

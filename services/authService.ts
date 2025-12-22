@@ -1,3 +1,4 @@
+
 import { User } from '../types';
 import { supabase, withTimeout, withRetry } from './supabaseClient';
 
@@ -8,9 +9,11 @@ export const authService = {
                 supabase.auth.signInWithPassword({
                     email,
                     password,
-                    options: { captchaToken }
+                    options: {
+                        captchaToken
+                    }
                 }), 
-                20000
+                20000 // 20s timeout for auth
             ) as any;
 
             if (error) throw new Error(error.message);
@@ -24,7 +27,7 @@ export const authService = {
                 hasOnboarded: data.user.user_metadata?.hasOnboarded || false
             };
         } catch (e: any) {
-            throw new Error(e.message || "Login failed.");
+            throw new Error(e.message || "Login failed due to timeout or network error.");
         }
     },
 
@@ -35,7 +38,10 @@ export const authService = {
                     email,
                     password,
                     options: {
-                        data: { full_name: name, hasOnboarded: false },
+                        data: {
+                            full_name: name,
+                            hasOnboarded: false
+                        },
                         captchaToken
                     },
                 }),
@@ -52,16 +58,20 @@ export const authService = {
                 hasOnboarded: false
             };
         } catch (e: any) {
-             throw new Error(e.message || "Signup failed.");
+             throw new Error(e.message || "Signup failed due to timeout or network error.");
         }
     },
 
     async loginWithGoogle(): Promise<void> {
         const redirectUrl = window.location.origin.replace(/\/$/, '');
+        
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
-            options: { redirectTo: redirectUrl }
+            options: {
+                redirectTo: redirectUrl
+            }
         });
+
         if (error) throw new Error(`Google Auth Error: ${error.message}`);
     },
 
@@ -69,7 +79,9 @@ export const authService = {
         try {
             const { error } = await withTimeout(supabase.auth.signOut(), 5000) as any;
             if (error) console.error("Error signing out:", error);
-        } catch (e) { }
+        } catch (e) {
+            console.warn("Logout timed out or failed locally");
+        }
     },
 
     async getCurrentUser(): Promise<User | null> {
@@ -85,19 +97,21 @@ export const authService = {
                 hasOnboarded: session.user.user_metadata?.hasOnboarded || false
             };
         } catch (e) {
+            console.error("Error getting current user:", e);
             return null;
         }
     },
 
     async completeOnboarding(): Promise<void> {
         try {
-            await withTimeout(supabase.auth.updateUser({
+            const { error } = await withTimeout(supabase.auth.updateUser({
                 data: { hasOnboarded: true }
-            }), 10000);
+            }), 10000) as any;
+            if (error) console.warn("Failed to sync onboarding:", error.message);
         } catch (e) { }
     },
 
-    // --- API Key Management (Restored) ---
+    // --- API Key Management (user_api_keys Table) ---
 
     async getGeminiKey(userId: string): Promise<string | null> {
         try {
@@ -109,45 +123,79 @@ export const authService = {
                     .eq('provider', 'gemini')
                     .maybeSingle();
             });
-            if (result.error) return null;
+            
+            if (result.error) {
+                // Ignore "zero rows" errors, only warn on actual DB errors
+                if (result.error.code !== 'PGRST116') {
+                    console.warn("Bubble DB Warning [getGeminiKey]:", result.error.message);
+                }
+                return null;
+            }
+            
             return result.data ? result.data.encrypted_key : null;
         } catch (e) {
+            console.warn("Failed to fetch key from DB:", e);
             return null;
         }
     },
 
     async saveGeminiKey(userId: string, key: string): Promise<{ success: boolean; error?: string }> {
+        console.log("Bubble: Syncing API Key to Cloud...");
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) return { success: false, error: "No active session." };
             
+            if (!session) {
+                return { success: false, error: "No active session. Please reload." };
+            }
+            
+            const sessionUserId = session.user.id;
+            if (userId !== sessionUserId) {
+                 return { success: false, error: "User mismatch. Security block." };
+            }
+
+            // Upsert: Try to insert, if conflict on (user_id, provider), update.
             const { error: upsertError } = await withRetry(async () => {
                 return await supabase
                     .from('user_api_keys')
                     .upsert({ 
-                        user_id: session.user.id, 
+                        user_id: sessionUserId, 
                         provider: 'gemini', 
                         encrypted_key: key, 
-                        is_valid: true
-                    }, { onConflict: 'user_id,provider' });
+                        is_valid: true,
+                        last_error: null
+                    }, {
+                        onConflict: 'user_id,provider' 
+                    });
             });
             
-            if (upsertError) return { success: false, error: upsertError.message };
+            if (upsertError) {
+                console.error("Bubble DB Upsert Failed:", upsertError.message);
+                return { success: false, error: `DB Save Error: ${upsertError.message}` };
+            }
+
             return { success: true };
         } catch (e: any) {
-            return { success: false, error: e.message };
+            console.error("Bubble DB Critical Error:", e.message);
+            return { success: false, error: `Sync Exception: ${e.message}` };
         }
     },
 
     async removeGeminiKey(userId: string): Promise<void> {
         try {
-            await withRetry(async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+
+            const { error } = await withRetry(async () => {
                 return await supabase
                     .from('user_api_keys')
                     .delete()
-                    .eq('user_id', userId)
+                    .eq('user_id', session.user.id)
                     .eq('provider', 'gemini');
             });
-        } catch (e) { }
+            
+            if (error) console.error("Bubble DB Error [Remove]:", error.message);
+        } catch (e: any) {
+             console.error("Bubble DB Error:", e.message);
+        }
     }
 };
