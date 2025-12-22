@@ -1,15 +1,9 @@
-
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ConceptSettings, ConceptExplanation, ConceptExample } from "../types";
 import { supabase, withTimeout } from "./supabaseClient";
 import { authService } from "./authService";
 
-// Correct initialization as per guidelines: Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
-// The API key is obtained exclusively from the environment variable process.env.API_KEY.
-const getAiClient = () => {
-    return new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-};
-
+let sessionKey: string | null = null;
 let dailyRequestLimit = 50; 
 let dailyRequestCount = 0;
 let lifetimeRequestCount = 0; 
@@ -85,8 +79,8 @@ export const getRecentLogs = () => [...apiLogs].reverse().slice(0, 20);
 
 const logRequest = (model: string, type: 'GENERATE' | 'CHAT' | 'TEST', appMode: string = 'UNKNOWN'): ApiLog => {
     incrementUsage();
-    // Use process.env.API_KEY for fingerprinting as per guidelines
-    const fingerprint = process.env.API_KEY && process.env.API_KEY.length > 8 ? "..." + process.env.API_KEY.substring(process.env.API_KEY.length - 4) : "NONE";
+    const key = getApiKey();
+    const fingerprint = key && key.length > 8 ? "..." + key.substring(key.length - 4) : "NONE";
     const logId = crypto.randomUUID();
     
     const log: ApiLog = {
@@ -118,9 +112,20 @@ const updateLogStatus = (logId: string, status: 'SUCCESS' | 'ERROR', startTime: 
     }
 };
 
-// Key management logic removed to comply with process.env.API_KEY exclusivity
 export const setSessionKey = (key: string | null) => {
-    // Deprecated: API key must be obtained exclusively from the environment variable process.env.API_KEY.
+    sessionKey = key?.trim() || null;
+};
+
+const getApiKey = () => {
+    if (sessionKey) return sessionKey;
+    const local = localStorage.getItem('bubble_user_api_key');
+    if (local && local.length > 10) return local;
+    return process.env.API_KEY || "";
+};
+
+const getAiClient = () => {
+    const apiKey = getApiKey();
+    return new GoogleGenAI({ apiKey: apiKey || "MISSING" });
 };
 
 const mapGenAIError = (error: any): string => {
@@ -247,7 +252,6 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
           },
         });
         updateLogStatus(log.id, 'SUCCESS', startTime);
-        // Direct property access to .text as per guidelines
         return JSON.parse(response.text || '{}');
       } catch (error: any) {
         updateLogStatus(log.id, 'ERROR', startTime, error.message);
@@ -258,6 +262,8 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
 
 export const generateExam = async (inputs: UserInput[], settings: ExamSettings): Promise<ExamPaper> => {
     return retryOperation(async () => {
+        const startTime = Date.now();
+        const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'EXAM');
         const client = getAiClient();
         const res = await client.models.generateContent({
             model: "gemini-3-pro-preview",
@@ -267,13 +273,15 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
                 thinkingConfig: { thinkingBudget: 32768 }
             }
         });
+        updateLogStatus(log.id, 'SUCCESS', startTime);
         return JSON.parse(res.text || '{}');
     });
 };
 
-// Fixed: Added generateDrillQuestion export
 export const generateDrillQuestion = async (settings: DrillSettings, inputs: UserInput[]): Promise<DrillQuestion> => {
     return retryOperation(async () => {
+        const startTime = Date.now();
+        const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'DRILL');
         const client = getAiClient();
         const res = await client.models.generateContent({
             model: "gemini-3-pro-preview",
@@ -284,13 +292,15 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
                 thinkingConfig: { thinkingBudget: 16000 }
             }
         });
+        updateLogStatus(log.id, 'SUCCESS', startTime);
         return JSON.parse(res.text || '{}');
     });
 };
 
-// Fixed: Added generateDrillSolution export
 export const generateDrillSolution = async (question: DrillQuestion): Promise<MathStep[]> => {
     return retryOperation(async () => {
+        const startTime = Date.now();
+        const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'DRILL');
         const client = getAiClient();
         const res = await client.models.generateContent({
             model: "gemini-3-pro-preview",
@@ -301,13 +311,15 @@ export const generateDrillSolution = async (question: DrillQuestion): Promise<Ma
                 thinkingConfig: { thinkingBudget: 16000 }
             }
         });
+        updateLogStatus(log.id, 'SUCCESS', startTime);
         return JSON.parse(res.text || '[]');
     });
 };
 
-// Implementation of generateDrillBatch
 export const generateDrillBatch = async (startNum: number, prevDiff: number, count: number, settings: DrillSettings, inputs: UserInput[]): Promise<DrillQuestion[]> => {
     return retryOperation(async () => {
+        const startTime = Date.now();
+        const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'DRILL');
         const client = getAiClient();
         const res = await client.models.generateContent({
             model: "gemini-3-pro-preview",
@@ -318,12 +330,15 @@ export const generateDrillBatch = async (startNum: number, prevDiff: number, cou
                 thinkingConfig: { thinkingBudget: 32768 }
             }
         });
+        updateLogStatus(log.id, 'SUCCESS', startTime);
         return JSON.parse(res.text || '[]');
     });
 }
 
 export const generateConceptExplanation = async (inputs: UserInput[], settings: ConceptSettings): Promise<ConceptExplanation> => {
     return retryOperation(async () => {
+        const startTime = Date.now();
+        const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'CONCEPT');
         const client = getAiClient();
         const res = await client.models.generateContent({
             model: "gemini-3-pro-preview",
@@ -333,13 +348,15 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
                 thinkingConfig: { thinkingBudget: 32768 }
             }
         });
+        updateLogStatus(log.id, 'SUCCESS', startTime);
         return JSON.parse(res.text || '{}');
     });
 };
 
-// Fixed: Added reloadConceptExamples export
 export const reloadConceptExamples = async (concept: ConceptExplanation): Promise<ConceptExample[]> => {
     return retryOperation(async () => {
+        const startTime = Date.now();
+        const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'CONCEPT');
         const client = getAiClient();
         const res = await client.models.generateContent({
             model: "gemini-3-pro-preview",
@@ -350,6 +367,7 @@ export const reloadConceptExamples = async (concept: ConceptExplanation): Promis
                 thinkingConfig: { thinkingBudget: 16000 }
             }
         });
+        updateLogStatus(log.id, 'SUCCESS', startTime);
         return JSON.parse(res.text || '[]');
     });
 };
