@@ -1,13 +1,25 @@
-import { GoogleGenAI, Type, Schema, GenerateContentResponse } from "@google/genai";
+
+import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { MathSolution, MathStep, UserInput, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty, ConceptSettings, ConceptExplanation, ConceptExample } from "../types";
 import { supabase, withTimeout } from "./supabaseClient";
 import { authService } from "./authService";
 
 /**
- * Initialize the Google GenAI client once using the pre-configured environment variable.
- * The API key is obtained exclusively from process.env.API_KEY as required by the guidelines.
+ * Local interface for Gemini response schema, as 'Schema' is not a named export in the current @google/genai SDK.
  */
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+interface ResponseSchema {
+    type: Type;
+    properties?: Record<string, any>;
+    required?: string[];
+    items?: any;
+    description?: string;
+    enum?: string[];
+}
+
+/**
+ * Initialize the Google GenAI client once using the pre-configured environment variable.
+ */
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 
 let dailyRequestLimit = 50; 
 let dailyRequestCount = 0;
@@ -256,7 +268,7 @@ const mapGenAIError = (error: any): string => {
     return `Error: ${error.message?.substring(0, 150) || "Unknown error occurred"}`;
 };
 
-const visualMetadataSchema: Schema = {
+const visualMetadataSchema: ResponseSchema = {
     type: Type.OBJECT,
     properties: {
         type: { type: Type.STRING, enum: ['desmos', 'jsxgraph'] },
@@ -265,7 +277,7 @@ const visualMetadataSchema: Schema = {
     required: ["type", "data"]
 };
 
-const mathStepSchema: Schema = {
+const mathStepSchema: ResponseSchema = {
     type: Type.OBJECT,
     properties: {
         section: { type: Type.STRING },
@@ -277,7 +289,7 @@ const mathStepSchema: Schema = {
     required: ["section", "title", "explanation", "keyEquation"]
 };
 
-const mathSolutionSchema: Schema = {
+const mathSolutionSchema: ResponseSchema = {
   type: Type.OBJECT,
   properties: {
     exerciseStatement: {
@@ -301,7 +313,7 @@ const mathSolutionSchema: Schema = {
   required: ["exerciseStatement", "problemSummary", "steps", "finalAnswer"],
 };
 
-const examPaperSchema: Schema = {
+const examPaperSchema: ResponseSchema = {
   type: Type.OBJECT,
   properties: {
     title: { type: Type.STRING },
@@ -340,7 +352,7 @@ const examPaperSchema: Schema = {
   required: ["title", "totalMarks", "duration", "sections"]
 };
 
-const drillQuestionSchema: Schema = {
+const drillQuestionSchema: ResponseSchema = {
   type: Type.OBJECT,
   properties: {
     topic: { type: Type.STRING },
@@ -354,7 +366,7 @@ const drillQuestionSchema: Schema = {
   required: ["topic", "difficultyLevel", "questionText", "shortAnswer", "hint", "calculatorAllowed"]
 };
 
-const drillSolutionSchema: Schema = {
+const drillSolutionSchema: ResponseSchema = {
     type: Type.OBJECT,
     properties: {
         steps: {
@@ -365,7 +377,7 @@ const drillSolutionSchema: Schema = {
     required: ["steps"]
 };
 
-const conceptExplanationSchema: Schema = {
+const conceptExplanationSchema: ResponseSchema = {
     type: Type.OBJECT,
     properties: {
         topicTitle: { type: Type.STRING },
@@ -404,7 +416,7 @@ const conceptExplanationSchema: Schema = {
     required: ["topicTitle", "introduction", "conceptBlocks", "examples"]
 };
 
-const exampleReloadSchema: Schema = {
+const exampleReloadSchema: ResponseSchema = {
     type: Type.ARRAY,
     items: {
         type: Type.OBJECT,
@@ -421,7 +433,7 @@ const exampleReloadSchema: Schema = {
     }
 };
 
-const questionValidationSchema: Schema = {
+const questionValidationSchema: ResponseSchema = {
     type: Type.OBJECT,
     properties: {
         id: { type: Type.STRING },
@@ -504,7 +516,7 @@ export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> 
         const response = await ai.models.generateContent({
           model: "gemini-3-pro-preview", 
           contents: { parts },
-          config: { responseMimeType: "application/json", responseSchema: mathSolutionSchema },
+          config: { responseMimeType: "application/json", responseSchema: mathSolutionSchema as any },
         });
         const text = response.text;
         if (!text) throw new Error("Empty response from AI service.");
@@ -537,7 +549,7 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
         const response = await ai.models.generateContent({
             model: "gemini-3-pro-preview",
             contents: { parts },
-            config: { responseMimeType: "application/json", responseSchema: examPaperSchema, temperature: 0.7 },
+            config: { responseMimeType: "application/json", responseSchema: examPaperSchema as any, temperature: 0.7 },
         });
         const text = response.text;
         if (!text) throw new Error("AI returned empty content.");
@@ -566,7 +578,7 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
             const response = await ai.models.generateContent({
                 model: "gemini-3-pro-preview", 
                 contents: { parts },
-                config: { responseMimeType: "application/json", responseSchema: drillQuestionSchema, temperature: 0.8 },
+                config: { responseMimeType: "application/json", responseSchema: drillQuestionSchema as any, temperature: 0.8 },
             });
             const text = response.text;
             if (!text) throw new Error("AI returned empty content.");
@@ -603,7 +615,7 @@ export const generateDrillSolution = async (question: DrillQuestion): Promise<Ma
             const response = await ai.models.generateContent({
                 model: "gemini-3-pro-preview",
                 contents: { parts: [{ text: prompt }] },
-                config: { responseMimeType: "application/json", responseSchema: drillSolutionSchema, temperature: 0.5 }
+                config: { responseMimeType: "application/json", responseSchema: drillSolutionSchema as any, temperature: 0.5 }
             });
             const text = response.text;
             if (!text) throw new Error("Failed to generate solution");
@@ -637,7 +649,7 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
             const response = await ai.models.generateContent({
                 model: "gemini-3-pro-preview",
                 contents: { parts },
-                config: { responseMimeType: "application/json", responseSchema: conceptExplanationSchema, temperature: 0.4 }
+                config: { responseMimeType: "application/json", responseSchema: conceptExplanationSchema as any, temperature: 0.4 }
             });
             const text = response.text;
             if (!text) throw new Error("Empty AI response");
@@ -678,7 +690,7 @@ export const reloadConceptExamples = async (currentExplanation: ConceptExplanati
             const response = await ai.models.generateContent({
                 model: "gemini-3-pro-preview",
                 contents: { parts: [{ text: prompt }] },
-                config: { responseMimeType: "application/json", responseSchema: exampleReloadSchema, temperature: 0.7 }
+                config: { responseMimeType: "application/json", responseSchema: exampleReloadSchema as any, temperature: 0.7 }
             });
             const text = response.text;
             if (!text) throw new Error("Empty response");
@@ -728,7 +740,7 @@ export const getStepBreakdown = async (step: MathStep, context: string): Promise
             contents: { parts: [{ text: `Breakdown step: ${step.title}` }] },
              config: {
                 responseMimeType: "application/json",
-                responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } }
+                responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } as any
             }
         }), 25000) as GenerateContentResponse;
         updateLogStatus(log.id, 'SUCCESS', startTime);

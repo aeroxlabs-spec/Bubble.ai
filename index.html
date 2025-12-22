@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en" class="dark">
   <head>
@@ -7,7 +8,12 @@
     <meta name="description" content="Master IB Math Analysis and Approaches HL with BubbleIB. An intelligent AI tutor providing step-by-step solutions, custom exam paper generation, and adaptive practice drills powered by Google Gemini." />
     <script>
       // Polyfill process for browser environments to prevent crashes in libraries that expect Node.js 'process'
-      window.process = { env: {} };
+      window.process = window.process || { env: {} };
+      window.process.env = window.process.env || {};
+      // Ensure API_KEY is at least an empty string to avoid crashes during SDK initialization
+      if (!window.process.env.API_KEY) {
+        window.process.env.API_KEY = "";
+      }
     </script>
     <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
