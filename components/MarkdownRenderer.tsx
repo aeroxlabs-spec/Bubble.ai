@@ -9,7 +9,7 @@ interface MarkdownRendererProps {
   content: string;
   className?: string;
   theme?: 'dark' | 'light';
-  mode?: 'SOLVER' | 'EXAM' | 'DRILL' | 'CONCEPT';
+  mode?: 'SOLVER' | 'EXAM' | 'DRILL';
 }
 
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '', theme = 'dark', mode = 'SOLVER' }) => {
@@ -26,6 +26,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
           codeBg: 'bg-blue-900/10',
           th: 'text-blue-400',
           
+          // Light theme fallbacks (if needed)
           mathLight: 'text-blue-700',
           codeTextLight: 'text-blue-800',
           codeBgLight: 'bg-blue-100'
@@ -55,19 +56,6 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
           mathLight: 'text-purple-700',
           codeTextLight: 'text-purple-800',
           codeBgLight: 'bg-purple-100'
-      },
-      CONCEPT: {
-          bold: 'text-green-300',
-          header: 'text-green-100',
-          math: 'text-green-400',
-          mathBg: 'bg-transparent',
-          codeText: 'text-green-200',
-          codeBg: 'bg-green-900/10',
-          th: 'text-green-400',
-
-          mathLight: 'text-green-700',
-          codeTextLight: 'text-green-800',
-          codeBgLight: 'bg-green-100'
       }
   };
 
@@ -103,10 +91,10 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
                 )
             },
             
-            // Error handling: If span has katex-error, return null (hide it)
+            // Error spans
             span: ({node, className, children, ...props}) => {
-                if (className?.includes('katex-error') || className?.includes('error')) {
-                    return null;
+                if (className?.includes('katex-error')) {
+                    return <span className="text-red-500 font-mono text-[10px]" title={`${children}`}>[Math Syntax Error]</span>
                 }
                 return <span className={className} {...props}>{children}</span>
             },

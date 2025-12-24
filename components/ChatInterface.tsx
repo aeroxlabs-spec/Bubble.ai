@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText, Zap, GraduationCap, Minus, Lightbulb } from 'lucide-react';
-import { ChatMessage, MathSolution, DrillQuestion, AppMode, ConceptExplanation } from '../types';
+import { Send, Pen, ChevronRight, ArrowRightLeft, ScrollText, Zap, GraduationCap } from 'lucide-react';
+import { ChatMessage, MathSolution, DrillQuestion, AppMode } from '../types';
 import { createChatSession } from '../services/geminiService';
 import MarkdownRenderer from './MarkdownRenderer';
 import { Chat } from '@google/genai';
@@ -8,14 +9,12 @@ import { Chat } from '@google/genai';
 interface ChatInterfaceProps {
   solution?: MathSolution;
   drillQuestion?: DrillQuestion;
-  concept?: ConceptExplanation;
   currentStepIndex: number;
   isOpen: boolean;
   onClose: () => void;
   activeView: 'steps' | 'markscheme';
   mode: AppMode;
-  userName: string; 
-  initialPrompt?: string; // New prop for programmatic triggering
+  userName: string; // Add userName prop
 }
 
 type ChatScope = 'FULL' | 'STEP';
@@ -82,7 +81,7 @@ const ThinkingIndicator = () => {
 };
 
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, concept, currentStepIndex, isOpen, onClose, activeView, mode, userName, initialPrompt }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, currentStepIndex, isOpen, onClose, activeView, mode, userName }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -97,14 +96,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
     setHasStarted(false);
     setActiveScope('FULL');
     chatSessionRef.current = null;
-  }, [solution, drillQuestion, concept]);
-
-  // Handle external prompts (e.g., from Concept Viewer actions)
-  useEffect(() => {
-      if (isOpen && initialPrompt && !isLoading && !hasStarted) {
-          handleSendMessage(initialPrompt);
-      }
-  }, [isOpen, initialPrompt]);
+  }, [solution, drillQuestion]);
 
   useEffect(() => {
       if (mode === 'SOLVER' && activeView === 'markscheme') {
@@ -132,26 +124,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
     let baseContext = "";
     let focusInstruction = "";
 
-    if (mode === 'CONCEPT' && concept) {
-        baseContext = `
-            Active Concept Session:
-            Topic: "${concept.topicTitle}"
-            --
-            Definition: ${concept.introduction}
-            --
-            Theory Blocks: ${JSON.stringify(concept.conceptBlocks.map(b => b.title + ': ' + b.content))}
-            --
-            Key Formulas: ${concept.coreFormulas?.join(', ')}
-        `;
-        focusInstruction = `\nROLE: You are an elite IB Math AA HL Examiner.
-        TASK: Clarify the concept "${concept.topicTitle}" with extreme precision.
-        GUIDELINES:
-        1. Correct any notation errors if the user makes them.
-        2. Link concepts to specific IB syllabus topics (e.g., Topic 3: Geometry and Trigonometry).
-        3. Provide "Exam Tips" or warn about "Common Pitfalls" (e.g., domain restrictions, calculator settings) when relevant.
-        4. Be concise but rigorous.`;
-
-    } else if (mode === 'DRILL' && drillQuestion) {
+    if (mode === 'DRILL' && drillQuestion) {
         baseContext = `
             Drill Context:
             Question: ${drillQuestion.questionText}
@@ -174,7 +147,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
         `;
 
         if (activeView === 'markscheme') {
-            focusInstruction = `\nROLE: You are an expert IB Math Examiner. User: ${userName}.
+            focusInstruction = `\nROLE: You are an expert IB Math AA HL Examiner. User: ${userName}.
             CONTEXT: The user is viewing the MARKSCHEME tab.
             TASK: Interpret the "Markscheme Content" provided. Explain why marks (M1, A1, R1, AG) are awarded.
             INSTRUCTION: Focus mainly on the grading logic. If the user asks for a solution, show how it earns specific marks based on the scheme.`;
@@ -208,9 +181,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
     try {
       let contextPreamble = "";
       
-      if (mode === 'CONCEPT') {
-          contextPreamble = `[System: User is asking about the Concept Explanation.]`;
-      } else if (mode === 'DRILL') {
+      if (mode === 'DRILL') {
           contextPreamble = `[System: User is asking about the Drill Question.]`;
       } else if (mode === 'SOLVER' && solution) {
           if (activeView === 'markscheme') {
@@ -248,7 +219,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
   };
 
   const toggleScope = () => {
-      if (activeView === 'markscheme' || mode === 'DRILL' || mode === 'CONCEPT') return;
+      if (activeView === 'markscheme' || mode === 'DRILL') return;
       
       const newScope = activeScope === 'FULL' ? 'STEP' : 'FULL';
       initializeChat(newScope);
@@ -262,9 +233,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
   }
 
   let suggestions: string[] = [];
-  if (mode === 'CONCEPT') {
-      suggestions = ["Give me another example", "Explain the formula again", "How is this used in real life?"];
-  } else if (mode === 'DRILL') {
+  if (mode === 'DRILL') {
       suggestions = ["I'm stuck, give me a hint", "What topic is this?", "Show me the first step"];
   } else if (activeView === 'markscheme') {
       suggestions = ["Explain M1 marks", "Why A1 here?", "Show alternative method"];
@@ -274,41 +243,27 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
 
   return (
     <div 
-      className={`fixed bottom-0 sm:bottom-24 left-0 sm:left-auto right-0 sm:right-6 w-full sm:w-[375px] h-[85vh] sm:h-[540px] max-h-[90vh] sm:max-h-[75vh] z-40 flex flex-col font-sans transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] sm:rounded-[1.25rem] rounded-t-3xl shadow-2xl sm:origin-bottom-right
+      className={`fixed bottom-24 right-6 w-[375px] h-[540px] max-h-[75vh] z-40 flex flex-col font-sans origin-bottom-right transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]
         ${isOpen 
-            ? 'opacity-100 translate-y-0 pointer-events-auto sm:translate-y-0 sm:scale-100 sm:opacity-100' 
-            : 'opacity-0 translate-y-full pointer-events-none sm:scale-75 sm:opacity-0 sm:translate-y-6 sm:translate-x-4'
+            ? 'opacity-100 scale-100 translate-y-0 translate-x-0 pointer-events-auto rounded-[1.25rem]' 
+            : 'opacity-0 scale-75 translate-y-6 translate-x-4 pointer-events-none rounded-[2rem]'
         }`}
     >
-      {/* Frosted Glass Background */}
-      <div className="absolute inset-0 bg-black/80 sm:bg-black/20 backdrop-blur-3xl rounded-t-3xl sm:rounded-[1.25rem] border-t sm:border border-white/10 shadow-2xl flex flex-col supports-[backdrop-filter]:bg-black/40" />
+      {/* Frosted Glass Background - Very translucent */}
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-3xl rounded-[1.25rem] border border-white/10 shadow-2xl flex flex-col supports-[backdrop-filter]:bg-black/10" />
       
-      <div className="relative flex flex-col h-full z-10 overflow-hidden rounded-t-3xl sm:rounded-[1.25rem]">
+      <div className="relative flex flex-col h-full z-10 overflow-hidden rounded-[1.25rem]">
         
-        {/* Mobile Drag Handle */}
-        <div className="sm:hidden w-full flex justify-center pt-3 pb-1 cursor-pointer bg-transparent" onClick={onClose}>
-            <div className="w-12 h-1 bg-white/20 rounded-full" />
-        </div>
-
         {/* Header */}
-        <div className="flex-shrink-0 px-5 py-3 sm:py-4 flex items-center justify-between border-b border-white/5 bg-white/5 backdrop-blur-sm">
+        <div className="flex-shrink-0 px-5 py-4 flex items-center justify-between border-b border-white/5 bg-white/5 backdrop-blur-sm">
           <div className="flex items-center gap-2">
              <div className={`transition-all duration-500 ease-in-out flex items-center overflow-hidden ${messages.length > 0 ? 'w-5 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-4'}`}>
-                {mode === 'DRILL' ? <Zap size={16} className="text-yellow-400" /> : 
-                 mode === 'CONCEPT' ? <Lightbulb size={16} className="text-green-400" /> :
-                 <Pen size={16} className="text-blue-400 flex-shrink-0" />}
+                {mode === 'DRILL' ? <Zap size={16} className="text-yellow-400" /> : <Pen size={16} className="text-blue-400 flex-shrink-0" />}
              </div>
-             <span className="text-white font-sans font-bold text-lg tracking-tighter">BubbleIB</span>
+             <span className="text-white font-sans font-bold text-lg tracking-tighter">Bubble.</span>
           </div>
           
-          {mode === 'CONCEPT' ? (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 border border-green-500/30 shadow-[0_0_10px_rgba(34,197,94,0.1)]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.8)]"></div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-green-200">
-                      AI Tutor
-                  </span>
-              </div>
-          ) : mode === 'DRILL' ? (
+          {mode === 'DRILL' ? (
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 border border-yellow-500/30 shadow-[0_0_10px_rgba(234,179,8,0.1)]">
                   <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 shadow-[0_0_5px_rgba(234,179,8,0.8)]"></div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-200">
@@ -348,38 +303,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                   <div className="animate-bounce duration-[3000ms] ease-in-out">
                      {mode === 'DRILL' 
                         ? <Zap size={24} className="text-yellow-400 fill-yellow-500/20" /> 
-                        : mode === 'CONCEPT'
-                            ? <Lightbulb size={24} className="text-green-400 fill-green-500/20" />
-                            : <Pen size={22} className="text-blue-400 transform -rotate-12" />
+                        : <Pen size={22} className="text-blue-400 transform -rotate-12" />
                      }
                   </div>
 
                   {!hasStarted ? (
-                      mode === 'CONCEPT' ? (
-                          <>
-                            <div className="text-center space-y-1">
-                                <h3 className="text-lg font-bold text-white tracking-tight">Hello, {userName}</h3>
-                                <p className="text-gray-500 text-xs px-4">Have questions about this concept?</p>
-                            </div>
-                            <div className="w-full px-4">
-                                 <button 
-                                    onClick={() => initializeChat('FULL')}
-                                    className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-green-500/10 border border-white/10 hover:border-green-500/30 rounded-xl transition-all group text-left shadow-[0_0_15px_rgba(34,197,94,0.05)]"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className="bg-green-500/10 p-2 rounded-lg text-green-400 border border-green-500/20">
-                                            <GraduationCap size={18} />
-                                        </div>
-                                        <div>
-                                            <div className="text-green-200 font-semibold text-sm">Ask Tutor</div>
-                                            <div className="text-gray-500 text-xs">Deepen your understanding</div>
-                                        </div>
-                                    </div>
-                                    <ChevronRight size={16} className="text-gray-600 group-hover:text-green-400 transition-colors" />
-                                </button>
-                            </div>
-                          </>
-                      ) : mode === 'DRILL' ? (
+                      mode === 'DRILL' ? (
                           <>
                             <div className="text-center space-y-1">
                                 <h3 className="text-lg font-bold text-white tracking-tight">Hello, {userName}</h3>
@@ -463,9 +392,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                       <div className="text-center space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                          <h3 className="text-lg font-bold text-white">I'm ready to help, {userName}.</h3>
                          <p className="text-gray-500 text-xs px-6 leading-relaxed">
-                            {mode === 'CONCEPT'
-                                ? <span>Ask me to clarify examples or expand on the theory.</span>
-                                : mode === 'DRILL'
+                            {mode === 'DRILL'
                                 ? <span>Practice mode active. I'll provide <b>hints</b> without spoiling the answer.</span>
                                 : activeView === 'markscheme'
                                     ? <span>Context set to <b>Markscheme</b>. Ask about specific marks or method points.</span>
@@ -485,8 +412,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                             className={`text-[10px] px-3 py-1.5 rounded-full border bg-white/5 backdrop-blur-sm transition-colors cursor-pointer ${
                                 mode === 'DRILL'
                                 ? 'text-gray-400 hover:text-yellow-400 border-white/5 hover:border-yellow-500/30'
-                                : mode === 'CONCEPT'
-                                ? 'text-gray-400 hover:text-green-400 border-white/5 hover:border-green-500/30'
                                 : 'text-gray-400 hover:text-blue-400 border-white/5 hover:border-blue-500/30'
                             }`}
                           >
@@ -501,9 +426,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                 <div className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed border shadow-sm backdrop-blur-md ${
                     msg.role === 'user' 
                     ? (mode === 'DRILL' 
-                        ? 'bg-yellow-900/40 border-yellow-500/20 text-yellow-100 rounded-br-sm'
-                        : mode === 'CONCEPT'
-                        ? 'bg-green-900/40 border-green-500/20 text-green-100 rounded-br-sm'
+                        ? 'bg-yellow-900/40 border-yellow-500/20 text-yellow-100 rounded-br-sm' 
                         : 'bg-blue-600/20 border-blue-500/20 text-blue-100 rounded-br-sm'
                     ) 
                     : 'bg-white/10 text-gray-200 border-white/5 rounded-bl-sm'
@@ -527,8 +450,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                         <div className="animate-[bounce_1s_infinite]">
                             {mode === 'DRILL' ? (
                                 <Zap size={14} className="text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]" />
-                            ) : mode === 'CONCEPT' ? (
-                                <Lightbulb size={14} className="text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
                             ) : activeView === 'markscheme' ? (
                                 <ScrollText size={14} className="text-blue-400 drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
                             ) : (
@@ -536,9 +457,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
                             )}
                         </div>
                         <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-0.5 rounded-[100%] blur-[1px] animate-pulse ${
-                             mode === 'DRILL' ? 'bg-yellow-500/50' : 
-                             mode === 'CONCEPT' ? 'bg-green-500/50' :
-                             'bg-blue-500/50'
+                             mode === 'DRILL' ? 'bg-yellow-500/50' : 'bg-blue-500/50'
                         }`} />
                    </div>
                    <ThinkingIndicator />
@@ -548,12 +467,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 bg-white/5 backdrop-blur-md border-t border-white/5 flex flex-col p-3 pb-6 sm:pb-3">
+        <div className="flex-shrink-0 bg-white/5 backdrop-blur-md border-t border-white/5 flex flex-col p-3">
           <div className={`flex items-center gap-2 bg-black/20 rounded-full border border-white/10 transition-colors ${
               mode === 'DRILL' 
               ? 'focus-within:border-yellow-500/30'
-              : mode === 'CONCEPT'
-              ? 'focus-within:border-green-500/30'
               : 'focus-within:border-blue-500/30'
           }`}>
               <input
@@ -570,8 +487,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ solution, drillQuestion, 
               className={`p-2 mr-1 rounded-full transition-colors disabled:opacity-50 disabled:hover:bg-transparent ${
                   mode === 'DRILL' 
                   ? 'text-yellow-400 hover:bg-yellow-500/10' 
-                  : mode === 'CONCEPT'
-                  ? 'text-green-400 hover:bg-green-500/10'
                   : 'text-blue-400 hover:bg-blue-500/10'
               }`}
               >

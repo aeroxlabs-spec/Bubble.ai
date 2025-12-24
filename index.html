@@ -1,29 +1,15 @@
-
 <!DOCTYPE html>
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>BubbleIB — The Perfect AI Tool to Master IB Math</title>
-    <meta name="description" content="Master IB Math Analysis and Approaches HL with BubbleIB. An intelligent AI tutor providing step-by-step solutions, custom exam paper generation, and adaptive practice drills powered by Google Gemini." />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bubble.</title>
     <script>
       // Polyfill process for browser environments to prevent crashes in libraries that expect Node.js 'process'
-      window.process = window.process || { env: {} };
-      window.process.env = window.process.env || {};
-      // Ensure API_KEY is at least an empty string to avoid crashes during SDK initialization
-      if (!window.process.env.API_KEY) {
-        window.process.env.API_KEY = "";
-      }
+      window.process = { env: {} };
     </script>
-    <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
-    
-    <!-- Visual Representation Libraries -->
-    <script src="https://www.desmos.com/api/v1.10/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
-    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/jsxgraph/distrib/jsxgraph.css" />
-    <script type="text/javascript" charset="UTF-8" src="https://cdn.jsdelivr.net/npm/jsxgraph/distrib/jsxgraphcore.js"></script>
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap" rel="stylesheet">
@@ -34,6 +20,7 @@
         theme: {
           extend: {
             fontFamily: {
+              // Override sans to use the monospace stack so it becomes the global default
               sans: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', '"Liberation Mono"', '"Courier New"', 'monospace'],
               mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', '"Liberation Mono"', '"Courier New"', 'monospace'],
               handwriting: ['"Indie Flower"', 'cursive'],
@@ -44,12 +31,14 @@
                 800: '#222222',
                 700: '#333333',
               },
+              // Custom muted blue palette
               blue: {
-                400: '#60a5fa', 
-                500: '#3b82f6', 
-                600: '#2563eb', 
-                muted: '#334155', 
-                subtle: '#1e293b', 
+                400: '#60a5fa', // Keep for highlights
+                500: '#3b82f6', // Keep for glow
+                600: '#2563eb', // Standard
+                // Overrides for less vibrant fills
+                muted: '#334155', // Slate-700ish
+                subtle: '#1e293b', // Slate-800ish
               }
             }
           }
@@ -58,31 +47,25 @@
     </script>
     <style>
       html {
-        font-size: 90%; 
-        -webkit-tap-highlight-color: transparent;
+        font-size: 92.5%; /* Global scale down further */
       }
-      
-      @media (max-width: 640px) {
-        html {
-          font-size: 85%; 
-        }
-      }
-
       body {
+        /* Set base font to monospace stack */
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         background-color: #000000;
         color: #ffffff;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
-        overflow-x: hidden;
       }
       
+      /* Math Display Tweaks */
       .math-display {
         overflow-x: auto;
         padding: 0.5rem 0;
-        min-height: 2em;
+        min-height: 2em; /* Ensure height for taller symbols */
       }
       
+      /* Ensure KaTeX display mode doesn't add huge margins that mess up our centering */
       .katex-display {
         margin: 0.5em 0 !important;
         padding: 0.5em 0;
@@ -90,11 +73,13 @@
         overflow-y: hidden;
       }
       
+      /* Prevent clipping of tall math symbols (sums, integrals) */
       .katex-html {
         padding-top: 4px;
         padding-bottom: 4px;
       }
       
+      /* Custom Scrollbar Styles */
       ::-webkit-scrollbar {
         height: 8px;
         width: 8px;
@@ -104,31 +89,16 @@
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb {
-        background: #334155; 
+        background: #334155; /* Slate-700 */
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #3b82f6; 
+        background: #3b82f6; /* Blue-500 */
       }
+      /* Firefox */
       * {
         scrollbar-width: thin;
         scrollbar-color: #334155 rgba(255, 255, 255, 0.05);
-      }
-      
-      .no-scrollbar::-webkit-scrollbar {
-          display: none;
-      }
-
-      .no-scrollbar {
-          -ms-overflow-style: none;  
-          scrollbar-width: none;  
-      }
-
-      /* JSXGraph Custom Styling to match dark mode */
-      .jxgbox {
-        background-color: transparent !important;
-        border: none !important;
-        border-radius: 12px;
       }
     </style>
   <script type="importmap">

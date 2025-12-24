@@ -1,56 +1,51 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { runConnectivityTest, getRecentLogs, ApiLog, updateDailyLimit, getDailyUsage, runDeepSystemCheck, SystemHealthReport } from '../services/geminiService';
-import { Key, ExternalLink, ShieldCheck, X, Trash2, Loader2, AlertTriangle, CheckCircle, Activity, Zap, CreditCard, PieChart, Info, Cloud, Server, Database, Globe, Lock, User, RefreshCw, HardDrive } from 'lucide-react';
+import { runConnectivityTest, getRecentLogs, ApiLog, updateDailyLimit, getDailyUsage } from '../services/geminiService';
+import { Key, ExternalLink, ShieldCheck, X, Trash2, Loader2, AlertTriangle, CheckCircle, Activity, Zap, CreditCard, PieChart, Info } from 'lucide-react';
 
 interface ApiKeyModalProps {
     isOpen: boolean;
     onClose: () => void;
     forced?: boolean; 
-    initialTab?: 'SETTINGS' | 'HEALTH';
 }
 
-const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = false, initialTab = 'SETTINGS' }) => {
-    const { userApiKey, updateApiKey, credits, useCredits, isCloudSynced, user } = useAuth();
-    const [activeTab, setActiveTab] = useState<'SETTINGS' | 'HEALTH' | 'LIMITS'>(initialTab);
+const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = false }) => {
+    const { userApiKey, updateApiKey, credits, useCredits } = useAuth();
+    const [activeTab, setActiveTab] = useState<'SETTINGS' | 'DIAGNOSTICS' | 'LIMITS'>('SETTINGS');
     const [inputKey, setInputKey] = useState(userApiKey);
     const [status, setStatus] = useState<'IDLE' | 'VERIFYING' | 'VALID' | 'INVALID'>('IDLE');
     const [errorMsg, setErrorMsg] = useState('');
     
     // Diagnostics State
     const [logs, setLogs] = useState<ApiLog[]>([]);
-    const [healthReport, setHealthReport] = useState<SystemHealthReport | null>(null);
-    const [isRunningDeepCheck, setIsRunningDeepCheck] = useState(false);
+    const [isRunningTest, setIsRunningTest] = useState(false);
 
     // Limits State
     const [dailyLimit, setDailyLimit] = useState(50);
     const [dailyUsage, setDailyUsage] = useState(0);
 
     useEffect(() => {
-        // Sync local input with global state only when opening or if global state changes externally
+        setInputKey(userApiKey || "");
+        setStatus('IDLE');
+        setErrorMsg('');
         if (isOpen) {
-             setInputKey(userApiKey || "");
-        }
-    }, [userApiKey, isOpen]);
-
-    useEffect(() => {
-        if (isOpen) {
-            setInputKey(userApiKey || "");
-            setStatus('IDLE');
-            setErrorMsg('');
             setLogs(getRecentLogs());
             const usage = getDailyUsage();
             setDailyLimit(usage.limit);
             setDailyUsage(usage.count);
-            setActiveTab(initialTab);
         }
-    }, [isOpen, initialTab]);
+    }, [userApiKey, isOpen]);
 
     useEffect(() => {
-        if (isOpen && activeTab === 'HEALTH') {
-             handleRunDeepCheck();
+        let interval: ReturnType<typeof setInterval>;
+        if (isOpen && activeTab === 'DIAGNOSTICS') {
+            setLogs(getRecentLogs());
+            interval = setInterval(() => {
+                setLogs(getRecentLogs());
+            }, 1000);
         }
+        return () => clearInterval(interval);
     }, [isOpen, activeTab]);
 
     const handleUpdateLimit = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,65 +69,42 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
         setErrorMsg('');
 
         try {
-            // 1. Update Context & Save to DB
-            // If this throws, it means DB save failed (network/auth issue)
             await updateApiKey(cleanedKey); 
+            const success = await runConnectivityTest();
 
-            // 2. Test Connectivity
-            // If this throws, the key is invalid or API is down
-            await runConnectivityTest();
-
-            setStatus('VALID');
-            setTimeout(() => {
-                if (!forced) onClose();
-            }, 1000);
-
+            if (success) {
+                setStatus('VALID');
+                setTimeout(() => {
+                    if (!forced) onClose();
+                }, 1000);
+            }
         } catch (e: any) {
             console.error("Key verification failed", e);
             setStatus('INVALID');
-            // e.message comes from mapGenAIError now, so it should be precise
-            setErrorMsg(e.message || "Connection failed. Please check key.");
+            setErrorMsg("Connection failed. Check key validity.");
         }
     };
 
-    const handleRunDeepCheck = async () => {
-        setIsRunningDeepCheck(true);
-        setHealthReport(null);
+    const handleRunTest = async () => {
+        if (!userApiKey && credits <= 0) return;
+        setIsRunningTest(true);
         try {
-            const report = await runDeepSystemCheck();
-            setHealthReport(report);
+            await runConnectivityTest();
+            setLogs(getRecentLogs());
         } catch (e) {
             console.error(e);
         } finally {
-            setIsRunningDeepCheck(false);
+            setIsRunningTest(false);
         }
     };
 
     const handleRemove = async () => {
         if (confirm("Remove key? You will revert to using credits (if available).")) {
-            // Explicitly clear input and status immediately
+            await updateApiKey("");
             setInputKey("");
             setStatus('IDLE');
-            setErrorMsg("");
-            
-            try {
-                // Update global state
-                await updateApiKey("");
-            } catch (e: any) {
-                setErrorMsg(`Failed to remove key: ${e.message}`);
-            }
         }
     };
-
-    const StatusBadge = ({ status }: { status: 'PASS' | 'FAIL' | 'WARN' }) => (
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-            status === 'PASS' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
-            status === 'FAIL' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
-            'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
-        }`}>
-            {status}
-        </span>
-    );
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-in fade-in duration-300">
@@ -160,17 +132,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
                                 : 'border-transparent text-gray-500 hover:text-gray-300'
                             }`}
                         >
-                            Credentials
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('HEALTH')}
-                            className={`pb-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${
-                                activeTab === 'HEALTH' 
-                                ? 'border-white text-white' 
-                                : 'border-transparent text-gray-500 hover:text-gray-300'
-                            }`}
-                        >
-                            Status
+                            API Credentials
                         </button>
                         <button 
                             onClick={() => setActiveTab('LIMITS')}
@@ -181,6 +143,16 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
                             }`}
                         >
                             Limits
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('DIAGNOSTICS')}
+                            className={`pb-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${
+                                activeTab === 'DIAGNOSTICS' 
+                                ? 'border-white text-white' 
+                                : 'border-transparent text-gray-500 hover:text-gray-300'
+                            }`}
+                        >
+                            Diagnostics
                         </button>
                     </div>
                 </div>
@@ -227,12 +199,8 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
                                         >
                                             Get Key <ExternalLink size={10} />
                                         </a>
-                                        {inputKey && !forced && (
-                                            <button 
-                                                type="button" 
-                                                onClick={handleRemove} 
-                                                className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 transition-colors"
-                                            >
+                                        {userApiKey && !forced && (
+                                            <button onClick={handleRemove} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 transition-colors">
                                                 <Trash2 size={10} /> Revoke
                                             </button>
                                         )}
@@ -256,22 +224,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
                                 </div>
 
                                 {errorMsg && (
-                                    <div className="bg-red-900/10 border border-red-500/20 rounded-lg p-3 animate-in fade-in slide-in-from-top-2">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <AlertTriangle size={12} className="text-red-500" />
-                                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Validation Error</span>
-                                        </div>
-                                        <p className="text-red-400 text-xs font-mono break-words leading-relaxed">{errorMsg}</p>
-                                        {errorMsg.includes("Access Denied") && (
-                                            <p className="text-gray-400 text-xs mt-2 italic">Tip: If this is a newly created key, it may take 2-5 minutes to propagate through Google's systems.</p>
-                                        )}
-                                    </div>
-                                )}
-                                
-                                {isCloudSynced && status === 'IDLE' && inputKey && (
-                                     <div className="flex items-center gap-2 text-green-400 text-[10px] font-bold uppercase tracking-wide px-1">
-                                         <Cloud size={12} /> Synced to Account
-                                     </div>
+                                    <p className="text-red-400 text-xs font-mono">{errorMsg}</p>
                                 )}
                             </div>
 
@@ -279,7 +232,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
                             <div className="flex items-center gap-3 px-1 opacity-50 hover:opacity-100 transition-opacity">
                                 <ShieldCheck className="text-gray-500 flex-shrink-0" size={14} />
                                 <p className="text-[10px] text-gray-500 leading-tight">
-                                    BYOK Architecture: Your key is stored securely in your private database table and locally in your browser.
+                                    BYOK Architecture: Your key is stored locally in your browser/account and never logged on our servers.
                                 </p>
                             </div>
 
@@ -354,101 +307,55 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, forced = fal
                             </div>
                         </div>
                     ) : (
-                        <div className="p-6 space-y-4 h-full flex flex-col">
-                            <div className="flex items-center justify-between pb-2">
+                        <div className="p-8 space-y-6">
+                            <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-sm font-bold text-white">System Status</h3>
-                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider">Real-time Diagnostics</p>
+                                    <h3 className="text-sm font-bold text-white">Network Activity</h3>
+                                    <p className="text-xs text-gray-500">Live request log from this session.</p>
                                 </div>
                                 <button 
-                                    onClick={handleRunDeepCheck}
-                                    disabled={isRunningDeepCheck}
-                                    className="text-[10px] font-bold uppercase tracking-wider border border-white/10 hover:border-blue-500/30 text-white bg-white/5 hover:bg-blue-500/10 px-3 py-2 rounded-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                                    onClick={handleRunTest}
+                                    disabled={isRunningTest || (!userApiKey && credits <= 0)}
+                                    className="text-[10px] font-bold uppercase tracking-wider border border-white/10 hover:border-white/30 text-white px-3 py-2 rounded-lg transition-all flex items-center gap-2 disabled:opacity-50"
                                 >
-                                    {isRunningDeepCheck ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                                    Run Scan
+                                    {isRunningTest ? <Loader2 size={12} className="animate-spin" /> : <Activity size={12} />}
+                                    Ping Test
                                 </button>
                             </div>
 
-                            <div className="flex-1 space-y-3 overflow-y-auto pr-1">
-                                {healthReport ? (
-                                    <>
-                                        {/* 1. Account Identity Check */}
-                                        <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-3 flex items-center justify-between">
-                                             <div className="flex items-center gap-3">
-                                                 <User size={16} className="text-blue-400" />
-                                                 <div>
-                                                     <span className="text-xs font-bold text-gray-300 block">Account</span>
-                                                     <span className="text-[10px] text-gray-500 font-mono block">{user?.email || "Guest"}</span>
-                                                 </div>
-                                             </div>
-                                             <StatusBadge status={user ? 'PASS' : 'WARN'} />
+                            <div className="bg-[#050505] border border-white/10 rounded-xl overflow-hidden min-h-[300px] flex flex-col font-mono text-[10px]">
+                                <div className="grid grid-cols-4 gap-2 px-4 py-2 bg-white/5 text-gray-400 border-b border-white/5 uppercase tracking-wider font-bold">
+                                    <div>Time</div>
+                                    <div>Model</div>
+                                    <div>Status</div>
+                                    <div className="text-right">Key ID</div>
+                                </div>
+                                
+                                <div className="flex-1 overflow-y-auto max-h-[300px]">
+                                    {logs.length === 0 ? (
+                                        <div className="h-full flex flex-col items-center justify-center text-gray-700 space-y-3 p-8">
+                                            <Zap size={24} className="opacity-20" />
+                                            <p>No requests recorded yet.</p>
                                         </div>
-
-                                        {/* 2. Database Connectivity */}
-                                        <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-3 flex items-center justify-between">
-                                             <div className="flex items-center gap-3">
-                                                 <Database size={16} className="text-purple-400" />
-                                                 <div>
-                                                     <span className="text-xs font-bold text-gray-300 block">Cloud Services</span>
-                                                     <span className="text-[10px] text-gray-500 block">{healthReport.checks.database ? "Connected" : "Disconnected"}</span>
-                                                 </div>
-                                             </div>
-                                             <StatusBadge status={healthReport.checks.database ? 'PASS' : 'FAIL'} />
-                                        </div>
-
-                                        {/* 3. API Key Source Analysis */}
-                                        <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-3">
-                                             <div className="flex items-center justify-between mb-2">
-                                                 <div className="flex items-center gap-3">
-                                                     <Key size={16} className="text-yellow-400" />
-                                                     <div>
-                                                         <span className="text-xs font-bold text-gray-300 block">Key Status</span>
-                                                         <span className="text-[10px] text-gray-500 block">Active</span>
-                                                     </div>
-                                                 </div>
-                                                 <StatusBadge status={healthReport.keyMode !== 'NONE' ? 'PASS' : 'FAIL'} />
-                                             </div>
-                                             
-                                             {/* Sub-check for Key Sync */}
-                                             <div className="ml-7 pl-3 border-l border-white/10 space-y-1">
-                                                 <div className="flex justify-between items-center text-[10px] text-gray-400">
-                                                     <span>Cloud Sync</span>
-                                                     <span className={healthReport.checks.dbKeyFound ? "text-green-400" : "text-gray-600"}>{healthReport.checks.dbKeyFound ? "FOUND" : "MISSING"}</span>
-                                                 </div>
-                                                 <div className="flex justify-between items-center text-[10px] text-gray-400">
-                                                     <span>Local Storage</span>
-                                                     <span className={healthReport.checks.localStorage ? "text-green-400" : "text-gray-600"}>{healthReport.checks.localStorage ? "FOUND" : "MISSING"}</span>
-                                                 </div>
-                                                 {healthReport.checks.keyMismatch && (
-                                                     <div className="flex justify-between items-center text-[10px] text-red-400 font-bold mt-1 bg-red-900/10 px-2 py-0.5 rounded">
-                                                         <AlertTriangle size={10} /> Sync Mismatch Detected
-                                                     </div>
-                                                 )}
-                                             </div>
-                                        </div>
-
-                                        {/* 4. Gemini API Latency */}
-                                        <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-3 flex items-center justify-between">
-                                             <div className="flex items-center gap-3">
-                                                 <Server size={16} className="text-green-400" />
-                                                 <div>
-                                                     <span className="text-xs font-bold text-gray-300 block">API Latency</span>
-                                                     <span className="text-[10px] text-gray-500 block">Round-trip</span>
-                                                 </div>
-                                             </div>
-                                             <div className="text-right">
-                                                 <StatusBadge status={healthReport.checks.apiKey ? 'PASS' : 'FAIL'} />
-                                                 <div className="text-[10px] font-mono text-white mt-0.5">{healthReport.latencyMs}ms</div>
-                                             </div>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center h-48 border border-dashed border-white/10 rounded-xl bg-white/5">
-                                        <Activity className="text-gray-600 mb-3" size={32} />
-                                        <p className="text-gray-500 text-xs italic">System scan waiting to start...</p>
-                                    </div>
-                                )}
+                                    ) : (
+                                        logs.map((log) => (
+                                            <div key={log.id} className="grid grid-cols-4 gap-2 px-4 py-3 border-b border-white/5 text-gray-300 hover:bg-white/5 transition-colors items-center">
+                                                <div className="text-gray-500">{log.timestamp}</div>
+                                                <div className="text-blue-400">{log.model}</div>
+                                                <div>
+                                                    <span className={`px-1.5 py-0.5 rounded font-bold uppercase ${
+                                                        log.status === 'SUCCESS' ? 'text-green-400 bg-green-500/10' :
+                                                        log.status === 'ERROR' ? 'text-red-400 bg-red-500/10' :
+                                                        'text-yellow-400 bg-yellow-500/10'
+                                                    }`}>
+                                                        {log.status}
+                                                    </span>
+                                                </div>
+                                                <div className="text-right text-gray-600">{log.keyFingerprint}</div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}

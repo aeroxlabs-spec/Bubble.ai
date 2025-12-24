@@ -1,18 +1,10 @@
-export interface VisualMetadata {
-  type: 'desmos' | 'jsxgraph';
-  /** 
-   * For desmos: a list of expressions separated by ';' or a JSON config.
-   * For jsxgraph: a safe stringified representation of construction instructions.
-   */
-  data: string;
-}
+
 
 export interface MathStep {
   section: string;
   title: string;
   explanation: string;
   keyEquation: string;
-  visualMetadata?: VisualMetadata;
 }
 
 export interface MathSolution {
@@ -20,8 +12,7 @@ export interface MathSolution {
   problemSummary: string;
   steps: MathStep[];
   finalAnswer: string;
-  markscheme?: string; 
-  visualMetadata?: VisualMetadata;
+  markscheme?: string; // Optional, loaded on demand
 }
 
 export interface ChatMessage {
@@ -42,12 +33,13 @@ export type InputType = 'image' | 'text' | 'pdf';
 export interface UserInput {
   id: string;
   type: InputType;
-  content: string; 
+  content: string; // Base64 for image/pdf, raw text for text
   mimeType: string;
-  preview?: string; 
+  preview?: string; // Data URL for image, or snippet for text
   fileName?: string;
 }
 
+// --- AUTH TYPES ---
 export interface User {
     id: string;
     name: string;
@@ -56,7 +48,11 @@ export interface User {
     hasOnboarded: boolean;
 }
 
-export type AppMode = 'SOLVER' | 'EXAM' | 'DRILL' | 'CONCEPT';
+// --- MODES ---
+
+export type AppMode = 'SOLVER' | 'EXAM' | 'DRILL';
+
+// --- EXAM TYPES ---
 
 export type ExamDifficulty = 'STANDARD' | 'HARD' | 'HELL';
 
@@ -71,20 +67,19 @@ export interface ExamSettings {
 
 export interface ExamQuestion {
   id: string;
-  number: string; 
+  number: string; // "1", "2a", etc.
   marks: number;
   questionText: string;
-  markscheme: string; 
+  markscheme: string; // LaTeX formatted
   shortAnswer: string;
   hint?: string;
   calculatorAllowed: boolean;
-  steps?: string[]; 
+  steps?: string[]; // Simplified steps for the exam view
   graphSvg?: string;
-  visualMetadata?: VisualMetadata;
 }
 
 export interface ExamSection {
-  title: string; 
+  title: string; // "Section A", "Section B"
   questions: ExamQuestion[];
 }
 
@@ -94,6 +89,8 @@ export interface ExamPaper {
   duration: number;
   sections: ExamSection[];
 }
+
+// --- DRILL TYPES ---
 
 export interface DrillSettings {
   difficulty: ExamDifficulty;
@@ -105,69 +102,32 @@ export interface DrillQuestion {
   id: string;
   number: number;
   topic: string;
-  difficultyLevel: number; 
+  difficultyLevel: number; // 1-10
   questionText: string;
   shortAnswer: string;
-  steps?: MathStep[]; 
+  steps?: MathStep[]; // Optional, generated on demand
   hint: string;
   calculatorAllowed: boolean;
-  visualMetadata?: VisualMetadata;
 }
 
-export type IBLevel = 'SL' | 'HL';
-export type ConceptDepth = 'SUMMARY' | 'DETAILED';
+// --- ADMIN & FEEDBACK TYPES ---
 
-export interface ConceptSettings {
-    topic: string;
-    level: IBLevel;
-    depth: ConceptDepth;
-}
-
-export type ExampleDifficulty = 'BASIC' | 'EXAM' | 'HARD';
-
-export interface ConceptExample {
-    difficulty: ExampleDifficulty;
-    question: string;
-    hint: string;
-    solutionSteps: MathStep[]; 
-    finalAnswer: string;
-    explanation: string; 
-    visualMetadata?: VisualMetadata;
-}
-
-export interface ConceptBlock {
-    title: string; 
-    content: string; 
-    keyEquation?: string; 
-    visualMetadata?: VisualMetadata;
-}
-
-export interface ConceptExplanation {
-    topicTitle: string;
-    introduction: string; 
-    conceptBlocks: ConceptBlock[]; 
-    coreFormulas?: string[]; 
-    examples: ConceptExample[]; 
-}
-
-export type FeedbackType = 'general' | 'bug' | 'feature' | 'help';
-
-export interface FeedbackMetadata {
-    userEmail?: string;
-    userName?: string;
-    context?: string;
-    [key: string]: any;
-}
-
-export interface FeedbackV2 {
+export interface Feedback {
     id: string;
-    created_at: string;
-    user_id: string;
-    type: FeedbackType;
-    title: string | null;
-    body: string;
-    metadata: FeedbackMetadata;
-    resolved: boolean;
-    resolved_at: string | null;
-    resolved_by: string | null;
+    userId: string;
+    userName: string;
+    userEmail: string;
+    type: 'BUG' | 'FEATURE' | 'GENERAL' | 'HELP';
+    message: string;
+    timestamp: number;
+    status: 'NEW' | 'READ' | 'ARCHIVED';
+}
+
+export interface AdminStats {
+    totalUsers: number;
+    totalRequests: number;
+    creditsConsumed: number;
+    activeNow: number;
+    requestsOverTime: { date: string; count: number }[];
+    modeDistribution: { mode: AppMode; count: number }[];
 }

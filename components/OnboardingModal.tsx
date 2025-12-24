@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowRight, ArrowLeft, GraduationCap, Zap, Hash, Check, ExternalLink, Loader2, Coins } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -107,7 +109,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
     const slides = [
         {
             icon: GraduationCap,
-            title: "Welcome to BubbleIB",
+            title: "Welcome to Bubble",
             subtitle: "Intelligent Tutor",
             text: "We are a **student-built platform** designed to help IB Math HL students understand complex exercises through **intelligent analysis**.",
             theme: {
@@ -120,7 +122,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete }) => {
             icon: Hash,
             title: "Private & Sustainable",
             subtitle: "Your Data, Your Keys",
-            text: "BubbleIB uses a **Bring Your Own Key** model. Your API key is stored locally and never sent to our servers.",
+            text: "Bubble uses a **Bring Your Own Key** model. Your API key is stored locally and never sent to our servers.",
             theme: {
                 color: 'text-purple-400',
                 bg: 'bg-purple-500',

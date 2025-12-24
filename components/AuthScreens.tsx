@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Pen, Zap, GraduationCap, ArrowRight, AlertCircle, Sigma, Divide, Minus, Lightbulb, Percent, Hash, Ghost } from 'lucide-react';
 
@@ -15,21 +16,21 @@ export const AuthScreens: React.FC = () => {
             </div>
 
             {/* Header */}
-            <nav className="relative z-10 flex items-center justify-between px-4 py-4 sm:px-8 sm:py-6 max-w-7xl mx-auto w-full">
+            <nav className="relative z-10 flex items-center justify-between px-8 py-6 max-w-7xl mx-auto w-full">
                 <div className="flex items-center gap-2">
-                     <span className="text-xl sm:text-2xl font-bold tracking-tighter text-white">BubbleIB</span>
+                     <span className="text-2xl font-bold tracking-tighter">Bubble.</span>
                 </div>
                 {view === 'LANDING' && (
-                    <div className="flex items-center gap-4 sm:gap-6">
+                    <div className="flex items-center gap-6">
                         <button 
                             onClick={() => setView('LOGIN')}
-                            className="text-[10px] sm:text-xs font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-wider"
+                            className="text-xs font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-wider"
                         >
                             Log In
                         </button>
                         <button 
                             onClick={() => setView('SIGNUP')}
-                            className="text-[10px] sm:text-xs font-bold bg-white/10 border border-white/20 text-white px-4 py-1.5 sm:px-5 sm:py-2 rounded-full hover:bg-white/20 hover:border-white/40 transition-all uppercase tracking-wider"
+                            className="text-xs font-bold bg-white/10 border border-white/20 text-white px-5 py-2 rounded-full hover:bg-white/20 hover:border-white/40 transition-all uppercase tracking-wider"
                         >
                             Sign Up
                         </button>
@@ -57,78 +58,60 @@ export const AuthScreens: React.FC = () => {
 const LandingPage = ({ onViewChange }: { onViewChange: (v: 'LOGIN' | 'SIGNUP') => void }) => {
     
     return (
-        <div className="max-w-7xl mx-auto flex flex-col items-center text-center space-y-4 sm:space-y-12 py-2 sm:py-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative w-full h-full justify-center min-h-[85vh] sm:min-h-0">
+        <div className="max-w-5xl mx-auto flex flex-col items-center text-center space-y-12 py-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative">
             
             {/* Hero Section */}
-            <div className="space-y-4 sm:space-y-8 max-w-4xl relative z-20 flex flex-col items-center px-4 w-full">
+            <div className="space-y-8 max-w-4xl relative z-20 flex flex-col items-center">
                 
-                <h1 className="text-3xl sm:text-4xl md:text-7xl font-bold tracking-tighter leading-[1.0] sm:leading-[1.1] mb-0 sm:mb-2">
+                <h1 className="text-5xl md:text-7xl font-bold tracking-tighter leading-none mb-2">
                     Master IB Math <br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-yellow-400 pb-1 sm:pb-2 inline-block">
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-yellow-400 pb-2 inline-block">
                         with Intelligence.
                     </span>
                 </h1>
                 
-                <div className="text-xs sm:text-lg md:text-xl text-gray-400 w-full mx-auto leading-relaxed relative flex flex-col items-center max-w-[280px] sm:max-w-xl">
-                    <p>
-                        Step-by-step solutions, custom exam papers, adaptive drills, and deep concept mastery.
+                <div className="text-lg md:text-xl text-gray-400 w-full mx-auto leading-relaxed relative flex flex-col items-center">
+                    <p className="whitespace-nowrap">
+                        Step-by-step solutions, custom exam papers, and adaptive drills.
                     </p>
                 </div>
 
-                <div className="pt-1 sm:pt-4 flex flex-col items-center gap-4">
+                <div className="pt-4 flex flex-col items-center gap-4">
                     <button 
                         onClick={() => onViewChange('SIGNUP')}
-                        className="group relative px-6 py-2.5 sm:px-10 sm:py-4 rounded-full font-bold text-xs sm:text-base bg-transparent border border-white/30 text-white hover:bg-white/5 hover:border-white/60 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] flex items-center gap-2"
+                        className="group relative px-10 py-4 rounded-full font-bold text-base bg-transparent border border-white/30 text-white hover:bg-white/5 hover:border-white/60 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] flex items-center gap-2"
                     >
-                        Start learning <ArrowRight size={14} className="sm:w-[18px] sm:h-[18px] group-hover:translate-x-1 transition-transform"/>
+                        Start learning <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform"/>
                     </button>
                 </div>
             </div>
 
-            {/* Feature Grid - 2x2 on Mobile, 4x1 on Desktop */}
-            <div className="w-full relative z-10 pt-4 sm:pt-20">
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 max-w-6xl mx-auto w-full">
-                    <div className="w-full">
-                        <FeatureCard 
-                            icon={<Pen size={20} className="text-blue-400" />}
-                            title="Smart Solver"
-                            desc="Detailed breakdowns."
-                            extraInfo="Analyze problems."
-                            color="border-blue-500/20 hover:border-blue-500/40"
-                            gradient="from-blue-500/5"
-                        />
-                    </div>
-                    <div className="w-full">
-                        <FeatureCard 
-                            icon={<GraduationCap size={20} className="text-purple-400" />}
-                            title="Exam Creator"
-                            desc="Mock papers."
-                            extraInfo="Create full exams."
-                            color="border-purple-500/20 hover:border-purple-500/40"
-                            gradient="from-purple-500/5"
-                        />
-                    </div>
-                    <div className="w-full">
-                        <FeatureCard 
-                            icon={<Zap size={20} className="text-yellow-400" />}
-                            title="Adaptive Drill"
-                            desc="Skill practice."
-                            extraInfo="Test your skills."
-                            color="border-yellow-500/20 hover:border-yellow-500/40"
-                            gradient="from-yellow-500/5"
-                        />
-                    </div>
-                    <div className="w-full">
-                        <FeatureCard 
-                            icon={<Lightbulb size={20} className="text-green-400" />}
-                            title="Concept Explainer"
-                            desc="Master theory."
-                            extraInfo="Deepen knowledge."
-                            color="border-green-500/20 hover:border-green-500/40"
-                            gradient="from-green-500/5"
-                        />
-                    </div>
-                </div>
+            {/* Feature Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10 w-full px-4 pt-20">
+                <FeatureCard 
+                    icon={<Pen size={20} className="text-blue-400" />}
+                    title="Smart Solver"
+                    desc="Detailed breakdowns and markscheme analysis."
+                    extraInfo="Upload any math image. Gemini analyzes structure & logic."
+                    color="border-blue-500/20 hover:border-blue-500/40"
+                    gradient="from-blue-500/5"
+                />
+                <FeatureCard 
+                    icon={<GraduationCap size={20} className="text-purple-400" />}
+                    title="Exam Creator"
+                    desc="Generate full IB papers from your notes."
+                    extraInfo="Select topics. AI generates a formatted IB PDF paper."
+                    color="border-purple-500/20 hover:border-purple-500/40"
+                    gradient="from-purple-500/5"
+                />
+                <FeatureCard 
+                    icon={<Zap size={20} className="text-yellow-400" />}
+                    title="Adaptive Drill"
+                    desc="Sessions that adapt to your skill level."
+                    extraInfo="Practice mode. Questions adapt to your skill level in real-time."
+                    color="border-yellow-500/20 hover:border-yellow-500/40"
+                    gradient="from-yellow-500/5"
+                />
             </div>
         </div>
     );
@@ -183,13 +166,13 @@ const FeatureCard = ({ icon, title, desc, color, gradient, extraInfo }: any) => 
 
     return (
         <div 
-            className="group relative w-full h-full min-h-[90px] sm:min-h-[160px]"
+            className="group relative w-full min-h-[180px]"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             onClick={handleClick}
         >
-             {/* Peeping Icons Layer - Desktop Only */}
-             <div className="absolute top-0 left-0 right-0 h-0 flex justify-center z-0 hidden sm:flex">
+             {/* Peeping Icons Layer - Positioned relative to the card top */}
+             <div className="absolute top-0 left-0 right-0 h-0 flex justify-center z-0">
                  {icons.map((item, i) => (
                      <div
                         key={i}
@@ -197,7 +180,7 @@ const FeatureCard = ({ icon, title, desc, color, gradient, extraInfo }: any) => 
                         style={{
                             transform: isHovered 
                                 ? `translate(${item.x}px, ${item.y}px) rotate(${item.r}deg)` 
-                                : `translate(${item.x * 0.2}px, 10px) rotate(0deg)`, 
+                                : `translate(${item.x * 0.2}px, 10px) rotate(0deg)`, // Start slightly bunched and hidden
                             opacity: isHovered ? 1 : 0,
                             zIndex: -1
                         }}
@@ -207,25 +190,20 @@ const FeatureCard = ({ icon, title, desc, color, gradient, extraInfo }: any) => 
                  ))}
              </div>
 
-             {/* Card Content */}
-             <div className={`relative z-10 h-full p-3 sm:p-5 rounded-xl bg-[#0a0a0a] border ${color} transition-all duration-300 group-hover:scale-[1.02] shadow-lg flex flex-col justify-between sm:justify-start cursor-pointer`}>
+             {/* Card Content - Flexible height */}
+             <div className={`relative z-10 h-full p-6 pt-10 rounded-xl bg-[#0a0a0a] border ${color} transition-all duration-300 group-hover:scale-[1.02] shadow-lg flex flex-col items-start justify-start cursor-pointer`}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${gradient} to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl`} />
-                
-                {/* Top Section: Icon & Title */}
-                <div className="relative z-10 space-y-1 sm:space-y-2 w-full text-left flex flex-col items-start">
-                    <div className="p-0 sm:p-2.5 sm:bg-[#151515] rounded-lg inline-block sm:shadow-inner sm:border sm:border-white/5 w-fit mb-1">
-                        {React.cloneElement(icon as React.ReactElement, { size: undefined, className: `${(icon as React.ReactElement).props.className} w-4 h-4 sm:w-5 sm:h-5` })}
-                    </div>
+                <div className="relative z-10 space-y-3 w-full text-left flex flex-col flex-1">
+                    <div className="p-2.5 bg-[#151515] rounded-lg inline-block shadow-inner border border-white/5 w-fit">{icon}</div>
                     <div>
-                        <h3 className="font-bold text-xs sm:text-base text-white mb-0 sm:mb-0.5 tracking-tight">{title}</h3>
-                        <p className="text-[10px] sm:text-xs text-gray-400 leading-tight font-medium hidden sm:block">{desc}</p>
+                        <h3 className="font-bold text-lg text-white mb-1 tracking-tight">{title}</h3>
+                        <p className="text-xs text-gray-400 leading-relaxed font-medium">{desc}</p>
                     </div>
-                </div>
-
-                {/* Bottom Section: Typing Text (Visible on Mobile) */}
-                <div className={`relative z-10 text-[9px] sm:text-[10px] font-mono text-blue-300 mt-1 sm:mt-auto pt-0 sm:pt-2 h-[1rem] sm:min-h-[2rem] transition-opacity duration-200 flex items-center ${typedText ? 'opacity-100' : 'opacity-100 sm:opacity-0'}`}>
-                    {typedText || (!isHovered && <span className="opacity-0">.</span>)}
-                    {typedText && <span className="inline-block w-1 h-2 sm:w-1.5 sm:h-2.5 bg-blue-400 ml-1 animate-pulse" />}
+                    {/* Extra Info - Flexible height */}
+                    <div className={`text-[11px] font-mono text-blue-300 mt-2 min-h-[3rem] transition-opacity duration-200 ${typedText ? 'opacity-100' : 'opacity-0'}`}>
+                        {typedText}
+                        {typedText && <span className="inline-block w-1.5 h-3 bg-blue-400 ml-1 animate-pulse align-middle" />}
+                    </div>
                 </div>
              </div>
         </div>
@@ -305,70 +283,11 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     
-    // Captcha State
-    const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-    const captchaRef = useRef<HTMLDivElement>(null);
-    const widgetId = useRef<string | null>(null);
-
-    // Initial Captcha Rendering
-    useEffect(() => {
-        // Reset state on mode switch
-        setCaptchaToken(null);
-        setError(null);
-        widgetId.current = null;
-        
-        // Function to render captcha safely
-        const renderWidget = () => {
-            if ((window as any).hcaptcha && captchaRef.current) {
-                try {
-                    // Avoid duplicate renders if widgetId is already set
-                    if (widgetId.current !== null) {
-                         try {
-                             (window as any).hcaptcha.reset(widgetId.current);
-                         } catch(e) { /* ignore reset error */ }
-                         return;
-                    }
-
-                    captchaRef.current.innerHTML = '';
-                    const id = (window as any).hcaptcha.render(captchaRef.current, {
-                        sitekey: 'e376da06-df9e-4392-98f6-894a7080679e', // Updated Site Key
-                        theme: 'dark',
-                        callback: (token: string) => {
-                             setCaptchaToken(token);
-                             setError(null);
-                        },
-                        'expired-callback': () => setCaptchaToken(null),
-                        'error-callback': () => {
-                            setCaptchaToken(null);
-                            setError("Captcha connection error. Check your network or domain settings.");
-                        }
-                    });
-                    widgetId.current = id;
-                } catch (e) {
-                    console.warn("Captcha render failed", e);
-                }
-            }
-        };
-
-        // Attempt immediate render
-        renderWidget();
-
-        // Fallback polling for script load
-        const interval = setInterval(() => {
-            if ((window as any).hcaptcha && captchaRef.current && !captchaRef.current.hasChildNodes() && widgetId.current === null) {
-                renderWidget();
-            }
-        }, 500);
-
-        return () => {
-             clearInterval(interval);
-             // Note: We don't remove widget on unmount to prevent visual flickering if React Strict Mode runs twice quickly
-        };
-    }, [mode]);
-    
+    // Simplified Google Auth Handler using Supabase Redirect
     const handleGoogleLogin = async () => {
         setIsLoading(true);
         try {
+            // "credential" param not needed for Supabase OAuth trigger, we just call the wrapper
             await loginWithGoogle(''); 
         } catch (e: any) {
             setError(e.message || "Google Login Failed");
@@ -379,64 +298,38 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
     const performAuth = async () => {
         try {
             if (mode === 'LOGIN') {
-                await login(email, password, captchaToken || undefined);
+                await login(email, password);
             } else {
-                await signup(name, email, password, captchaToken || undefined);
+                await signup(name, email, password);
             }
         } catch (err: any) {
-            console.error("Auth error details:", err);
-            
-            // Check for specific Supabase sitekey mismatch error
-            if (err.message && (err.message.includes("sitekey-secret-mismatch") || err.message.includes("captcha protection"))) {
-                 setError("Configuration Error: The Site Key and Secret Key in Supabase do not match. Please update your Supabase Auth Protection settings.");
-            } else {
-                 setError(err.message || "Authentication failed");
-            }
-            
+            setError(err.message || "Authentication failed");
             setIsLoading(false);
             setIsAnimating(false);
-            if ((window as any).hcaptcha && widgetId.current !== null) {
-                 (window as any).hcaptcha.reset(widgetId.current);
-            }
-            setCaptchaToken(null);
         }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
-        if (!captchaToken) {
-            setError("Please complete the security check.");
-            return;
-        }
-
         setError(null);
         setIsLoading(true);
         setIsAnimating(true);
-    };
-    
-    // Allow manual reset if user gets stuck in error state
-    const handleResetCaptcha = () => {
-        if ((window as any).hcaptcha && widgetId.current !== null) {
-             (window as any).hcaptcha.reset(widgetId.current);
-             setError(null);
-             setCaptchaToken(null);
-        }
+        // Auth triggered via animation callback
     };
 
     return (
-        <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-300 relative px-4">
+        <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-300 relative">
             
-            <div className={`bg-[#121212] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden transition-all duration-500 ${isAnimating ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}`}>
+            <div className={`bg-[#121212] border border-white/10 rounded-2xl p-8 shadow-2xl relative overflow-hidden transition-all duration-500 ${isAnimating ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}`}>
                 {/* Updated notch to gradient as requested */}
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-yellow-500" />
                 
-                <div className="mb-6 sm:mb-8">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
+                <div className="mb-8">
+                    <h2 className="text-2xl font-bold text-white mb-2">
                         {mode === 'LOGIN' ? 'Welcome back' : 'Create an account'}
                     </h2>
-                    <p className="text-gray-500 text-xs sm:text-sm">
-                        {mode === 'LOGIN' ? 'Enter your credentials to access your workspace.' : 'Join BubbleIB to start mastering IB Math.'}
+                    <p className="text-gray-500 text-sm">
+                        {mode === 'LOGIN' ? 'Enter your credentials to access your workspace.' : 'Join Bubble to start mastering IB Math.'}
                     </p>
                 </div>
                 
@@ -447,7 +340,7 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
                     className="relative w-full h-[42px] mb-6 group bg-[#0a0a0a] border border-white/10 rounded-full flex items-center justify-center gap-2.5 transition-all hover:border-white/30 hover:bg-[#151515] disabled:opacity-50"
                 >
                      <GoogleGLogo />
-                     <span className="text-xs sm:text-sm font-bold text-gray-300 group-hover:text-white font-sans">Continue with Google</span>
+                     <span className="text-sm font-bold text-gray-300 group-hover:text-white font-sans">Continue with Google</span>
                 </button>
                 
                 <div className="flex items-center gap-4 mb-6">
@@ -456,7 +349,7 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
                     <div className="h-px bg-white/5 flex-1" />
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+                <form onSubmit={handleSubmit} className="space-y-5">
                     {mode === 'SIGNUP' && (
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Full Name</label>
@@ -495,31 +388,17 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
                         />
                     </div>
 
-                    {/* HCaptcha Container */}
-                    <div className="flex flex-col items-center justify-center pt-2 min-h-[78px]">
-                        <div ref={captchaRef} id="hcaptcha-container" />
-                        {error && error.includes("Captcha") && (
-                            <button 
-                                type="button" 
-                                onClick={handleResetCaptcha}
-                                className="mt-2 text-[10px] font-bold uppercase tracking-wider text-blue-400 hover:text-white transition-colors"
-                            >
-                                Retry Captcha
-                            </button>
-                        )}
-                    </div>
-
                     {error && (
-                        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-900/10 border border-red-500/20 text-red-400 text-sm animate-in fade-in slide-in-from-top-2">
-                            <AlertCircle size={16} className="flex-shrink-0" />
-                            <span className="leading-snug">{error}</span>
+                        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-900/10 border border-red-500/20 text-red-400 text-sm">
+                            <AlertCircle size={16} />
+                            {error}
                         </div>
                     )}
 
                     <button 
                         type="submit" 
-                        disabled={isLoading || !captchaToken}
-                        className="w-full bg-transparent border border-white/20 text-white font-bold py-2.5 rounded-full hover:bg-white/5 hover:border-white/50 hover:shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={isLoading}
+                        className="w-full bg-transparent border border-white/20 text-white font-bold py-2.5 rounded-full hover:bg-white/5 hover:border-white/50 hover:shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-all flex items-center justify-center gap-2 mt-4"
                     >
                         {isLoading ? (
                              <span className="text-xs font-mono animate-pulse">Initializing...</span>
@@ -532,7 +411,7 @@ const AuthForm = ({ mode, onSwitch }: { mode: 'LOGIN' | 'SIGNUP', onSwitch: () =
                 <div className="mt-6 text-center">
                     <button 
                         onClick={onSwitch}
-                        className="text-xs sm:text-sm text-gray-500 hover:text-white transition-colors"
+                        className="text-sm text-gray-500 hover:text-white transition-colors"
                         disabled={isLoading}
                     >
                         {mode === 'LOGIN' ? "Don't have an account? Sign Up" : "Already have an account? Log In"}
