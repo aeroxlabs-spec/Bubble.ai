@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, MathSolution, MathStep, UserInput, AppMode, ExamSettings, ExamPaper, DrillSettings, DrillQuestion, ExamDifficulty, ConceptSettings, ConceptExplanation } from './types';
-import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, getSystemDiagnostics, generateDrillSolution, getDailyUsage, generateDrillBatch, generateConceptExplanation, reloadConceptExamples } from './services/geminiService';
+import { analyzeMathInput, getMarkscheme, generateExam, generateDrillQuestion, generateDrillSolution, getDailyUsage, generateDrillBatch, generateConceptExplanation, reloadConceptExamples } from './services/geminiService';
 import { supabase, withTimeout } from './services/supabaseClient';
 import { useAuth } from './contexts/AuthContext';
 import { AuthScreens } from './components/AuthScreens';

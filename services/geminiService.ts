@@ -5,7 +5,7 @@ import { supabase, withTimeout } from "./supabaseClient";
 import { authService } from "./authService";
 
 /**
- * Local interface for Gemini response schema, as 'Schema' is not a named export in the current @google/genai SDK.
+ * Local interface for Gemini response schema.
  */
 interface ResponseSchema {
     type: Type;
@@ -17,9 +17,22 @@ interface ResponseSchema {
 }
 
 /**
- * Initialize the Google GenAI client once using the pre-configured environment variable.
+ * Session key management for BYOK model.
  */
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+let sessionKey: string | null = null;
+
+export const setSessionKey = (key: string | null) => {
+    sessionKey = key;
+};
+
+/**
+ * Internal helper to get a fresh AI client with the most current key.
+ * Prioritizes sessionKey (BYOK) over process.env.API_KEY.
+ */
+const getAIClient = () => {
+    const apiKey = sessionKey || process.env.API_KEY || "";
+    return new GoogleGenAI({ apiKey });
+};
 
 let dailyRequestLimit = 50; 
 let dailyRequestCount = 0;
@@ -105,7 +118,7 @@ const logRequest = (model: string, type: 'GENERATE' | 'CHAT' | 'TEST', appMode: 
     incrementUsage();
     checkUsageLimit();
     
-    const fingerprint = "ENV_KEY";
+    const fingerprint = sessionKey ? `USER_KEY_${sessionKey.substring(0, 4)}` : "DEFAULT_KEY";
     const logId = crypto.randomUUID();
     
     const log: ApiLog = {
@@ -152,31 +165,9 @@ const updateLogStatus = (logId: string, status: 'SUCCESS' | 'ERROR', startTime: 
     }
 };
 
-export const setSessionKey = (key: string | null) => {
-    // Key management is now handled exclusively via process.env.API_KEY
-};
-
-const getApiKey = () => {
-    return "ENV_KEY";
-};
-
 export const getKeyFingerprint = () => {
-    return "ENV_KEY";
+    return sessionKey ? `BYOK_${sessionKey.substring(0, 6)}` : "CREDITS";
 }
-
-export const getSystemDiagnostics = () => {
-    return {
-        hasApiKey: true,
-        keyLength: 0,
-        keyPrefix: "ENV",
-        envCheck: {
-            sessionKey: false,
-            localStorage: false,
-            vite: false, 
-            process: true, 
-        }
-    }
-};
 
 export const runDeepSystemCheck = async (): Promise<SystemHealthReport> => {
     const startTime = Date.now();
@@ -191,7 +182,7 @@ export const runDeepSystemCheck = async (): Promise<SystemHealthReport> => {
             keyMismatch: false
         },
         userId: null,
-        keyMode: 'CUSTOM',
+        keyMode: sessionKey ? 'CUSTOM' : 'CREDITS',
         creditsBalance: 0,
         latencyMs: 0
     };
@@ -204,17 +195,19 @@ export const runDeepSystemCheck = async (): Promise<SystemHealthReport> => {
             if (session) {
                 report.checks.database = true;
             }
+            const cloudKey = await authService.getGeminiKey(user.id);
+            if (cloudKey) report.checks.dbKeyFound = true;
         }
     } catch (e) {
         console.error("Diagnostic: DB Check Failed", e);
     }
 
     try {
+         const ai = getAIClient();
          const startPing = Date.now();
-         // Use gemini-3-flash-preview for a basic connectivity check
          await withTimeout(ai.models.generateContent({
             model: 'gemini-3-flash-preview',
-            contents: { parts: [{ text: 'Ping' }] }
+            contents: 'Ping'
          }), 10000);
          report.latencyMs = Date.now() - startPing;
          report.checks.apiKey = true;
@@ -231,41 +224,26 @@ const mapGenAIError = (error: any): string => {
     const status = error.status || 0;
 
     if (msg.includes("candidate was blocked") || msg.includes("safety") || msg.includes("finishreason")) {
-        return "Safety Filter Triggered. The AI refused to answer this specific prompt. Please try rephrasing or using a different image.";
+        return "Safety Filter Triggered. The AI refused to answer this specific prompt.";
     }
 
-    if (msg.includes("location is not supported") || msg.includes("region_not_supported") || (status === 400 && msg.includes("location"))) {
-        return "Region Not Supported. Google Gemini is not currently available in your location (Error 400). A VPN might help.";
+    if (msg.includes("location is not supported") || msg.includes("region_not_supported")) {
+        return "Region Not Supported. Google Gemini is not currently available in your location.";
     }
 
-    if (status === 401 || msg.includes("401") || msg.includes("unauthenticated") || msg.includes("invalid api key")) {
-        return "Invalid API Key (401). The key is incorrect or revoked.";
+    if (status === 401 || msg.includes("unauthenticated") || msg.includes("invalid api key")) {
+        return "Invalid API Key. Please check your settings or key validity.";
     }
 
-    if (status === 403 || msg.includes("403") || msg.includes("permission denied")) {
-        return "Access Denied (403). Ensure the 'Generative Language API' is enabled in your Google Cloud Project.";
+    if (status === 429 || msg.includes("resource_exhausted")) {
+        return "Quota Exceeded. You have hit the limit for this API key.";
     }
 
-    if (status === 429 || msg.includes("429") || msg.includes("resource_exhausted")) {
-        if (msg.includes("quota")) {
-            return "Daily Quota Exceeded. You have hit the limit for this API key.";
-        }
-        return "Traffic Limit Reached. You are sending requests too quickly. Please wait 30 seconds and try again.";
+    if (status >= 500) {
+        return "Google AI Service Error. The service is temporarily down.";
     }
 
-    if (status >= 500 || msg.includes("internal server error")) {
-        return "Google AI Service Error (5xx). The AI service is temporarily down. Please try again in a few minutes.";
-    }
-
-    if (msg.includes("json") || msg.includes("syntaxerror")) {
-        return "Data Processing Error. The AI returned an invalid format. Please try again.";
-    }
-
-    if (msg.includes("fetch failed") || msg.includes("network") || msg.includes("failed to fetch") || msg.includes("timed out")) {
-        return "Network Connection Failed. Please check your internet connection and try again.";
-    }
-
-    return `Error: ${error.message?.substring(0, 150) || "Unknown error occurred"}`;
+    return `Error: ${error.message?.substring(0, 150) || "Unknown error"}`;
 };
 
 const visualMetadataSchema: ResponseSchema = {
@@ -433,35 +411,16 @@ const exampleReloadSchema: ResponseSchema = {
     }
 };
 
-const questionValidationSchema: ResponseSchema = {
-    type: Type.OBJECT,
-    properties: {
-        id: { type: Type.STRING },
-        number: { type: Type.STRING },
-        marks: { type: Type.INTEGER },
-        questionText: { type: Type.STRING },
-        steps: { type: Type.ARRAY, items: { type: Type.STRING } },
-        markscheme: { type: Type.STRING },
-        shortAnswer: { type: Type.STRING },
-        hint: { type: Type.STRING },
-        calculatorAllowed: { type: Type.BOOLEAN },
-        visualMetadata: visualMetadataSchema
-    },
-    required: ["id", "number", "marks", "questionText", "markscheme", "shortAnswer", "calculatorAllowed", "steps"]
-};
-
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 const retryOperation = async <T>(operation: () => Promise<T>, retries = 3, delayMs = 1000): Promise<T> => {
     try {
         return await withTimeout(operation(), 60000); 
     } catch (error: any) {
         const msg = (error.message || "").toLowerCase();
         const status = error.status || 0;
-        const isNetworkError = msg.includes('xhr error') || msg.includes('fetch failed') || msg.includes('network') || msg.includes('timed out') || error.code === 6;
-        const isServerOrQuota = status === 429 || status >= 500 || msg.includes('429') || msg.includes('overloaded'); 
+        const isNetworkError = msg.includes('xhr error') || msg.includes('fetch failed') || msg.includes('network') || msg.includes('timed out');
+        const isServerOrQuota = status === 429 || status >= 500;
         if (retries > 0 && (isNetworkError || isServerOrQuota)) {
-            await delay(delayMs);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
             return retryOperation(operation, retries - 1, delayMs * 2);
         }
         throw new Error(mapGenAIError(error));
@@ -479,9 +438,10 @@ export const runConnectivityTest = async (): Promise<boolean> => {
     const startTime = Date.now();
     const log = logRequest('gemini-3-flash-preview', 'TEST', 'TEST');
     try {
+        const ai = getAIClient();
         await withTimeout(ai.models.generateContent({
             model: 'gemini-3-flash-preview',
-            contents: { parts: [{ text: 'Ping' }] }
+            contents: 'Ping'
         }), 10000); 
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return true;
@@ -495,9 +455,9 @@ export const runConnectivityTest = async (): Promise<boolean> => {
 export const analyzeMathInput = async (input: UserInput): Promise<MathSolution> => {
   return retryOperation(async () => {
     const startTime = Date.now();
-    // Use gemini-3-pro-preview for complex reasoning tasks like math solving
     const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'SOLVER');
     try {
+        const ai = getAIClient();
         const isImage = input.type === 'image';
         const systemPrompt = `
         You are an expert IB Math tutor. 
@@ -535,6 +495,7 @@ export const generateExam = async (inputs: UserInput[], settings: ExamSettings):
     const startTime = Date.now();
     const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'EXAM');
     try {
+        const ai = getAIClient();
         const parts: any[] = [];
         inputs.forEach(input => {
             if (input.type === 'image' || input.type === 'pdf') parts.push({ inlineData: { data: input.content, mimeType: input.mimeType } });
@@ -568,6 +529,7 @@ export const generateDrillQuestion = async (settings: DrillSettings, inputs: Use
         const startTime = Date.now();
         const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'DRILL');
         try {
+            const ai = getAIClient();
             const parts: any[] = [];
             inputs.forEach(input => {
                 if (input.type === 'image' || input.type === 'pdf') parts.push({ inlineData: { data: input.content, mimeType: input.mimeType } });
@@ -611,6 +573,7 @@ export const generateDrillSolution = async (question: DrillQuestion): Promise<Ma
         const startTime = Date.now();
         const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'DRILL');
         try {
+            const ai = getAIClient();
             const prompt = `Solve Drill Question: ${question.questionText}. ${VISUAL_SYSTEM_PROMPT}`;
             const response = await ai.models.generateContent({
                 model: "gemini-3-pro-preview",
@@ -634,6 +597,7 @@ export const generateConceptExplanation = async (inputs: UserInput[], settings: 
         const startTime = Date.now();
         const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'CONCEPT');
         try {
+            const ai = getAIClient();
             const parts: any[] = [];
             inputs.forEach(input => {
                 if (input.type === 'image' || input.type === 'pdf') parts.push({ inlineData: { data: input.content, mimeType: input.mimeType } });
@@ -667,6 +631,7 @@ export const breakdownConceptBlock = async (blockContent: string, topic: string)
     const startTime = Date.now();
     const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'CONCEPT');
     try {
+        const ai = getAIClient();
         const prompt = `Break down mathematical concept block into simpler points. Topic: ${topic} Content: "${blockContent}"`;
         const response = await ai.models.generateContent({
             model: "gemini-3-pro-preview",
@@ -686,6 +651,7 @@ export const reloadConceptExamples = async (currentExplanation: ConceptExplanati
         const startTime = Date.now();
         const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'CONCEPT');
         try {
+            const ai = getAIClient();
             const prompt = `Generate 3 NEW IB Math examples for: "${currentExplanation.topicTitle}". ${VISUAL_SYSTEM_PROMPT}`;
             const response = await ai.models.generateContent({
                 model: "gemini-3-pro-preview",
@@ -705,6 +671,7 @@ export const reloadConceptExamples = async (currentExplanation: ConceptExplanati
 
 export const createChatSession = (systemInstruction: string) => {
     try {
+        const ai = getAIClient();
         logRequest('gemini-3-pro-preview', 'CHAT', 'CHAT'); 
         return ai.chats.create({
             model: "gemini-3-pro-preview",
@@ -719,10 +686,12 @@ export const getStepHint = async (step: MathStep, context: string): Promise<stri
     const startTime = Date.now();
     const log = logRequest('gemini-3-pro-preview', 'CHAT', 'SOLVER');
     try {
-        const response = await withTimeout(ai.models.generateContent({
+        const ai = getAIClient();
+        // Fix for unknown type error: explicitly cast withTimeout result to GenerateContentResponse
+        const response = (await withTimeout(ai.models.generateContent({
             model: "gemini-3-pro-preview",
             contents: { parts: [{ text: `Hint for step: ${step.title}` }] }
-        }), 20000) as GenerateContentResponse;
+        }), 20000)) as GenerateContentResponse;
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return response.text || "Hint unavailable.";
     } catch (e: any) {
@@ -735,14 +704,16 @@ export const getStepBreakdown = async (step: MathStep, context: string): Promise
     const startTime = Date.now();
     const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'SOLVER');
     try {
-        const response = await withTimeout(ai.models.generateContent({
+        const ai = getAIClient();
+        // Fix for unknown type error: explicitly cast withTimeout result to GenerateContentResponse
+        const response = (await withTimeout(ai.models.generateContent({
             model: "gemini-3-pro-preview",
             contents: { parts: [{ text: `Breakdown step: ${step.title}` }] },
              config: {
                 responseMimeType: "application/json",
                 responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } as any
             }
-        }), 25000) as GenerateContentResponse;
+        }), 25000)) as GenerateContentResponse;
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return JSON.parse(response.text || "[]");
     } catch (e: any) {
@@ -755,12 +726,14 @@ export const getMarkscheme = async (question: string, solution: string): Promise
     const startTime = Date.now();
     const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'SOLVER');
     try {
+        const ai = getAIClient();
         const prompt = `expert IB Math Examiner. Detailed Markscheme for problem: ${question}. Ref Solution: ${solution}. STRICT Markdown Table. Columns: | Step | Working | Explanation | Marks |. Use standard codes: M1, A1, R1, AG.`;
-        const response = await withTimeout(ai.models.generateContent({
+        // Fix for unknown type error: explicitly cast withTimeout result to GenerateContentResponse
+        const response = (await withTimeout(ai.models.generateContent({
             model: "gemini-3-pro-preview",
             contents: { parts: [{ text: prompt }] },
             config: { responseMimeType: "text/plain", temperature: 0.2 }
-        }), 30000) as GenerateContentResponse;
+        }), 30000)) as GenerateContentResponse;
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return response.text || "";
     } catch (e: any) {
