@@ -17,7 +17,7 @@ interface ResponseSchema {
 }
 
 /**
- * Session key management for BYOK model.
+ * Session key management for the Bring Your Own Key (BYOK) model.
  */
 let sessionKey: string | null = null;
 
@@ -26,8 +26,10 @@ export const setSessionKey = (key: string | null) => {
 };
 
 /**
- * Internal helper to get a fresh AI client with the most current key.
- * Prioritizes sessionKey (BYOK) over process.env.API_KEY.
+ * Internal helper to get a fresh AI client instance.
+ * Priority: 
+ * 1. userApiKey (from Supabase/BYOK session)
+ * 2. process.env.API_KEY (from environment)
  */
 const getAIClient = () => {
     const apiKey = sessionKey || process.env.API_KEY || "";
@@ -118,7 +120,7 @@ const logRequest = (model: string, type: 'GENERATE' | 'CHAT' | 'TEST', appMode: 
     incrementUsage();
     checkUsageLimit();
     
-    const fingerprint = sessionKey ? `USER_KEY_${sessionKey.substring(0, 4)}` : "DEFAULT_KEY";
+    const fingerprint = sessionKey ? `USER_KEY_${sessionKey.substring(0, 4)}` : "ENV_KEY";
     const logId = crypto.randomUUID();
     
     const log: ApiLog = {
@@ -166,7 +168,7 @@ const updateLogStatus = (logId: string, status: 'SUCCESS' | 'ERROR', startTime: 
 };
 
 export const getKeyFingerprint = () => {
-    return sessionKey ? `BYOK_${sessionKey.substring(0, 6)}` : "CREDITS";
+    return sessionKey ? `BYOK_${sessionKey.substring(0, 6)}` : "ENV_KEY";
 }
 
 export const runDeepSystemCheck = async (): Promise<SystemHealthReport> => {
@@ -231,16 +233,16 @@ const mapGenAIError = (error: any): string => {
         return "Region Not Supported. Google Gemini is not currently available in your location.";
     }
 
-    if (status === 401 || msg.includes("unauthenticated") || msg.includes("invalid api key")) {
-        return "Invalid API Key. Please check your settings or key validity.";
+    if (status === 401 || msg.includes("401") || msg.includes("unauthenticated") || msg.includes("invalid api key")) {
+        return "Invalid API Key (401). Please check your key settings.";
     }
 
-    if (status === 429 || msg.includes("resource_exhausted")) {
+    if (status === 429 || msg.includes("429") || msg.includes("resource_exhausted")) {
         return "Quota Exceeded. You have hit the limit for this API key.";
     }
 
     if (status >= 500) {
-        return "Google AI Service Error. The service is temporarily down.";
+        return "Google AI Service Error (5xx). The service is temporarily down.";
     }
 
     return `Error: ${error.message?.substring(0, 150) || "Unknown error"}`;
@@ -441,7 +443,7 @@ export const runConnectivityTest = async (): Promise<boolean> => {
         const ai = getAIClient();
         await withTimeout(ai.models.generateContent({
             model: 'gemini-3-flash-preview',
-            contents: 'Ping'
+            contents: { parts: [{ text: 'Ping' }] }
         }), 10000); 
         updateLogStatus(log.id, 'SUCCESS', startTime);
         return true;
@@ -687,7 +689,6 @@ export const getStepHint = async (step: MathStep, context: string): Promise<stri
     const log = logRequest('gemini-3-pro-preview', 'CHAT', 'SOLVER');
     try {
         const ai = getAIClient();
-        // Fix for unknown type error: explicitly cast withTimeout result to GenerateContentResponse
         const response = (await withTimeout(ai.models.generateContent({
             model: "gemini-3-pro-preview",
             contents: { parts: [{ text: `Hint for step: ${step.title}` }] }
@@ -705,7 +706,6 @@ export const getStepBreakdown = async (step: MathStep, context: string): Promise
     const log = logRequest('gemini-3-pro-preview', 'GENERATE', 'SOLVER');
     try {
         const ai = getAIClient();
-        // Fix for unknown type error: explicitly cast withTimeout result to GenerateContentResponse
         const response = (await withTimeout(ai.models.generateContent({
             model: "gemini-3-pro-preview",
             contents: { parts: [{ text: `Breakdown step: ${step.title}` }] },
@@ -728,7 +728,6 @@ export const getMarkscheme = async (question: string, solution: string): Promise
     try {
         const ai = getAIClient();
         const prompt = `expert IB Math Examiner. Detailed Markscheme for problem: ${question}. Ref Solution: ${solution}. STRICT Markdown Table. Columns: | Step | Working | Explanation | Marks |. Use standard codes: M1, A1, R1, AG.`;
-        // Fix for unknown type error: explicitly cast withTimeout result to GenerateContentResponse
         const response = (await withTimeout(ai.models.generateContent({
             model: "gemini-3-pro-preview",
             contents: { parts: [{ text: prompt }] },
